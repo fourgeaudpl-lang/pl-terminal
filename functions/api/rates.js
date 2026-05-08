@@ -1,21 +1,16 @@
 /* ============================================
    Backend: FRED API → Interest Rates
-   ============================================
-   Cette fonction tourne sur Cloudflare Pages Functions.
-   Elle reçoit les requêtes du front sur /api/rates.
-   Elle appelle FRED pour les 8 banques centrales,
-   calcule la dernière variation et renvoie le tout en JSON.
    ============================================ */
 
 const CENTRAL_BANKS = [
     { code: 'FED',  fredId: 'DFEDTARU' },
     { code: 'ECB',  fredId: 'ECBDFR' },
-    { code: 'BOE',  fredId: 'IUDSOIA' },
-    { code: 'BOJ',  fredId: 'IRSTCB01JPM156N' },
-    { code: 'BOC',  fredId: 'IRSTCB01CAM156N' },
-    { code: 'RBA',  fredId: 'IRSTCB01AUM156N' },
-    { code: 'RBNZ', fredId: 'IRSTCB01NZM156N' },
-    { code: 'SNB',  fredId: 'IRSTCB01CHM156N' }
+    { code: 'BOE',  fredId: 'BOERUKM' },
+    { code: 'BOJ',  fredId: 'INTDSRJPM193N' },
+    { code: 'BOC',  fredId: 'INTDSRCAM193N' },
+    { code: 'RBA',  fredId: 'INTDSRAUM193N' },
+    { code: 'RBNZ', fredId: 'INTDSRNZM193N' },
+    { code: 'SNB',  fredId: 'INTDSRCHM193N' }
 ];
 
 async function fetchFredSeries(seriesId, apiKey) {
@@ -41,8 +36,6 @@ async function fetchFredSeries(seriesId, apiKey) {
     const latest = observations[0];
     const value = parseFloat(latest.value);
 
-    // Cherche la dernière valeur différente de la valeur actuelle
-    // pour calculer la dernière variation effective
     let change = 0;
     for (let i = 1; i < observations.length; i++) {
         const prev = parseFloat(observations[i].value);
@@ -71,7 +64,6 @@ export async function onRequest(context) {
 
     const result = {};
 
-    // On lance les 8 appels en parallèle pour aller vite
     const promises = CENTRAL_BANKS.map(async bank => {
         try {
             const data = await fetchFredSeries(bank.fredId, apiKey);
@@ -88,7 +80,7 @@ export async function onRequest(context) {
         status: 200,
         headers: {
             'Content-Type': 'application/json',
-            'Cache-Control': 'public, max-age=3600' // cache 1 heure côté Cloudflare
+            'Cache-Control': 'public, max-age=3600'
         }
     });
 }
