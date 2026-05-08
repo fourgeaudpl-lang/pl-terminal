@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PL Terminal — Macro FX</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header class="terminal-header">
+        <div class="header-left">
+            <div class="logo-dot"></div>
+            <span class="logo-text">PL TERMINAL</span>
+            <span class="logo-sub">MACRO FX</span>
+        </div>
+        <nav class="header-nav">
+            <a href="#" class="nav-link active">CB</a>
+            <a href="#" class="nav-link disabled">FX</a>
+            <a href="#" class="nav-link disabled">NEWS</a>
+            <a href="#" class="nav-link disabled">CAL</a>
+        </nav>
+        <div class="header-right">
+            <span class="status-dot"></span>
+            <span class="status-text" id="status">connecting...</span>
+            <span class="clock" id="clock">--:--:--</span>
+        </div>
+    </header>
+
+    <main class="terminal-main">
+
+        <section class="module" id="module-rates">
+            <div class="module-header">
+                <div class="module-title">
+                    <span class="module-bullet"></span>
+                    <h2>INTEREST RATES</h2>
+                    <span class="module-sub">G10 CENTRAL BANKS</span>
+                </div>
+                <span class="module-source">FRED + Finnhub</span>
+            </div>
+
+            <table class="rates-table">
+                <thead>
+                    <tr>
+                        <th>BANK</th>
+                        <th>CCY</th>
+                        <th class="num">RATE %</th>
+                        <th class="num">LAST CHG</th>
+                        <th class="num">DATE</th>
+                        <th class="num">NEXT MEETING</th>
+                        <th class="num">DAYS</th>
+                    </tr>
+                </thead>
+                <tbody id="rates-tbody">
+                    <tr><td colspan="7" class="loading">Loading rates from FRED...</td></tr>
+                </tbody>
+            </table>
+
+            <div class="module-footer">
+                <span id="last-update">last update: --</span>
+                <span class="source-tag">8 banks tracked</span>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="terminal-footer">
+        <span>PL Terminal v0.1 — Module 1: Interest Rates</span>
+        <span>Data: FRED (St. Louis Fed) + Finnhub</span>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
