@@ -59,9 +59,7 @@
 
     <main class="terminal-main">
 
-        <!-- ============================================
-             MODULE 1 — INTEREST RATES
-             ============================================ -->
+        <!-- MODULE 1 — INTEREST RATES -->
         <section class="module" id="module-rates">
             <div class="module-header">
                 <div class="module-title">
@@ -95,9 +93,7 @@
             </div>
         </section>
 
-        <!-- ============================================
-             MODULE 2 — FX CROSS RATES
-             ============================================ -->
+        <!-- MODULE 2 — FX CROSS RATES -->
         <section class="module" id="module-fx">
             <div class="module-header">
                 <div class="module-title">
@@ -125,9 +121,7 @@
             </div>
         </section>
 
-        <!-- ============================================
-             MODULE 3 — FX CHART (TradingView Symbol Overview)
-             ============================================ -->
+        <!-- MODULE 3 — FX CHART -->
         <section class="module" id="module-chart">
             <div class="module-header">
                 <div class="module-title">
@@ -174,25 +168,85 @@
                   "valuesTracking": "1",
                   "changeMode": "price-and-percent",
                   "chartType": "area",
-                  "maLineColor": "#2962FF",
-                  "maLineWidth": 1,
-                  "maLength": 9,
-                  "headerFontSize": "medium",
                   "lineWidth": 2,
-                  "lineType": 0,
                   "dateRanges": ["1d|15","1m|60","3m|240","12m|1D","60m|1W","all|1M"],
-                  "isTransparent": true,
-                  "backgroundColor": "rgba(10, 10, 10, 0)"
+                  "isTransparent": true
                 }
                 </script>
               </div>
             </div>
         </section>
 
+        <!-- ============================================
+             MODULE 4 — ECONOMIC CALENDAR
+             ============================================ -->
+        <section class="module" id="module-calendar">
+            <div class="module-header">
+                <div class="module-title">
+                    <span class="module-bullet"></span>
+                    <h2>ECONOMIC CALENDAR</h2>
+                    <span class="module-sub">G10 · 30D</span>
+                </div>
+                <span class="module-source">Finnhub</span>
+            </div>
+
+            <div class="cal-filters">
+                <div class="filter-group">
+                    <span class="filter-label">PERIOD</span>
+                    <button class="filter-btn active" data-period="today">TODAY</button>
+                    <button class="filter-btn" data-period="tomorrow">TMRW</button>
+                    <button class="filter-btn" data-period="week">WEEK</button>
+                    <button class="filter-btn" data-period="month">MONTH</button>
+                </div>
+                <span class="filter-divider">·</span>
+                <div class="filter-group">
+                    <span class="filter-label">IMPACT</span>
+                    <button class="filter-btn active" data-impact="all">ALL</button>
+                    <button class="filter-btn" data-impact="high">HIGH</button>
+                    <button class="filter-btn" data-impact="med">MED+</button>
+                </div>
+                <span class="filter-divider">·</span>
+                <div class="filter-group">
+                    <span class="filter-label">CCY</span>
+                    <button class="filter-btn active" data-ccy="all">ALL</button>
+                    <button class="filter-btn" data-ccy="USD">USD</button>
+                    <button class="filter-btn" data-ccy="EUR">EUR</button>
+                    <button class="filter-btn" data-ccy="GBP">GBP</button>
+                    <button class="filter-btn" data-ccy="JPY">JPY</button>
+                    <button class="filter-btn" data-ccy="CHF">CHF</button>
+                    <button class="filter-btn" data-ccy="CAD">CAD</button>
+                    <button class="filter-btn" data-ccy="AUD">AUD</button>
+                    <button class="filter-btn" data-ccy="NZD">NZD</button>
+                </div>
+            </div>
+
+            <table class="cal-table">
+                <thead>
+                    <tr>
+                        <th>TIME</th>
+                        <th>CCY</th>
+                        <th>EVENT</th>
+                        <th>IMPACT</th>
+                        <th class="num">ACTUAL</th>
+                        <th class="num">FORECAST</th>
+                        <th class="num">PREVIOUS</th>
+                    </tr>
+                </thead>
+                <tbody id="cal-tbody">
+                    <tr><td colspan="7" class="loading">Loading economic calendar...</td></tr>
+                </tbody>
+            </table>
+
+            <div class="module-footer">
+                <span id="cal-last-update">last update: --</span>
+                <span id="cal-event-count" class="source-tag">-- events</span>
+            </div>
+        </section>
+
     </main>
 
     <footer class="terminal-footer">
-        <span>PL Terminal v0.1 — Module 1: Rates · Module 2: FX Cross · Module 3: FX Chart</span>
+        <span>PL Terminal v0.1 — Rates · FX · Chart · Calendar</span>
         <span>Data: FRED + Finnhub + TradingView</span>
     </footer>
 
