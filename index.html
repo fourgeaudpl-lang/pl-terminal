@@ -96,7 +96,7 @@
         </section>
 
         <!-- ============================================
-             MODULE 2 — FX CROSS RATES (TradingView)
+             MODULE 2 — FX CROSS RATES
              ============================================ -->
         <section class="module" id="module-fx">
             <div class="module-header">
@@ -125,11 +125,75 @@
             </div>
         </section>
 
+        <!-- ============================================
+             MODULE 3 — FX CHART (TradingView Symbol Overview)
+             ============================================ -->
+        <section class="module" id="module-chart">
+            <div class="module-header">
+                <div class="module-title">
+                    <span class="module-bullet"></span>
+                    <h2>FX CHART</h2>
+                    <span class="module-sub">G10 PAIRS</span>
+                </div>
+                <span class="module-source">TradingView</span>
+            </div>
+
+            <div class="tv-chart-wrapper">
+              <div class="tradingview-widget-container">
+                <div class="tradingview-widget-container__widget"></div>
+                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>
+                {
+                  "symbols": [
+                    ["EUR/USD", "FX:EURUSD|1D"],
+                    ["GBP/USD", "FX:GBPUSD|1D"],
+                    ["USD/JPY", "FX:USDJPY|1D"],
+                    ["USD/CHF", "FX:USDCHF|1D"],
+                    ["AUD/USD", "FX:AUDUSD|1D"],
+                    ["NZD/USD", "FX:NZDUSD|1D"],
+                    ["USD/CAD", "FX:USDCAD|1D"],
+                    ["EUR/GBP", "FX:EURGBP|1D"],
+                    ["EUR/JPY", "FX:EURJPY|1D"],
+                    ["GBP/JPY", "FX:GBPJPY|1D"]
+                  ],
+                  "chartOnly": false,
+                  "width": "100%",
+                  "height": 500,
+                  "locale": "en",
+                  "colorTheme": "dark",
+                  "autosize": false,
+                  "showVolume": false,
+                  "showMA": false,
+                  "hideDateRanges": false,
+                  "hideMarketStatus": false,
+                  "hideSymbolLogo": true,
+                  "scalePosition": "right",
+                  "scaleMode": "Normal",
+                  "fontFamily": "monospace",
+                  "fontSize": "10",
+                  "noTimeScale": false,
+                  "valuesTracking": "1",
+                  "changeMode": "price-and-percent",
+                  "chartType": "area",
+                  "maLineColor": "#2962FF",
+                  "maLineWidth": 1,
+                  "maLength": 9,
+                  "headerFontSize": "medium",
+                  "lineWidth": 2,
+                  "lineType": 0,
+                  "dateRanges": ["1d|15","1m|60","3m|240","12m|1D","60m|1W","all|1M"],
+                  "isTransparent": true,
+                  "backgroundColor": "rgba(10, 10, 10, 0)"
+                }
+                </script>
+              </div>
+            </div>
+        </section>
+
     </main>
 
     <footer class="terminal-footer">
-        <span>PL Terminal v0.1 — Module 1: Interest Rates · Module 2: FX</span>
-        <span>Data: FRED (St. Louis Fed) + Finnhub + TradingView</span>
+        <span>PL Terminal v0.1 — Module 1: Rates · Module 2: FX Cross · Module 3: FX Chart</span>
+        <span>Data: FRED + Finnhub + TradingView</span>
     </footer>
 
     <script src="script.js"></script>
