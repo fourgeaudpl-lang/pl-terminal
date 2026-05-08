@@ -2,16 +2,12 @@
    PL TERMINAL — Frontend logic
    ============================================ */
 
-// ---- Configuration des banques centrales ----
+// ---- Configuration des banques centrales (4 banques fiables) ----
 const CENTRAL_BANKS = [
-    { code: 'FED',  ccy: 'USD', name: 'Federal Reserve',          fredId: 'DFEDTARU',         finnhubCountry: 'US' },
-    { code: 'ECB',  ccy: 'EUR', name: 'European Central Bank',    fredId: 'ECBDFR',           finnhubCountry: 'EU' },
-    { code: 'BOE',  ccy: 'GBP', name: 'Bank of England',          fredId: 'IUDSOIA',          finnhubCountry: 'GB' },
-    { code: 'BOJ',  ccy: 'JPY', name: 'Bank of Japan',            fredId: 'IRSTCB01JPM156N',  finnhubCountry: 'JP' },
-    { code: 'BOC',  ccy: 'CAD', name: 'Bank of Canada',           fredId: 'IRSTCB01CAM156N',  finnhubCountry: 'CA' },
-    { code: 'RBA',  ccy: 'AUD', name: 'Reserve Bank of Australia',fredId: 'IRSTCB01AUM156N',  finnhubCountry: 'AU' },
-    { code: 'RBNZ', ccy: 'NZD', name: 'Reserve Bank of NZ',       fredId: 'IRSTCB01NZM156N',  finnhubCountry: 'NZ' },
-    { code: 'SNB',  ccy: 'CHF', name: 'Swiss National Bank',      fredId: 'IRSTCB01CHM156N',  finnhubCountry: 'CH' }
+    { code: 'FED',  ccy: 'USD', name: 'Federal Reserve',          finnhubCountry: 'US' },
+    { code: 'ECB',  ccy: 'EUR', name: 'European Central Bank',    finnhubCountry: 'EU' },
+    { code: 'RBA',  ccy: 'AUD', name: 'Reserve Bank of Australia',finnhubCountry: 'AU' },
+    { code: 'RBNZ', ccy: 'NZD', name: 'Reserve Bank of NZ',       finnhubCountry: 'NZ' }
 ];
 
 // ---- Horloge GMT en haut ----
@@ -44,14 +40,15 @@ function daysUntil(dateStr) {
     return diff;
 }
 
-function formatChange(change) {
-    if (change === null || change === undefined || isNaN(change)) return { text: '--', cls: 'change-flat' };
-    if (change === 0) return { text: 'UNCH', cls: 'change-flat' };
-    const sign = change > 0 ? '+' : '−';
-    const bp = Math.abs(Math.round(change * 100));
+function formatChange(changeBp) {
+    // changeBp is already in basis points from new backend
+    if (changeBp === null || changeBp === undefined || isNaN(changeBp)) return { text: '--', cls: 'change-flat' };
+    if (changeBp === 0) return { text: 'UNCH', cls: 'change-flat' };
+    const sign = changeBp > 0 ? '+' : '−';
+    const bp = Math.abs(Math.round(changeBp));
     return {
         text: `${sign}${bp}`,
-        cls: change > 0 ? 'change-up' : 'change-down'
+        cls: changeBp > 0 ? 'change-up' : 'change-down'
     };
 }
 
@@ -74,26 +71,36 @@ function setStatus(state, message) {
 }
 
 // ---- Affichage du tableau ----
-function renderTable(ratesData, meetingsData) {
+function renderTable(ratesPayload, meetingsData) {
     const tbody = document.getElementById('rates-tbody');
     tbody.innerHTML = '';
 
+    // New backend returns { banks: [...] }, build a lookup by id
+    const banksById = {};
+    if (ratesPayload && Array.isArray(ratesPayload.banks)) {
+        ratesPayload.banks.forEach(b => { banksById[b.id] = b; });
+    }
+
     CENTRAL_BANKS.forEach(bank => {
-        const rateInfo = ratesData[bank.code] || {};
+        const apiData = banksById[bank.code] || {};
         const meeting = meetingsData[bank.code] || null;
 
         const tr = document.createElement('tr');
 
-        const change = formatChange(rateInfo.change);
+        const change = formatChange(apiData.lastChange);
         const days = daysUntil(meeting);
         const daysFmt = formatDays(days);
+
+        const rateText = (apiData.rate !== null && apiData.rate !== undefined)
+            ? Number(apiData.rate).toFixed(2)
+            : '--';
 
         tr.innerHTML = `
             <td class="bank-code">${bank.code}</td>
             <td class="ccy">${bank.ccy}</td>
-            <td class="num rate-value">${rateInfo.value !== undefined ? rateInfo.value.toFixed(2) : '--'}</td>
+            <td class="num rate-value">${rateText}</td>
             <td class="num ${change.cls}">${change.text}</td>
-            <td class="num date-cell">${formatDate(rateInfo.date)}</td>
+            <td class="num date-cell">${formatDate(apiData.asOf)}</td>
             <td class="num">${formatDate(meeting)}</td>
             <td class="num ${daysFmt.cls}">${daysFmt.text}</td>
         `;
@@ -118,10 +125,10 @@ async function fetchData() {
 
         if (!ratesRes.ok) throw new Error(`Rates API failed: ${ratesRes.status}`);
 
-        const ratesData = await ratesRes.json();
+        const ratesPayload = await ratesRes.json();
         const meetingsData = meetingsRes.ok ? await meetingsRes.json() : {};
 
-        renderTable(ratesData, meetingsData);
+        renderTable(ratesPayload, meetingsData);
         setStatus('live', 'live');
 
     } catch (err) {
