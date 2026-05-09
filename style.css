@@ -513,3 +513,98 @@ body {
 .value-prev {
     color: #555;
 }
+/* ============================================
+   MODULE 1B — RATE HISTORY CHARTS GRID
+   ============================================ */
+
+#module-rate-history .module-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.period-selector {
+    display: flex;
+    gap: 2px;
+}
+
+.period-btn {
+    background: transparent;
+    border: 1px solid #1f1f1f;
+    color: #777;
+    padding: 3px 9px;
+    font-family: inherit;
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.1s;
+}
+
+.period-btn:hover {
+    color: #ff8c00;
+    border-color: #2f2f2f;
+}
+
+.period-btn.active {
+    background: rgba(255, 140, 0, 0.10);
+    border-color: #ff8c00;
+    color: #ff8c00;
+}
+
+.rate-charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 12px;
+    padding: 12px;
+}
+
+.rate-chart-cell {
+    background: #0a0a0a;
+    border: 1px solid #1f1f1f;
+    border-radius: 6px;
+    padding: 14px 16px 12px;
+    min-height: 240px;
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-label {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.chart-bank {
+    color: #ff8c00;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 1px;
+}
+
+.chart-ccy {
+    color: #666;
+    font-size: 10px;
+    letter-spacing: 1px;
+}
+
+.chart-current {
+    margin-left: auto;
+    color: #fff;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+}
+
+.chart-canvas-wrapper {
+    flex: 1;
+    position: relative;
+    min-height: 180px;
+}
+
+@media (max-width: 768px) {
+    .rate-charts-grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: repeat(4, 1fr);
+    }
+}
