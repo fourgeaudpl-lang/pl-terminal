@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PL Terminal — Macro FX</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Chart.js for rate history charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
-    <!-- ============================================
-         TICKER TAPE — défile en haut (TradingView)
-         ============================================ -->
+    <!-- TICKER TAPE -->
     <div class="tv-ticker-wrapper">
       <div class="tradingview-widget-container">
         <div class="tradingview-widget-container__widget"></div>
@@ -90,6 +90,66 @@
             <div class="module-footer">
                 <span id="last-update">last update: --</span>
                 <span class="source-tag">4 banks tracked</span>
+            </div>
+        </section>
+
+        <!-- MODULE 1B — RATE HISTORY CHARTS -->
+        <section class="module" id="module-rate-history">
+            <div class="module-header">
+                <div class="module-title">
+                    <span class="module-bullet"></span>
+                    <h2>RATE HISTORY</h2>
+                    <span class="module-sub">POLICY RATES</span>
+                </div>
+                <div class="period-selector">
+                    <button class="period-btn" data-years="1">1Y</button>
+                    <button class="period-btn" data-years="3">3Y</button>
+                    <button class="period-btn active" data-years="5">5Y</button>
+                    <button class="period-btn" data-years="10">10Y</button>
+                </div>
+            </div>
+
+            <div class="rate-charts-grid">
+                <div class="rate-chart-cell">
+                    <div class="chart-label">
+                        <span class="chart-bank">FED</span>
+                        <span class="chart-ccy">USD</span>
+                        <span class="chart-current" id="chart-current-FED">—</span>
+                    </div>
+                    <div class="chart-canvas-wrapper">
+                        <canvas id="chart-FED"></canvas>
+                    </div>
+                </div>
+                <div class="rate-chart-cell">
+                    <div class="chart-label">
+                        <span class="chart-bank">ECB</span>
+                        <span class="chart-ccy">EUR</span>
+                        <span class="chart-current" id="chart-current-ECB">—</span>
+                    </div>
+                    <div class="chart-canvas-wrapper">
+                        <canvas id="chart-ECB"></canvas>
+                    </div>
+                </div>
+                <div class="rate-chart-cell">
+                    <div class="chart-label">
+                        <span class="chart-bank">RBA</span>
+                        <span class="chart-ccy">AUD</span>
+                        <span class="chart-current" id="chart-current-RBA">—</span>
+                    </div>
+                    <div class="chart-canvas-wrapper">
+                        <canvas id="chart-RBA"></canvas>
+                    </div>
+                </div>
+                <div class="rate-chart-cell">
+                    <div class="chart-label">
+                        <span class="chart-bank">RBNZ</span>
+                        <span class="chart-ccy">NZD</span>
+                        <span class="chart-current" id="chart-current-RBNZ">—</span>
+                    </div>
+                    <div class="chart-canvas-wrapper">
+                        <canvas id="chart-RBNZ"></canvas>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -177,9 +237,7 @@
             </div>
         </section>
 
-        <!-- ============================================
-             MODULE 4 — ECONOMIC CALENDAR
-             ============================================ -->
+        <!-- MODULE 4 — ECONOMIC CALENDAR -->
         <section class="module" id="module-calendar">
             <div class="module-header">
                 <div class="module-title">
@@ -246,7 +304,7 @@
     </main>
 
     <footer class="terminal-footer">
-        <span>PL Terminal v0.1 — Rates · FX · Chart · Calendar</span>
+        <span>PL Terminal v0.1 — Rates · History · FX · Chart · Calendar</span>
         <span>Data: FRED + Finnhub + TradingView</span>
     </footer>
 
