@@ -2,7 +2,7 @@
    PL TERMINAL — Frontend logic
    ============================================ */
 
-// ---- Configuration des banques centrales ----
+// ---- Configuration ----
 const CENTRAL_BANKS = [
     { code: 'FED',  ccy: 'USD', name: 'Federal Reserve',          finnhubCountry: 'US' },
     { code: 'ECB',  ccy: 'EUR', name: 'European Central Bank',    finnhubCountry: 'EU' },
@@ -10,12 +10,18 @@ const CENTRAL_BANKS = [
     { code: 'RBNZ', ccy: 'NZD', name: 'Reserve Bank of NZ',       finnhubCountry: 'NZ' }
 ];
 
-// ---- État des filtres calendrier ----
+// ---- État global ----
 let calendarState = {
     events: [],
     period: 'today',
     impact: 'all',
     ccy: 'all'
+};
+
+let rateHistoryState = {
+    banks: [],          // full data from API
+    selectedYears: 5,   // default 5Y
+    chartInstances: {}  // Chart.js instances by bank code
 };
 
 // ---- Horloge GMT ----
@@ -29,7 +35,7 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
-// ---- Helpers de formatage ----
+// ---- Helpers ----
 function formatDate(dateStr) {
     if (!dateStr) return '--';
     const d = new Date(dateStr);
@@ -105,7 +111,131 @@ function renderRatesTable(ratesPayload, meetingsData) {
     document.getElementById('last-update').textContent = `last update: ${String(now.getUTCHours()).padStart(2,'0')}:${String(now.getUTCMinutes()).padStart(2,'0')} GMT`;
 }
 
-// ---- Module 4 : calendrier économique ----
+// ---- Module 1B : Rate History Charts ----
+function filterHistoryByYears(history, years) {
+    if (!history || history.length === 0) return [];
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - years);
+    return history.filter(p => new Date(p.date) >= cutoff);
+}
+
+function renderRateChart(bankId, history, years) {
+    const canvas = document.getElementById(`chart-${bankId}`);
+    if (!canvas) return;
+
+    // Destroy existing chart instance if any
+    if (rateHistoryState.chartInstances[bankId]) {
+        rateHistoryState.chartInstances[bankId].destroy();
+    }
+
+    const filtered = filterHistoryByYears(history, years);
+
+    if (filtered.length === 0) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#555';
+        ctx.font = '11px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('No data available', canvas.width / 2, canvas.height / 2);
+        return;
+    }
+
+    // Append "today" point with current value to extend the line to now
+    const lastPoint = filtered[filtered.length - 1];
+    const todayStr = new Date().toISOString().split('T')[0];
+    const dataPoints = [...filtered];
+    if (lastPoint.date !== todayStr) {
+        dataPoints.push({ date: todayStr, value: lastPoint.value });
+    }
+
+    const labels = dataPoints.map(p => p.date);
+    const values = dataPoints.map(p => p.value);
+
+    const ctx = canvas.getContext('2d');
+    rateHistoryState.chartInstances[bankId] = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: bankId,
+                data: values,
+                borderColor: '#ff8c00',
+                backgroundColor: 'rgba(255, 140, 0, 0.08)',
+                borderWidth: 1.5,
+                stepped: 'before',
+                fill: true,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                pointHoverBackgroundColor: '#ff8c00'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { intersect: false, mode: 'index' },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#0a0a0a',
+                    borderColor: '#ff8c00',
+                    borderWidth: 1,
+                    titleColor: '#ff8c00',
+                    bodyColor: '#ddd',
+                    padding: 8,
+                    titleFont: { family: 'monospace', size: 10 },
+                    bodyFont: { family: 'monospace', size: 11 },
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.parsed.y.toFixed(2)}%`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    type: 'time',
+                    time: { unit: years <= 1 ? 'month' : years <= 3 ? 'quarter' : 'year' },
+                    grid: { color: '#1a1a1a', drawBorder: false },
+                    ticks: { color: '#555', font: { family: 'monospace', size: 9 }, maxRotation: 0 }
+                },
+                y: {
+                    grid: { color: '#1a1a1a', drawBorder: false },
+                    ticks: {
+                        color: '#666',
+                        font: { family: 'monospace', size: 9 },
+                        callback: function(value) { return value.toFixed(1) + '%'; }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderAllRateCharts() {
+    rateHistoryState.banks.forEach(bank => {
+        renderRateChart(bank.id, bank.history || [], rateHistoryState.selectedYears);
+        // Update current rate label
+        const labelEl = document.getElementById(`chart-current-${bank.id}`);
+        if (labelEl) {
+            labelEl.textContent = bank.rate !== null && bank.rate !== undefined
+                ? `${bank.rate.toFixed(2)}%`
+                : '—';
+        }
+    });
+}
+
+function setupPeriodSelector() {
+    document.querySelectorAll('.period-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            rateHistoryState.selectedYears = parseInt(btn.dataset.years);
+            renderAllRateCharts();
+        });
+    });
+}
+
+// ---- Module 4 : calendrier ----
 function formatCalValue(value, unit) {
     if (value === null || value === undefined || value === '') return '—';
     let str = typeof value === 'number' ? value.toString() : value;
@@ -144,17 +274,13 @@ function applyCalendarFilters() {
         const eventDate = new Date(e.time.replace(' ', 'T') + 'Z');
         const eventDateStr = eventDate.toISOString().split('T')[0];
 
-        // Filter period
         if (calendarState.period === 'today' && eventDateStr !== todayStr) return false;
         if (calendarState.period === 'tomorrow' && eventDateStr !== tomorrowStr) return false;
         if (calendarState.period === 'week' && (eventDate < now || eventDate > weekEnd)) return false;
-        // 'month' = no period filter (all 30 days)
 
-        // Filter impact
         if (calendarState.impact === 'high' && e.impact !== 'high') return false;
         if (calendarState.impact === 'med' && e.impact === 'low') return false;
 
-        // Filter currency
         if (calendarState.ccy !== 'all' && e.currency !== calendarState.ccy) return false;
 
         return true;
@@ -171,7 +297,6 @@ function renderCalendar() {
         return;
     }
 
-    // Group by day
     const byDay = {};
     filtered.forEach(e => {
         const key = getDayKey(e.time);
@@ -208,22 +333,14 @@ function renderCalendar() {
 function setupCalendarFilters() {
     document.querySelectorAll('.cal-filters .filter-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            // Determine filter group
             const group = btn.dataset.period ? 'period' :
                           btn.dataset.impact ? 'impact' :
                           btn.dataset.ccy ? 'ccy' : null;
             if (!group) return;
-
-            // Remove active from siblings in same group
             const parent = btn.parentElement;
             parent.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-
-            // Update state
-            const value = btn.dataset[group];
-            calendarState[group] = value;
-
-            // Re-render
+            calendarState[group] = btn.dataset[group];
             renderCalendar();
         });
     });
@@ -244,7 +361,7 @@ async function fetchCalendar() {
     }
 }
 
-// ---- Récupération des données rates + meetings ----
+// ---- Récup rates + meetings + history ----
 async function fetchRatesAndMeetings() {
     setStatus('connecting', 'fetching data...');
     try {
@@ -256,6 +373,13 @@ async function fetchRatesAndMeetings() {
         const ratesPayload = await ratesRes.json();
         const meetingsData = meetingsRes.ok ? await meetingsRes.json() : {};
         renderRatesTable(ratesPayload, meetingsData);
+
+        // Save banks data for charts
+        if (ratesPayload && Array.isArray(ratesPayload.banks)) {
+            rateHistoryState.banks = ratesPayload.banks;
+            renderAllRateCharts();
+        }
+
         setStatus('live', 'live');
     } catch (err) {
         console.error('Fetch error:', err);
@@ -266,7 +390,8 @@ async function fetchRatesAndMeetings() {
 
 // ---- Démarrage ----
 setupCalendarFilters();
+setupPeriodSelector();
 fetchRatesAndMeetings();
 fetchCalendar();
-setInterval(fetchRatesAndMeetings, 10 * 60 * 1000); // 10 min
-setInterval(fetchCalendar, 30 * 60 * 1000); // 30 min
+setInterval(fetchRatesAndMeetings, 10 * 60 * 1000);
+setInterval(fetchCalendar, 30 * 60 * 1000);
