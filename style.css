@@ -988,3 +988,82 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* ============================================
+   PAGE NAVIGATION SYSTEM
+   ============================================ */
+
+.page {
+    display: none;
+}
+
+.page.active {
+    display: block;
+    animation: pageIn 0.2s ease-out;
+}
+
+@keyframes pageIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Active nav tab — orange tint with bottom underline */
+.header-nav .nav-link {
+    text-decoration: none;
+    color: #777;
+    padding: 6px 14px;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    transition: all 0.15s ease;
+    font-weight: 500;
+}
+
+.header-nav .nav-link:hover {
+    color: #ff8c00;
+    background: rgba(255,140,0,0.04);
+}
+
+.header-nav .nav-link.active {
+    color: #ff8c00;
+    background: rgba(255,140,0,0.10);
+    border-color: rgba(255,140,0,0.4);
+    box-shadow: 0 0 0 1px rgba(255,140,0,0.15);
+}
+
+/* ============================================
+   FINANCIAL JUICE WIDGETS
+   ============================================ */
+
+.fj-widget-wrapper {
+    background: #0a0a0a;
+    padding: 0;
+    border-radius: 0;
+    overflow: hidden;
+    min-height: 200px;
+}
+
+.fj-widget-wrapper > div {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+.fj-widget-wrapper iframe {
+    width: 100% !important;
+    max-width: 100% !important;
+    border: none !important;
+    background: transparent !important;
+}
+
+/* Voice widget compact */
+#financialjuice-voice-widget-container {
+    min-height: 80px;
+}
+
+/* News + Calendar widgets full height */
+#financialjuice-news-widget-container,
+#financialjuice-eco-widget-container {
+    min-height: 600px;
+}
