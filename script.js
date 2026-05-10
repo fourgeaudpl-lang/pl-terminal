@@ -736,8 +736,73 @@ async function fetchAllData() {
 }
 
 // ============================================
+// PAGE NAVIGATION (5 pages: cb / macro / fx / news / cal)
+// ============================================
+const PAGES = ['cb', 'macro', 'fx', 'news', 'cal'];
+
+function showPage(pageId) {
+    if (!PAGES.includes(pageId)) pageId = 'cb';
+
+    // Hide all pages, show the target one
+    document.querySelectorAll('.page').forEach(p => {
+        p.classList.remove('active');
+    });
+    const target = document.getElementById('page-' + pageId);
+    if (target) target.classList.add('active');
+
+    // Update active nav link
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active');
+        if (link.dataset.page === pageId) link.classList.add('active');
+    });
+
+    // Re-render charts when MACRO page becomes visible (Chart.js doesn't render hidden)
+    if (pageId === 'macro') {
+        setTimeout(() => {
+            renderMacroCharts();
+            // Force chart resize
+            Object.values(macroChartInstances).forEach(c => c && c.resize && c.resize());
+        }, 50);
+    }
+
+    // Re-render rate history charts when CB page becomes visible
+    if (pageId === 'cb') {
+        setTimeout(() => {
+            renderAllRateCharts();
+        }, 50);
+    }
+
+    // Update URL hash without scrolling
+    if (window.location.hash !== '#' + pageId) {
+        history.replaceState(null, '', '#' + pageId);
+    }
+}
+
+function setupPageNavigation() {
+    // Click handlers on nav links
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', e => {
+            e.preventDefault();
+            const pageId = link.dataset.page;
+            showPage(pageId);
+        });
+    });
+
+    // Handle browser back/forward
+    window.addEventListener('hashchange', () => {
+        const pageId = window.location.hash.replace('#', '') || 'cb';
+        showPage(pageId);
+    });
+
+    // Initial page from URL hash, or default to 'cb'
+    const initialPage = window.location.hash.replace('#', '') || 'cb';
+    showPage(initialPage);
+}
+
+// ============================================
 // INIT
 // ============================================
+setupPageNavigation();
 loadMacroState();
 setupPeriodSelector();
 setupCSVButtons();
