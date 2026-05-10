@@ -5,13 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PL Terminal — Macro FX</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Chart.js for rate history charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
 <body>
 
-    <!-- TICKER TAPE -->
+    <!-- TICKER TAPE (always visible) -->
     <div class="tv-ticker-wrapper">
       <div class="tradingview-widget-container">
         <div class="tradingview-widget-container__widget"></div>
@@ -46,10 +45,11 @@
             <span class="logo-sub">MACRO FX</span>
         </div>
         <nav class="header-nav">
-            <a href="#" class="nav-link active">CB</a>
-            <a href="#" class="nav-link disabled">FX</a>
-            <a href="#" class="nav-link disabled">NEWS</a>
-            <a href="#" class="nav-link disabled">CAL</a>
+            <a href="#cb" class="nav-link active" data-page="cb">CB</a>
+            <a href="#macro" class="nav-link" data-page="macro">MACRO</a>
+            <a href="#fx" class="nav-link" data-page="fx">FX</a>
+            <a href="#news" class="nav-link" data-page="news">NEWS</a>
+            <a href="#cal" class="nav-link" data-page="cal">CAL</a>
         </nav>
         <div class="header-right">
             <span class="status-dot"></span>
@@ -60,363 +60,414 @@
 
     <main class="terminal-main">
 
-        <!-- MODULE 1 — INTEREST RATES -->
-        <section class="module" id="module-rates">
-            <div class="module-header">
-                <div class="module-title">
-                    <span class="module-bullet"></span>
-                    <h2>INTEREST RATES</h2>
-                    <span class="module-sub">G10 CENTRAL BANKS</span>
-                </div>
-                <span class="module-source">FRED + Finnhub</span>
-            </div>
-
-            <table class="rates-table">
-                <thead>
-                    <tr>
-                        <th>BANK</th>
-                        <th>CCY</th>
-                        <th class="num">RATE %</th>
-                        <th class="num">LAST CHG</th>
-                        <th class="num">DATE</th>
-                        <th class="num">NEXT MEETING</th>
-                        <th class="num">DAYS</th>
-                    </tr>
-                </thead>
-                <tbody id="rates-tbody">
-                    <tr><td colspan="7" class="loading">Loading rates from FRED...</td></tr>
-                </tbody>
-            </table>
-
-            <div class="module-footer">
-                <span id="last-update">last update: --</span>
-                <span class="source-tag">4 banks tracked</span>
-            </div>
-        </section>
-
-        <!-- MODULE 1B — RATE HISTORY CHARTS -->
-        <section class="module" id="module-rate-history">
-            <div class="module-header">
-                <div class="module-title">
-                    <span class="module-bullet"></span>
-                    <h2>RATE HISTORY</h2>
-                    <span class="module-sub">POLICY RATES</span>
-                </div>
-                <div class="period-selector">
-                    <button class="period-btn" data-years="1">1Y</button>
-                    <button class="period-btn" data-years="3">3Y</button>
-                    <button class="period-btn active" data-years="5">5Y</button>
-                    <button class="period-btn" data-years="10">10Y</button>
-                </div>
-            </div>
-
-            <div class="rate-charts-grid">
-                <div class="rate-chart-cell">
-                    <div class="chart-label">
-                        <span class="chart-bank">FED</span>
-                        <span class="chart-ccy">USD</span>
-                        <span class="chart-current" id="chart-current-FED">—</span>
-                    </div>
-                    <div class="chart-canvas-wrapper">
-                        <canvas id="chart-FED"></canvas>
-                    </div>
-                </div>
-                <div class="rate-chart-cell">
-                    <div class="chart-label">
-                        <span class="chart-bank">ECB</span>
-                        <span class="chart-ccy">EUR</span>
-                        <span class="chart-current" id="chart-current-ECB">—</span>
-                    </div>
-                    <div class="chart-canvas-wrapper">
-                        <canvas id="chart-ECB"></canvas>
-                    </div>
-                </div>
-                <div class="rate-chart-cell">
-                    <div class="chart-label">
-                        <span class="chart-bank">RBA</span>
-                        <span class="chart-ccy">AUD</span>
-                        <span class="chart-current" id="chart-current-RBA">—</span>
-                    </div>
-                    <div class="chart-canvas-wrapper">
-                        <canvas id="chart-RBA"></canvas>
-                    </div>
-                </div>
-                <div class="rate-chart-cell">
-                    <div class="chart-label">
-                        <span class="chart-bank">RBNZ</span>
-                        <span class="chart-ccy">NZD</span>
-                        <span class="chart-current" id="chart-current-RBNZ">—</span>
-                    </div>
-                    <div class="chart-canvas-wrapper">
-                        <canvas id="chart-RBNZ"></canvas>
-                    </div>
-                </div>
-            </div>
-        </section>
-<!-- ============================================
-             MODULE 4B — MACRO DATA (saisie manuelle)
+        <!-- ============================================
+             PAGE CB — Central Banks
              ============================================ -->
-        <section class="module" id="module-macro">
-            <div class="module-header">
-                <div class="module-title">
-                    <span class="module-bullet"></span>
-                    <h2>MACRO DATA</h2>
-                    <span class="module-sub">8 MAJOR CCY · 14 INDICATORS · MANUAL</span>
+        <div class="page" id="page-cb">
+
+            <section class="module" id="module-rates">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>INTEREST RATES</h2>
+                        <span class="module-sub">G10 CENTRAL BANKS</span>
+                    </div>
+                    <span class="module-source">FRED + Finnhub</span>
                 </div>
-                <div class="header-actions">
-                    <button class="action-btn" id="btn-import-csv">↑ IMPORT CSV</button>
-                    <button class="action-btn" id="btn-export-csv">↓ EXPORT CSV</button>
-                    <input type="file" id="csv-input" accept=".csv" style="display:none;">
+                <table class="rates-table">
+                    <thead>
+                        <tr>
+                            <th>BANK</th><th>CCY</th>
+                            <th class="num">RATE %</th>
+                            <th class="num">LAST CHG</th>
+                            <th class="num">DATE</th>
+                            <th class="num">NEXT MEETING</th>
+                            <th class="num">DAYS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rates-tbody">
+                        <tr><td colspan="7" class="loading">Loading rates from FRED...</td></tr>
+                    </tbody>
+                </table>
+                <div class="module-footer">
+                    <span id="last-update">last update: --</span>
+                    <span class="source-tag">4 banks tracked</span>
                 </div>
-            </div>
+            </section>
 
-            <div class="saisie-indicator">
-                💡 Click any cell to edit · Values auto-save · Scoring updates automatically · <span id="macro-saved">no data yet</span>
-            </div>
+            <section class="module" id="module-rate-history">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>RATE HISTORY</h2>
+                        <span class="module-sub">POLICY RATES</span>
+                    </div>
+                    <div class="period-selector">
+                        <button class="period-btn" data-years="1">1Y</button>
+                        <button class="period-btn" data-years="3">3Y</button>
+                        <button class="period-btn active" data-years="5">5Y</button>
+                        <button class="period-btn" data-years="10">10Y</button>
+                    </div>
+                </div>
+                <div class="rate-charts-grid">
+                    <div class="rate-chart-cell">
+                        <div class="chart-label">
+                            <span class="chart-bank">FED</span>
+                            <span class="chart-ccy">USD</span>
+                            <span class="chart-current" id="chart-current-FED">—</span>
+                        </div>
+                        <div class="chart-canvas-wrapper"><canvas id="chart-FED"></canvas></div>
+                    </div>
+                    <div class="rate-chart-cell">
+                        <div class="chart-label">
+                            <span class="chart-bank">ECB</span>
+                            <span class="chart-ccy">EUR</span>
+                            <span class="chart-current" id="chart-current-ECB">—</span>
+                        </div>
+                        <div class="chart-canvas-wrapper"><canvas id="chart-ECB"></canvas></div>
+                    </div>
+                    <div class="rate-chart-cell">
+                        <div class="chart-label">
+                            <span class="chart-bank">RBA</span>
+                            <span class="chart-ccy">AUD</span>
+                            <span class="chart-current" id="chart-current-RBA">—</span>
+                        </div>
+                        <div class="chart-canvas-wrapper"><canvas id="chart-RBA"></canvas></div>
+                    </div>
+                    <div class="rate-chart-cell">
+                        <div class="chart-label">
+                            <span class="chart-bank">RBNZ</span>
+                            <span class="chart-ccy">NZD</span>
+                            <span class="chart-current" id="chart-current-RBNZ">—</span>
+                        </div>
+                        <div class="chart-canvas-wrapper"><canvas id="chart-RBNZ"></canvas></div>
+                    </div>
+                </div>
+            </section>
 
-            <table class="macro-table">
-                <thead>
-                    <tr>
-                        <th>INDICATEUR</th>
-                        <th class="num ccy-h">USD</th>
-                        <th class="num ccy-h">EUR</th>
-                        <th class="num ccy-h">GBP</th>
-                        <th class="num ccy-h">JPY</th>
-                        <th class="num ccy-h">CAD</th>
-                        <th class="num ccy-h">AUD</th>
-                        <th class="num ccy-h">NZD</th>
-                        <th class="num ccy-h">CHF</th>
-                    </tr>
-                </thead>
-                <tbody id="macro-tbody"></tbody>
-            </table>
-
-            <div class="commentaire-block">
-                <div class="commentaire-label">COMMENTAIRE / CONTEXTE</div>
-                <div class="commentaire-text editable-text" id="macro-comment" data-key="macro_comment">Click here to add notes...</div>
-            </div>
-        </section>
+        </div>
 
         <!-- ============================================
-             MODULE 4C — VISUALIZATIONS (12 mini-charts)
+             PAGE MACRO — Macro Data + Scoring + Carry
              ============================================ -->
-        <section class="module" id="module-macro-charts">
-            <div class="module-header">
-                <div class="module-title">
-                    <span class="module-bullet"></span>
-                    <h2>VISUALIZATIONS</h2>
-                    <span class="module-sub">12 INDICATORS · CROSS-CCY COMPARISON</span>
+        <div class="page" id="page-macro">
+
+            <section class="module" id="module-macro">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>MACRO DATA</h2>
+                        <span class="module-sub">8 MAJOR CCY · 14 INDICATORS · MANUAL</span>
+                    </div>
+                    <div class="header-actions">
+                        <button class="action-btn" id="btn-import-csv">↑ IMPORT CSV</button>
+                        <button class="action-btn" id="btn-export-csv">↓ EXPORT CSV</button>
+                        <input type="file" id="csv-input" accept=".csv" style="display:none;">
+                    </div>
                 </div>
-                <span class="module-source">auto from Macro Data</span>
-            </div>
-
-            <div class="charts-grid-12" id="macro-charts-grid"></div>
-        </section>
-        
-        <!-- MODULE 5 — CURRENCY STRENGTH SCORING -->
-        <section class="module" id="module-scoring">
-            <div class="module-header">
-                <div class="module-title">
-                    <span class="module-bullet"></span>
-                    <h2>CURRENCY STRENGTH SCORING</h2>
-                    <span class="module-sub">9 FACTEURS PONDÉRÉS · BIAIS AUTO</span>
+                <div class="saisie-indicator">
+                    💡 Click any cell to edit · Values auto-save · Scoring updates automatically · <span id="macro-saved">no data yet</span>
                 </div>
-                <span class="module-source">FRED · Manual</span>
-            </div>
-
-            <table class="scoring-table">
-                <thead>
-                    <tr>
-                        <th>FACTEUR</th>
-                        <th class="num">POIDS</th>
-                        <th class="num ccy-h">USD</th>
-                        <th class="num ccy-h">EUR</th>
-                        <th class="num ccy-h">GBP</th>
-                        <th class="num ccy-h">JPY</th>
-                        <th class="num ccy-h">CAD</th>
-                        <th class="num ccy-h">AUD</th>
-                        <th class="num ccy-h">NZD</th>
-                        <th class="num ccy-h">CHF</th>
-                        <th>SRC</th>
-                    </tr>
-                </thead>
-                <tbody id="scoring-tbody">
-                    <tr><td colspan="11" class="loading">Loading scoring data...</td></tr>
-                </tbody>
-            </table>
-
-            <div class="module-footer">
-                <span id="scoring-update">last update: --</span>
-                <span class="source-tag">click on yellow cells to edit</span>
-            </div>
-        </section>
-
-        <!-- MODULE 6 — CARRY MATRIX -->
-        <section class="module" id="module-carry">
-            <div class="module-header">
-                <div class="module-title">
-                    <span class="module-bullet"></span>
-                    <h2>CARRY MATRIX</h2>
-                    <span class="module-sub">DIFF. TAUX DIRECTEUR · LONG ↓ / SHORT →</span>
+                <table class="macro-table">
+                    <thead>
+                        <tr>
+                            <th>INDICATEUR</th>
+                            <th class="num ccy-h">USD</th>
+                            <th class="num ccy-h">EUR</th>
+                            <th class="num ccy-h">GBP</th>
+                            <th class="num ccy-h">JPY</th>
+                            <th class="num ccy-h">CAD</th>
+                            <th class="num ccy-h">AUD</th>
+                            <th class="num ccy-h">NZD</th>
+                            <th class="num ccy-h">CHF</th>
+                        </tr>
+                    </thead>
+                    <tbody id="macro-tbody"></tbody>
+                </table>
+                <div class="commentaire-block">
+                    <div class="commentaire-label">COMMENTAIRE / CONTEXTE</div>
+                    <div class="commentaire-text editable-text" id="macro-comment" data-key="macro_comment">Click here to add notes...</div>
                 </div>
-                <span class="module-source">FRED · auto</span>
-            </div>
+            </section>
 
-            <table class="carry-table" id="carry-table">
-                <tbody>
-                    <tr><td colspan="9" class="loading">Loading carry matrix...</td></tr>
-                </tbody>
-            </table>
-        </section>
-
-        <!-- MODULE 7 — CARRY RANKING vs USD -->
-        <section class="module" id="module-ranking">
-            <div class="module-header">
-                <div class="module-title">
-                    <span class="module-bullet"></span>
-                    <h2>CARRY RANKING vs USD</h2>
-                    <span class="module-sub">+ PENTE 10Y-2Y</span>
+            <section class="module" id="module-macro-charts">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>VISUALIZATIONS</h2>
+                        <span class="module-sub">12 INDICATORS · CROSS-CCY</span>
+                    </div>
+                    <span class="module-source">auto from Macro Data</span>
                 </div>
-                <span class="module-source">FRED · auto + Manual 2Y</span>
-            </div>
+                <div class="charts-grid-12" id="macro-charts-grid"></div>
+            </section>
 
-            <table class="ranking-table">
-                <thead>
-                    <tr>
-                        <th>DEVISE</th>
-                        <th class="num">TAUX DIRECTEUR</th>
-                        <th class="num">CARRY vs USD</th>
-                        <th class="num">RENDT 2Y</th>
-                        <th class="num">RENDT 10Y</th>
-                        <th class="num">PENTE 10Y-2Y</th>
-                        <th>SIGNAL COURBE</th>
-                    </tr>
-                </thead>
-                <tbody id="ranking-tbody">
-                    <tr><td colspan="7" class="loading">Loading ranking data...</td></tr>
-                </tbody>
-            </table>
-        </section>
-
-        <!-- MODULE 2 — FX CROSS RATES -->
-        <section class="module" id="module-fx">
-            <div class="module-header">
-                <div class="module-title">
-                    <span class="module-bullet"></span>
-                    <h2>FX CROSS RATES</h2>
-                    <span class="module-sub">MAJORS</span>
+            <section class="module" id="module-scoring">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>CURRENCY STRENGTH SCORING</h2>
+                        <span class="module-sub">6 FACTEURS PONDÉRÉS · BIAIS AUTO</span>
+                    </div>
+                    <span class="module-source">auto from Macro Data</span>
                 </div>
-                <span class="module-source">TradingView</span>
-            </div>
-
-            <div class="tv-crossrates-wrapper">
-              <div class="tradingview-widget-container">
-                <div class="tradingview-widget-container__widget"></div>
-                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-forex-cross-rates.js" async>
-                {
-                  "width": "100%",
-                  "height": 400,
-                  "currencies": ["EUR","USD","JPY","GBP","CHF","AUD","CAD","NZD"],
-                  "isTransparent": true,
-                  "colorTheme": "dark",
-                  "locale": "en"
-                }
-                </script>
-              </div>
-            </div>
-        </section>
-
-        <!-- MODULE 3 — FX CHART -->
-        <section class="module" id="module-chart">
-            <div class="module-header">
-                <div class="module-title">
-                    <span class="module-bullet"></span>
-                    <h2>FX CHART</h2>
-                    <span class="module-sub">G10 PAIRS</span>
+                <table class="scoring-table">
+                    <thead>
+                        <tr>
+                            <th>FACTEUR</th>
+                            <th class="num">POIDS</th>
+                            <th class="num ccy-h">USD</th>
+                            <th class="num ccy-h">EUR</th>
+                            <th class="num ccy-h">GBP</th>
+                            <th class="num ccy-h">JPY</th>
+                            <th class="num ccy-h">CAD</th>
+                            <th class="num ccy-h">AUD</th>
+                            <th class="num ccy-h">NZD</th>
+                            <th class="num ccy-h">CHF</th>
+                            <th>SRC</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scoring-tbody">
+                        <tr><td colspan="11" class="loading">Loading scoring data...</td></tr>
+                    </tbody>
+                </table>
+                <div class="module-footer">
+                    <span id="scoring-update">last update: --</span>
+                    <span class="source-tag">auto from macro values</span>
                 </div>
-                <span class="module-source">TradingView</span>
-            </div>
+            </section>
 
-            <div class="tv-chart-wrapper">
-              <div class="tradingview-widget-container">
-                <div class="tradingview-widget-container__widget"></div>
-                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>
-                {
-                  "symbols": [
-                    ["EUR/USD", "FX:EURUSD|1D"],
-                    ["GBP/USD", "FX:GBPUSD|1D"],
-                    ["USD/JPY", "FX:USDJPY|1D"],
-                    ["USD/CHF", "FX:USDCHF|1D"],
-                    ["AUD/USD", "FX:AUDUSD|1D"],
-                    ["NZD/USD", "FX:NZDUSD|1D"],
-                    ["USD/CAD", "FX:USDCAD|1D"],
-                    ["EUR/GBP", "FX:EURGBP|1D"],
-                    ["EUR/JPY", "FX:EURJPY|1D"],
-                    ["GBP/JPY", "FX:GBPJPY|1D"]
-                  ],
-                  "chartOnly": false,
-                  "width": "100%",
-                  "height": 500,
-                  "locale": "en",
-                  "colorTheme": "dark",
-                  "autosize": false,
-                  "showVolume": false,
-                  "showMA": false,
-                  "hideDateRanges": false,
-                  "hideMarketStatus": false,
-                  "hideSymbolLogo": true,
-                  "scalePosition": "right",
-                  "scaleMode": "Normal",
-                  "fontFamily": "monospace",
-                  "fontSize": "10",
-                  "noTimeScale": false,
-                  "valuesTracking": "1",
-                  "changeMode": "price-and-percent",
-                  "chartType": "area",
-                  "lineWidth": 2,
-                  "dateRanges": ["1d|15","1m|60","3m|240","12m|1D","60m|1W","all|1M"],
-                  "isTransparent": true
-                }
-                </script>
-              </div>
-            </div>
-        </section>
-
-        <!-- MODULE 4 — ECONOMIC CALENDAR (TradingView) -->
-        <section class="module" id="module-calendar">
-            <div class="module-header">
-                <div class="module-title">
-                    <span class="module-bullet"></span>
-                    <h2>ECONOMIC CALENDAR</h2>
-                    <span class="module-sub">G10 · MED+HIGH IMPACT</span>
+            <section class="module" id="module-carry">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>CARRY MATRIX</h2>
+                        <span class="module-sub">DIFF. TAUX DIRECTEUR · LONG ↓ / SHORT →</span>
+                    </div>
+                    <span class="module-source">auto</span>
                 </div>
-                <span class="module-source">TradingView</span>
-            </div>
+                <table class="carry-table" id="carry-table">
+                    <tbody><tr><td colspan="9" class="loading">Loading carry matrix...</td></tr></tbody>
+                </table>
+            </section>
 
-            <div class="tv-calendar-wrapper">
-              <div class="tradingview-widget-container">
-                <div class="tradingview-widget-container__widget"></div>
-                <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-events.js" async>
-                {
-                  "colorTheme": "dark",
-                  "isTransparent": true,
-                  "width": "100%",
-                  "height": 600,
-                  "locale": "en",
-                  "importanceFilter": "0,1",
-                  "currencyFilter": "USD,EUR,GBP,JPY,CHF,CAD,AUD,NZD"
-                }
-                </script>
-              </div>
-            </div>
-        </section>
+            <section class="module" id="module-ranking">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>CARRY RANKING vs USD</h2>
+                        <span class="module-sub">+ PENTE 10Y-2Y</span>
+                    </div>
+                    <span class="module-source">auto</span>
+                </div>
+                <table class="ranking-table">
+                    <thead>
+                        <tr>
+                            <th>DEVISE</th>
+                            <th class="num">TAUX DIRECTEUR</th>
+                            <th class="num">CARRY vs USD</th>
+                            <th class="num">RENDT 2Y</th>
+                            <th class="num">RENDT 10Y</th>
+                            <th class="num">PENTE 10Y-2Y</th>
+                            <th>SIGNAL COURBE</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ranking-tbody">
+                        <tr><td colspan="7" class="loading">Loading ranking data...</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+        </div>
+
+        <!-- ============================================
+             PAGE FX — Forex
+             ============================================ -->
+        <div class="page" id="page-fx">
+
+            <section class="module" id="module-fx">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>FX CROSS RATES</h2>
+                        <span class="module-sub">MAJORS</span>
+                    </div>
+                    <span class="module-source">TradingView</span>
+                </div>
+                <div class="tv-crossrates-wrapper">
+                  <div class="tradingview-widget-container">
+                    <div class="tradingview-widget-container__widget"></div>
+                    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-forex-cross-rates.js" async>
+                    {
+                      "width": "100%", "height": 400,
+                      "currencies": ["EUR","USD","JPY","GBP","CHF","AUD","CAD","NZD"],
+                      "isTransparent": true, "colorTheme": "dark", "locale": "en"
+                    }
+                    </script>
+                  </div>
+                </div>
+            </section>
+
+            <section class="module" id="module-chart">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>FX CHART</h2>
+                        <span class="module-sub">G10 PAIRS</span>
+                    </div>
+                    <span class="module-source">TradingView</span>
+                </div>
+                <div class="tv-chart-wrapper">
+                  <div class="tradingview-widget-container">
+                    <div class="tradingview-widget-container__widget"></div>
+                    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>
+                    {
+                      "symbols": [
+                        ["EUR/USD", "FX:EURUSD|1D"],
+                        ["GBP/USD", "FX:GBPUSD|1D"],
+                        ["USD/JPY", "FX:USDJPY|1D"],
+                        ["USD/CHF", "FX:USDCHF|1D"],
+                        ["AUD/USD", "FX:AUDUSD|1D"],
+                        ["NZD/USD", "FX:NZDUSD|1D"],
+                        ["USD/CAD", "FX:USDCAD|1D"],
+                        ["EUR/GBP", "FX:EURGBP|1D"],
+                        ["EUR/JPY", "FX:EURJPY|1D"],
+                        ["GBP/JPY", "FX:GBPJPY|1D"]
+                      ],
+                      "chartOnly": false, "width": "100%", "height": 500,
+                      "locale": "en", "colorTheme": "dark",
+                      "showVolume": false, "hideSymbolLogo": true,
+                      "scalePosition": "right", "scaleMode": "Normal",
+                      "fontFamily": "monospace", "fontSize": "10",
+                      "valuesTracking": "1", "changeMode": "price-and-percent",
+                      "chartType": "area", "lineWidth": 2,
+                      "dateRanges": ["1d|15","1m|60","3m|240","12m|1D","60m|1W","all|1M"],
+                      "isTransparent": true
+                    }
+                    </script>
+                  </div>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- ============================================
+             PAGE NEWS — Financial Juice
+             ============================================ -->
+        <div class="page" id="page-news">
+
+            <section class="module" id="module-fj-voice">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>VOICE NEWS</h2>
+                        <span class="module-sub">FINANCIAL JUICE · AUDIO LIVE</span>
+                    </div>
+                    <span class="module-source">FinancialJuice</span>
+                </div>
+                <div class="fj-widget-wrapper">
+                    <div id="financialjuice-voice-widget-container"></div>
+                </div>
+            </section>
+
+            <section class="module" id="module-fj-news">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>LIVE NEWS FEED</h2>
+                        <span class="module-sub">FINANCIAL JUICE · HEADLINES</span>
+                    </div>
+                    <span class="module-source">FinancialJuice</span>
+                </div>
+                <div class="fj-widget-wrapper">
+                    <div id="financialjuice-news-widget-container"></div>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- ============================================
+             PAGE CAL — Calendars
+             ============================================ -->
+        <div class="page" id="page-cal">
+
+            <section class="module" id="module-calendar">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>ECONOMIC CALENDAR</h2>
+                        <span class="module-sub">G10 · MED+HIGH IMPACT</span>
+                    </div>
+                    <span class="module-source">TradingView</span>
+                </div>
+                <div class="tv-calendar-wrapper">
+                  <div class="tradingview-widget-container">
+                    <div class="tradingview-widget-container__widget"></div>
+                    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-events.js" async>
+                    {
+                      "colorTheme": "dark", "isTransparent": true,
+                      "width": "100%", "height": 600, "locale": "en",
+                      "importanceFilter": "0,1",
+                      "currencyFilter": "USD,EUR,GBP,JPY,CHF,CAD,AUD,NZD"
+                    }
+                    </script>
+                  </div>
+                </div>
+            </section>
+
+            <section class="module" id="module-fj-cal">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>FJ ECONOMIC CALENDAR</h2>
+                        <span class="module-sub">FINANCIAL JUICE</span>
+                    </div>
+                    <span class="module-source">FinancialJuice</span>
+                </div>
+                <div class="fj-widget-wrapper">
+                    <div id="financialjuice-eco-widget-container"></div>
+                </div>
+            </section>
+
+        </div>
 
     </main>
 
     <footer class="terminal-footer">
-        <span>PL Terminal v0.1 — Rates · History · Scoring · Carry · Ranking · FX · Calendar</span>
-        <span>Data: FRED + Finnhub + TradingView</span>
+        <span>PL Terminal v0.2 — CB · MACRO · FX · NEWS · CAL</span>
+        <span>Data: FRED + Finnhub + TradingView + FinancialJuice</span>
     </footer>
+
+    <!-- Financial Juice script (loaded once, used by all 3 widgets) -->
+    <script type="text/javascript">
+        (function() {
+            var jo = document.createElement("script");
+            jo.type = "text/javascript";
+            jo.id = "FJ-Widgets-Loader";
+            var r = Math.floor(Math.random() * 9999);
+            jo.src = "https://feed.financialjuice.com/widgets/widgets.js?r=" + r;
+            jo.onload = function() {
+                if (window.FJWidgets) {
+                    new window.FJWidgets.createWidget({
+                        container: "financialjuice-voice-widget-container",
+                        mode: "standard", width: "100%", height: "auto",
+                        backColor: "", fontColor: "", widgetType: "Voice"
+                    });
+                    new window.FJWidgets.createWidget({
+                        container: "financialjuice-news-widget-container",
+                        mode: "Dark", width: "100%", height: "600px",
+                        backColor: "1e222d", fontColor: "b2b5be", widgetType: "NEWS"
+                    });
+                    new window.FJWidgets.createWidget({
+                        container: "financialjuice-eco-widget-container",
+                        mode: "standard", width: "100%", height: "600px",
+                        backColor: "1e222d", fontColor: "b2b5be", widgetType: "ECOCAL"
+                    });
+                }
+            };
+            document.getElementsByTagName("head")[0].appendChild(jo);
+        })();
+    </script>
 
     <script src="script.js"></script>
 </body>
