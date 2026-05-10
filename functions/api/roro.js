@@ -21,7 +21,8 @@ export async function onRequest(context) {
 
     // Bitcoin via Finnhub (FRED doesn't have crypto)
     const FINNHUB_SYMBOLS = [
-        { id: 'btc',     symbol: 'BINANCE:BTCUSDT',       name: 'BITCOIN',  type: 'on',  weight: 0.8 }
+        { id: 'gold',    symbol: 'GLD',                    name: 'GOLD (GLD)', type: 'off', weight: 1.0 },
+        { id: 'btc',     symbol: 'BINANCE:BTCUSDT',        name: 'BITCOIN',    type: 'on',  weight: 0.8 }
     ];
 
     const components = [];
