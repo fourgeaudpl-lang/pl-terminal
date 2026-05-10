@@ -1,5 +1,5 @@
 /* ============================================
-   PL TERMINAL — Frontend logic (full)
+   PL TERMINAL — Frontend logic (full + macro data)
    ============================================ */
 
 const CCYS = ['USD','EUR','GBP','JPY','CAD','AUD','NZD','CHF'];
@@ -11,218 +11,204 @@ const CENTRAL_BANKS = [
     { code: 'RBNZ', ccy: 'NZD' }
 ];
 
-// Map ccy → bank code (when central bank rate exists in our /api/rates response)
 const CCY_TO_BANK = { USD: 'FED', EUR: 'ECB', AUD: 'RBA', NZD: 'RBNZ' };
+
+// Macro indicators (matches Excel)
+const MACRO_INDICATORS = [
+    { id: 'rate',          label: 'Taux directeur (%)',         decimals: 2 },
+    { id: 'bias',          label: 'Biais BC (Hawkish/Dovish)',  decimals: 0, text: true },
+    { id: 'cpi',           label: 'Inflation CPI YoY (%)',       decimals: 2 },
+    { id: 'cpi_core',      label: 'Inflation Core YoY (%)',      decimals: 2 },
+    { id: 'gdp',           label: 'PIB YoY (%)',                 decimals: 2 },
+    { id: 'unemployment',  label: 'Chômage (%)',                 decimals: 2 },
+    { id: 'pmi_manuf',     label: 'PMI Manufacturier',           decimals: 2 },
+    { id: 'pmi_services',  label: 'PMI Services',                decimals: 2 },
+    { id: 'retail',        label: 'Retail Sales YoY (%)',        decimals: 2 },
+    { id: 'trade_balance', label: 'Balance commerciale (Md)',    decimals: 2 },
+    { id: 'yield_10y',     label: 'Rendement 10Y (%)',           decimals: 3 },
+    { id: 'yield_2y',      label: 'Rendement 2Y (%)',            decimals: 3 },
+    { id: 'spread',        label: 'Spread 10Y-2Y (%)',           decimals: 2, computed: true }
+];
+
+// Charts to draw (12 — without bias which is text)
+const MACRO_CHARTS = [
+    { id: 'rate',         label: 'TAUX DIRECTEUR (%)',     color: '#ff8c00' },
+    { id: 'cpi',          label: 'INFLATION CPI YoY (%)',  color: '#ff8c00' },
+    { id: 'unemployment', label: 'CHÔMAGE (%)',            color: '#ff8c00' },
+    { id: 'retail',       label: 'RETAIL SALES YoY (%)',   color: '#ff8c00', signed: true },
+    { id: 'cpi_core',     label: 'INFLATION CORE YoY (%)', color: '#ff8c00' },
+    { id: 'gdp',          label: 'PIB YoY (%)',            color: '#ff8c00' },
+    { id: 'pmi_services', label: 'PMI SERVICES',           color: '#ff8c00', threshold: 50 },
+    { id: 'yield_10y',    label: 'RENDEMENT 10Y (%)',      color: '#ff8c00' },
+    { id: 'trade_balance',label: 'BALANCE COMMERCIALE (Md)', color: '#ff8c00', signed: true },
+    { id: 'yield_2y',     label: 'RENDEMENT 2Y (%)',       color: '#ff8c00' },
+    { id: 'spread',       label: 'SPREAD 10Y-2Y (%)',      color: '#4ade80', signed: true },
+    { id: 'pmi_manuf',    label: 'PMI MANUFACTURIER',      color: '#ff8c00', threshold: 50 }
+];
 
 // État global
 let rateHistoryState = { banks: [], selectedYears: 5, chartInstances: {} };
 let yieldsData = {};
 let ratesData = {};
+let macroState = {}; // { 'rate_USD': 3.75, 'cpi_EUR': 2.6, ... }
+let macroChartInstances = {};
 
-// Scoring weights & factors (matches Excel)
+// Scoring factors
 const SCORING_FACTORS = [
-    { id: 'monetary',   label: 'Politique monétaire (hawkish+)', weight: 2,   src: 'manual' },
-    { id: 'rate_diff',  label: 'Différentiel de taux',           weight: 2,   src: 'auto'   },
-    { id: 'inflation',  label: 'Inflation (tendance)',            weight: 1,   src: 'manual' },
-    { id: 'gdp',        label: 'Croissance PIB',                  weight: 1.5, src: 'manual' },
-    { id: 'employment', label: 'Emploi / Chômage',                weight: 1,   src: 'manual' },
-    { id: 'pmi',        label: 'PMI / Activité',                  weight: 1,   src: 'manual' },
-    { id: 'momentum',   label: 'Momentum technique',              weight: 1,   src: 'manual' },
-    { id: 'risk',       label: 'Risk Sentiment (risk-on/off)',    weight: 1,   src: 'manual' },
-    { id: 'geo',        label: 'Géopolitique / Risque',           weight: 0.5, src: 'manual' }
+    { id: 'monetary',   label: 'Politique monétaire (hawkish+)', weight: 2,   src: 'auto-bias' },
+    { id: 'rate_diff',  label: 'Différentiel de taux',           weight: 2,   src: 'auto-rate' },
+    { id: 'inflation',  label: 'Inflation (tendance)',            weight: 1,   src: 'auto-cpi'  },
+    { id: 'gdp',        label: 'Croissance PIB',                  weight: 1.5, src: 'auto-gdp'  },
+    { id: 'employment', label: 'Emploi / Chômage',                weight: 1,   src: 'auto-unemp'},
+    { id: 'pmi',        label: 'PMI / Activité',                  weight: 1,   src: 'auto-pmi'  },
+    { id: 'momentum',   label: 'Momentum technique',              weight: 1,   src: 'manual'    },
+    { id: 'risk',       label: 'Risk Sentiment (risk-on/off)',    weight: 1,   src: 'manual'    },
+    { id: 'geo',        label: 'Géopolitique / Risque',           weight: 0.5, src: 'manual'    }
 ];
 
-// ---- Horloge GMT ----
+// ---- Horloge ----
 function updateClock() {
     const now = new Date();
-    const h = String(now.getUTCHours()).padStart(2, '0');
-    const m = String(now.getUTCMinutes()).padStart(2, '0');
-    const s = String(now.getUTCSeconds()).padStart(2, '0');
+    const h = String(now.getUTCHours()).padStart(2,'0');
+    const m = String(now.getUTCMinutes()).padStart(2,'0');
+    const s = String(now.getUTCSeconds()).padStart(2,'0');
     const el = document.getElementById('clock');
     if (el) el.textContent = `${h}:${m}:${s} GMT`;
 }
 setInterval(updateClock, 1000);
 updateClock();
 
+// ---- localStorage ----
+function lsGet(key, def) {
+    const v = localStorage.getItem(`pl_${key}`);
+    if (v === null) return def;
+    const n = parseFloat(v);
+    return isNaN(n) ? v : n;
+}
+function lsSet(key, val) { localStorage.setItem(`pl_${key}`, String(val)); }
+function lsClear(key) { localStorage.removeItem(`pl_${key}`); }
+
 // ---- Helpers ----
-function formatDate(dateStr) {
-    if (!dateStr) return '--';
-    const d = new Date(dateStr);
+function formatDate(s) {
+    if (!s) return '--';
+    const d = new Date(s);
     if (isNaN(d)) return '--';
     return `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}`;
 }
-
-function daysUntil(dateStr) {
-    if (!dateStr) return null;
-    const target = new Date(dateStr);
-    if (isNaN(target)) return null;
-    return Math.ceil((target - new Date()) / (1000 * 60 * 60 * 24));
+function daysUntil(s) {
+    if (!s) return null;
+    const d = new Date(s);
+    if (isNaN(d)) return null;
+    return Math.ceil((d - new Date()) / 86400000);
 }
-
-function formatChangeBp(bp) {
+function fmtChangeBp(bp) {
     if (bp === null || bp === undefined || isNaN(bp)) return { text: '--', cls: 'change-flat' };
     if (bp === 0) return { text: 'UNCH', cls: 'change-flat' };
     const sign = bp > 0 ? '+' : '−';
     return { text: `${sign}${Math.abs(Math.round(bp))}`, cls: bp > 0 ? 'change-up' : 'change-down' };
 }
-
-function formatDays(days) {
-    if (days === null) return { text: '--', cls: 'change-flat' };
-    if (days === 0) return { text: '— TODAY', cls: 'meeting-today' };
-    if (days < 0) return { text: '--', cls: 'change-flat' };
-    if (days <= 7) return { text: `${days}d`, cls: 'meeting-soon' };
-    return { text: `${days}d`, cls: 'change-flat' };
+function fmtDays(d) {
+    if (d === null) return { text: '--', cls: 'change-flat' };
+    if (d === 0) return { text: '— TODAY', cls: 'meeting-today' };
+    if (d < 0) return { text: '--', cls: 'change-flat' };
+    if (d <= 7) return { text: `${d}d`, cls: 'meeting-soon' };
+    return { text: `${d}d`, cls: 'change-flat' };
 }
-
-function setStatus(state, message) {
+function setStatus(state, msg) {
     const dot = document.querySelector('.status-dot');
     const text = document.getElementById('status');
     if (!dot || !text) return;
-    dot.classList.remove('live', 'error');
+    dot.classList.remove('live','error');
     if (state === 'live') dot.classList.add('live');
     if (state === 'error') dot.classList.add('error');
-    text.textContent = message;
+    text.textContent = msg;
 }
 
-// ---- localStorage helpers (saisie manuelle) ----
-function getManualValue(key, defaultValue) {
-    const stored = localStorage.getItem(`pl_${key}`);
-    if (stored === null) return defaultValue;
-    const parsed = parseFloat(stored);
-    return isNaN(parsed) ? defaultValue : parsed;
-}
-
-function setManualValue(key, value) {
-    localStorage.setItem(`pl_${key}`, String(value));
-}
-
-function clearManualValue(key) {
-    localStorage.removeItem(`pl_${key}`);
-}
-
-// ---- Module 1 : tableau des taux ----
-function renderRatesTable(ratesPayload, meetingsData) {
+// ============================================
+// MODULE 1 - Rates table
+// ============================================
+function renderRatesTable(payload, meetings) {
     const tbody = document.getElementById('rates-tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
-
     const banksById = {};
-    if (ratesPayload && Array.isArray(ratesPayload.banks)) {
-        ratesPayload.banks.forEach(b => { banksById[b.id] = b; });
-    }
-
+    if (payload && Array.isArray(payload.banks)) payload.banks.forEach(b => banksById[b.id] = b);
     CENTRAL_BANKS.forEach(bank => {
-        const apiData = banksById[bank.code] || {};
-        const meeting = meetingsData[bank.code] || null;
+        const d = banksById[bank.code] || {};
+        const meet = meetings[bank.code] || null;
         const tr = document.createElement('tr');
-        const change = formatChangeBp(apiData.lastChange);
-        const days = daysUntil(meeting);
-        const daysFmt = formatDays(days);
-        const rateText = (apiData.rate !== null && apiData.rate !== undefined)
-            ? Number(apiData.rate).toFixed(2) : '--';
-
+        const ch = fmtChangeBp(d.lastChange);
+        const days = daysUntil(meet);
+        const df = fmtDays(days);
+        const r = (d.rate !== null && d.rate !== undefined) ? Number(d.rate).toFixed(2) : '--';
         tr.innerHTML = `
-            <td class="bank-code">${bank.code}</td>
-            <td class="ccy">${bank.ccy}</td>
-            <td class="num rate-value">${rateText}</td>
-            <td class="num ${change.cls}">${change.text}</td>
-            <td class="num date-cell">${formatDate(apiData.asOf)}</td>
-            <td class="num">${formatDate(meeting)}</td>
-            <td class="num ${daysFmt.cls}">${daysFmt.text}</td>
+            <td class="bank-code">${bank.code}</td><td class="ccy">${bank.ccy}</td>
+            <td class="num rate-value">${r}</td>
+            <td class="num ${ch.cls}">${ch.text}</td>
+            <td class="num date-cell">${formatDate(d.asOf)}</td>
+            <td class="num">${formatDate(meet)}</td>
+            <td class="num ${df.cls}">${df.text}</td>
         `;
         tbody.appendChild(tr);
     });
-
     const now = new Date();
-    const el = document.getElementById('last-update');
-    if (el) el.textContent = `last update: ${String(now.getUTCHours()).padStart(2,'0')}:${String(now.getUTCMinutes()).padStart(2,'0')} GMT`;
+    const e = document.getElementById('last-update');
+    if (e) e.textContent = `last update: ${String(now.getUTCHours()).padStart(2,'0')}:${String(now.getUTCMinutes()).padStart(2,'0')} GMT`;
 }
 
-// ---- Module 1B : Rate History Charts ----
-function filterHistoryByYears(history, years) {
-    if (!history || history.length === 0) return [];
-    const cutoff = new Date();
-    cutoff.setFullYear(cutoff.getFullYear() - years);
-    return history.filter(p => new Date(p.date) >= cutoff);
+// ============================================
+// MODULE 1B - Rate History Charts
+// ============================================
+function filterHist(h, y) {
+    if (!h || h.length === 0) return [];
+    const c = new Date();
+    c.setFullYear(c.getFullYear() - y);
+    return h.filter(p => new Date(p.date) >= c);
 }
-
-function renderRateChart(bankId, history, years) {
-    const canvas = document.getElementById(`chart-${bankId}`);
-    if (!canvas) return;
-    if (rateHistoryState.chartInstances[bankId]) {
-        rateHistoryState.chartInstances[bankId].destroy();
-    }
-    const filtered = filterHistoryByYears(history, years);
-    if (filtered.length === 0) return;
-
-    const lastPoint = filtered[filtered.length - 1];
-    const todayStr = new Date().toISOString().split('T')[0];
-    const dataPoints = [...filtered];
-    if (lastPoint.date !== todayStr) {
-        dataPoints.push({ date: todayStr, value: lastPoint.value });
-    }
-
-    const ctx = canvas.getContext('2d');
-    rateHistoryState.chartInstances[bankId] = new Chart(ctx, {
+function renderRateChart(id, hist, years) {
+    const cv = document.getElementById(`chart-${id}`);
+    if (!cv) return;
+    if (rateHistoryState.chartInstances[id]) rateHistoryState.chartInstances[id].destroy();
+    const f = filterHist(hist, years);
+    if (f.length === 0) return;
+    const last = f[f.length-1];
+    const today = new Date().toISOString().split('T')[0];
+    const pts = [...f];
+    if (last.date !== today) pts.push({ date: today, value: last.value });
+    rateHistoryState.chartInstances[id] = new Chart(cv.getContext('2d'), {
         type: 'line',
         data: {
-            labels: dataPoints.map(p => p.date),
+            labels: pts.map(p=>p.date),
             datasets: [{
-                data: dataPoints.map(p => p.value),
-                borderColor: '#ff8c00',
-                backgroundColor: 'rgba(255,140,0,0.08)',
-                borderWidth: 1.5,
-                stepped: 'before',
-                fill: true,
-                pointRadius: 0,
-                pointHoverRadius: 4
+                data: pts.map(p=>p.value),
+                borderColor: '#ff8c00', backgroundColor: 'rgba(255,140,0,0.08)',
+                borderWidth: 1.5, stepped: 'before', fill: true, pointRadius: 0, pointHoverRadius: 4
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             interaction: { intersect: false, mode: 'index' },
             plugins: {
                 legend: { display: false },
-                tooltip: {
-                    backgroundColor: '#0a0a0a',
-                    borderColor: '#ff8c00',
-                    borderWidth: 1,
-                    titleColor: '#ff8c00',
-                    bodyColor: '#ddd',
-                    padding: 8,
-                    callbacks: { label: c => `${c.parsed.y.toFixed(2)}%` }
-                }
+                tooltip: { backgroundColor: '#0a0a0a', borderColor: '#ff8c00', borderWidth: 1,
+                           titleColor: '#ff8c00', bodyColor: '#ddd', padding: 8,
+                           callbacks: { label: c => `${c.parsed.y.toFixed(2)}%` } }
             },
             scales: {
-                x: {
-                    type: 'time',
-                    time: { unit: years <= 1 ? 'month' : years <= 3 ? 'quarter' : 'year' },
-                    grid: { color: '#1a1a1a', drawBorder: false },
-                    ticks: { color: '#555', font: { family: 'monospace', size: 9 }, maxRotation: 0 }
-                },
-                y: {
-                    grid: { color: '#1a1a1a', drawBorder: false },
-                    ticks: {
-                        color: '#666',
-                        font: { family: 'monospace', size: 9 },
-                        callback: v => v.toFixed(1) + '%'
-                    }
-                }
+                x: { type: 'time', time: { unit: years <= 1 ? 'month' : years <= 3 ? 'quarter' : 'year' },
+                     grid: { color: '#1a1a1a' }, ticks: { color: '#555', font: { family: 'monospace', size: 9 }, maxRotation: 0 } },
+                y: { grid: { color: '#1a1a1a' }, ticks: { color: '#666', font: { family: 'monospace', size: 9 }, callback: v => v.toFixed(1)+'%' } }
             }
         }
     });
 }
-
 function renderAllRateCharts() {
-    rateHistoryState.banks.forEach(bank => {
-        renderRateChart(bank.id, bank.history || [], rateHistoryState.selectedYears);
-        const labelEl = document.getElementById(`chart-current-${bank.id}`);
-        if (labelEl) labelEl.textContent = bank.rate !== null && bank.rate !== undefined
-            ? `${bank.rate.toFixed(2)}%` : '—';
+    rateHistoryState.banks.forEach(b => {
+        renderRateChart(b.id, b.history || [], rateHistoryState.selectedYears);
+        const e = document.getElementById(`chart-current-${b.id}`);
+        if (e) e.textContent = (b.rate !== null && b.rate !== undefined) ? `${b.rate.toFixed(2)}%` : '—';
     });
 }
-
 function setupPeriodSelector() {
     document.querySelectorAll('.period-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -234,55 +220,371 @@ function setupPeriodSelector() {
     });
 }
 
-// ---- Get current rate from API or fallback ----
+// ============================================
+// MODULE 4B - Macro Data
+// ============================================
+function getMacroValue(indId, ccy) {
+    if (indId === 'spread') {
+        const y10 = getMacroValue('yield_10y', ccy);
+        const y2 = getMacroValue('yield_2y', ccy);
+        if (y10 === null || y2 === null) return null;
+        return y10 - y2;
+    }
+    const k = `macro_${indId}_${ccy}`;
+    const v = macroState[k];
+    if (v === undefined || v === null || v === '') return null;
+    return v;
+}
+
+function setMacroValue(indId, ccy, val) {
+    const k = `macro_${indId}_${ccy}`;
+    if (val === null || val === '' || val === undefined) {
+        delete macroState[k];
+        lsClear(k);
+    } else {
+        macroState[k] = val;
+        lsSet(k, val);
+    }
+}
+
+function loadMacroState() {
+    macroState = {};
+    MACRO_INDICATORS.forEach(ind => {
+        if (ind.computed) return;
+        CCYS.forEach(ccy => {
+            const k = `macro_${ind.id}_${ccy}`;
+            const v = lsGet(k, null);
+            if (v !== null && v !== '') macroState[k] = v;
+        });
+    });
+}
+
+function fmtMacroValue(val, decimals, signed) {
+    if (val === null || val === undefined) return '—';
+    if (typeof val === 'string') return val;
+    const sign = (signed && val > 0) ? '+' : '';
+    return sign + val.toFixed(decimals);
+}
+
+function renderMacroTable() {
+    const tbody = document.getElementById('macro-tbody');
+    if (!tbody) return;
+
+    let html = '';
+    MACRO_INDICATORS.forEach(ind => {
+        const isComputed = ind.computed === true;
+        const isSpread = ind.id === 'spread';
+        const cls = isComputed ? 'computed-row' : '';
+        let row = `<tr class="${cls}"><td>${ind.label}</td>`;
+        CCYS.forEach(ccy => {
+            const v = getMacroValue(ind.id, ccy);
+            const cellCls = isComputed ? 'computed-cell' : 'editable-macro';
+            const display = fmtMacroValue(v, ind.decimals, isSpread);
+            const emptyCls = (v === null) ? 'empty' : '';
+            row += `<td class="num ${cellCls} ${emptyCls}" data-ind="${ind.id}" data-ccy="${ccy}">${display}</td>`;
+        });
+        row += '</tr>';
+        html += row;
+    });
+    tbody.innerHTML = html;
+
+    // Wire editable cells
+    tbody.querySelectorAll('.editable-macro').forEach(cell => {
+        cell.addEventListener('click', () => editMacroCell(cell));
+    });
+
+    // Update saved indicator
+    const count = Object.keys(macroState).length;
+    const e = document.getElementById('macro-saved');
+    if (e) e.textContent = count > 0 ? `${count} values saved` : 'no data yet';
+}
+
+function editMacroCell(cell) {
+    const ind = cell.dataset.ind;
+    const ccy = cell.dataset.ccy;
+    const indDef = MACRO_INDICATORS.find(i => i.id === ind);
+    const cur = getMacroValue(ind, ccy);
+    const prompt_msg = indDef.text
+        ? `${indDef.label} for ${ccy}\n(text: e.g. "Hawkish", "Neutral", "Dovish"):`
+        : `${indDef.label} for ${ccy}\n(number, e.g. 3.75):`;
+    const input = prompt(prompt_msg, cur === null ? '' : cur);
+    if (input === null) return;
+    if (input.trim() === '') {
+        setMacroValue(ind, ccy, null);
+    } else {
+        if (indDef.text) {
+            setMacroValue(ind, ccy, input.trim());
+        } else {
+            const v = parseFloat(input);
+            if (isNaN(v)) { alert('Invalid number'); return; }
+            setMacroValue(ind, ccy, v);
+        }
+    }
+    renderMacroTable();
+    renderMacroCharts();
+    renderScoring();
+    renderCarryMatrix();
+    renderRanking();
+}
+
+// ---- Editable text (commentaire) ----
+function setupEditableText() {
+    document.querySelectorAll('.editable-text').forEach(el => {
+        const key = el.dataset.key;
+        const stored = localStorage.getItem(`pl_${key}`);
+        if (stored) el.textContent = stored;
+        el.addEventListener('click', () => {
+            const cur = localStorage.getItem(`pl_${key}`) || '';
+            const v = prompt('Edit comment:', cur);
+            if (v !== null) {
+                localStorage.setItem(`pl_${key}`, v);
+                el.textContent = v || 'Click here to add notes...';
+            }
+        });
+    });
+}
+
+// ---- CSV Import / Export ----
+function exportMacroCSV() {
+    let csv = 'INDICATEUR,' + CCYS.join(',') + '\n';
+    MACRO_INDICATORS.forEach(ind => {
+        if (ind.computed) return;
+        const row = [ind.label];
+        CCYS.forEach(ccy => {
+            const v = getMacroValue(ind.id, ccy);
+            row.push(v === null ? '' : v);
+        });
+        csv += row.join(',') + '\n';
+    });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pl-terminal-macro-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function importMacroCSV(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+        const text = e.target.result;
+        const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+        if (lines.length < 2) { alert('CSV vide ou invalide'); return; }
+        const header = lines[0].split(',').map(s => s.trim());
+        const ccyIdx = {};
+        CCYS.forEach(c => {
+            const i = header.indexOf(c);
+            if (i >= 0) ccyIdx[c] = i;
+        });
+        let imported = 0;
+        for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(',').map(s => s.trim());
+            const label = cols[0];
+            const ind = MACRO_INDICATORS.find(x => x.label === label);
+            if (!ind || ind.computed) continue;
+            CCYS.forEach(ccy => {
+                if (ccyIdx[ccy] === undefined) return;
+                const raw = cols[ccyIdx[ccy]];
+                if (raw === '' || raw === undefined) return;
+                if (ind.text) {
+                    setMacroValue(ind.id, ccy, raw);
+                } else {
+                    const v = parseFloat(raw);
+                    if (!isNaN(v)) { setMacroValue(ind.id, ccy, v); imported++; }
+                }
+            });
+        }
+        renderMacroTable();
+        renderMacroCharts();
+        renderScoring();
+        renderCarryMatrix();
+        renderRanking();
+        alert(`Imported ${imported} values from CSV`);
+    };
+    reader.readAsText(file);
+}
+
+function setupCSVButtons() {
+    const expBtn = document.getElementById('btn-export-csv');
+    const impBtn = document.getElementById('btn-import-csv');
+    const fileInput = document.getElementById('csv-input');
+    if (expBtn) expBtn.addEventListener('click', exportMacroCSV);
+    if (impBtn && fileInput) {
+        impBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', e => {
+            if (e.target.files && e.target.files[0]) importMacroCSV(e.target.files[0]);
+            e.target.value = '';
+        });
+    }
+}
+
+// ============================================
+// MODULE 4C - Macro Charts (12 mini bar charts)
+// ============================================
+function renderMacroCharts() {
+    const grid = document.getElementById('macro-charts-grid');
+    if (!grid) return;
+
+    // Initial DOM setup (only first time)
+    if (grid.children.length === 0) {
+        MACRO_CHARTS.forEach(ch => {
+            const cell = document.createElement('div');
+            cell.className = 'mini-chart';
+            cell.innerHTML = `
+                <div class="mini-chart-title">${ch.label}</div>
+                <canvas id="macro-chart-${ch.id}"></canvas>
+            `;
+            grid.appendChild(cell);
+        });
+    }
+
+    MACRO_CHARTS.forEach(ch => {
+        const cv = document.getElementById(`macro-chart-${ch.id}`);
+        if (!cv) return;
+        if (macroChartInstances[ch.id]) macroChartInstances[ch.id].destroy();
+
+        const data = CCYS.map(c => getMacroValue(ch.id, c));
+        const colors = data.map(v => {
+            if (v === null) return '#222';
+            if (ch.signed) return v < 0 ? '#f87171' : '#4ade80';
+            if (ch.threshold && v < ch.threshold) return '#fbbf24';
+            return ch.color;
+        });
+
+        macroChartInstances[ch.id] = new Chart(cv.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: CCYS,
+                datasets: [{
+                    data: data.map(v => v === null ? 0 : v),
+                    backgroundColor: colors,
+                    borderColor: colors,
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { backgroundColor: '#0a0a0a', borderColor: '#ff8c00', borderWidth: 1,
+                               titleColor: '#ff8c00', bodyColor: '#ddd', padding: 6,
+                               callbacks: { label: c => c.parsed.y.toFixed(2) } }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: '#777', font: { family: 'monospace', size: 8 } } },
+                    y: { grid: { color: '#1a1a1a' }, ticks: { color: '#555', font: { family: 'monospace', size: 8 } } }
+                }
+            }
+        });
+    });
+}
+
+// ============================================
+// MODULES 5-7 — Scoring + Carry + Ranking
+// ============================================
 function getCurrentRate(ccy) {
+    // Priority: macro state > API
+    const macroRate = getMacroValue('rate', ccy);
+    if (macroRate !== null) return macroRate;
     const bankCode = CCY_TO_BANK[ccy];
     if (!bankCode || !ratesData.banks) return null;
     const bank = ratesData.banks.find(b => b.id === bankCode);
     return bank ? bank.rate : null;
 }
 
-// ---- Calculate auto factors ----
-function calcAutoFactor(factorId, ccy) {
-    if (factorId === 'rate_diff') {
-        // Score based on rate vs USD
-        const rateUSD = getCurrentRate('USD');
-        const rateCcy = getCurrentRate(ccy);
-        if (rateUSD === null || rateCcy === null) return 0;
-        const diff = rateCcy - rateUSD;
-        if (diff > 1.5) return 2;
-        if (diff > 0.5) return 1;
-        if (diff < -1.5) return -2;
-        if (diff < -0.5) return -1;
-        return 0;
-    }
+// Auto-score functions per factor
+function scoreBias(ccy) {
+    const v = getMacroValue('bias', ccy);
+    if (v === null) return 0;
+    const s = String(v).toLowerCase();
+    if (s.includes('strong hawk') || s.includes('très hawk')) return 2;
+    if (s.includes('hawk')) return 1;
+    if (s.includes('strong dov') || s.includes('très dov')) return -2;
+    if (s.includes('dov')) return -1;
     return 0;
 }
-
-// ---- Module 5 : SCORING ----
-function getFactorValue(factorId, ccy) {
-    const factor = SCORING_FACTORS.find(f => f.id === factorId);
-    if (!factor) return 0;
-    if (factor.src === 'auto') return calcAutoFactor(factorId, ccy);
-    // manual
-    return getManualValue(`scoring_${factorId}_${ccy}`, 0);
+function scoreRateDiff(ccy) {
+    const r = getCurrentRate(ccy);
+    const ru = getCurrentRate('USD');
+    if (r === null || ru === null) return 0;
+    const d = r - ru;
+    if (d > 1.5) return 2;
+    if (d > 0.5) return 1;
+    if (d < -1.5) return -2;
+    if (d < -0.5) return -1;
+    return 0;
+}
+function scoreCPI(ccy) {
+    const v = getMacroValue('cpi', ccy);
+    if (v === null) return 0;
+    // Higher inflation than 2% target => hawkish pressure => bullish currency
+    if (v > 4) return 2;
+    if (v > 2.5) return 1;
+    if (v < 1) return -2;
+    if (v < 1.5) return -1;
+    return 0;
+}
+function scoreGDP(ccy) {
+    const v = getMacroValue('gdp', ccy);
+    if (v === null) return 0;
+    if (v > 3) return 2;
+    if (v > 2) return 1;
+    if (v < 0) return -2;
+    if (v < 0.5) return -1;
+    return 0;
+}
+function scoreUnemp(ccy) {
+    const v = getMacroValue('unemployment', ccy);
+    if (v === null) return 0;
+    // Lower unemployment = better
+    if (v < 3.5) return 2;
+    if (v < 4.5) return 1;
+    if (v > 7) return -2;
+    if (v > 5.5) return -1;
+    return 0;
+}
+function scorePMI(ccy) {
+    const m = getMacroValue('pmi_manuf', ccy);
+    const s = getMacroValue('pmi_services', ccy);
+    if (m === null && s === null) return 0;
+    const avg = (m === null ? s : (s === null ? m : (m + s) / 2));
+    if (avg > 55) return 2;
+    if (avg > 51) return 1;
+    if (avg < 45) return -2;
+    if (avg < 49) return -1;
+    return 0;
+}
+function scoreManual(factor, ccy) {
+    return lsGet(`scoring_${factor}_${ccy}`, 0);
 }
 
-function classForScore(score) {
-    if (score >= 1.5) return 'pos-strong';
-    if (score > 0) return 'pos';
-    if (score <= -1.5) return 'neg-strong';
-    if (score < 0) return 'neg';
+function getFactorValue(factorId, ccy) {
+    const f = SCORING_FACTORS.find(x => x.id === factorId);
+    if (!f) return 0;
+    if (f.src === 'auto-bias') return scoreBias(ccy);
+    if (f.src === 'auto-rate') return scoreRateDiff(ccy);
+    if (f.src === 'auto-cpi')  return scoreCPI(ccy);
+    if (f.src === 'auto-gdp')  return scoreGDP(ccy);
+    if (f.src === 'auto-unemp')return scoreUnemp(ccy);
+    if (f.src === 'auto-pmi')  return scorePMI(ccy);
+    return scoreManual(factorId, ccy);
+}
+
+function clsScore(s) {
+    if (s >= 1.5) return 'pos-strong';
+    if (s > 0)    return 'pos';
+    if (s <= -1.5)return 'neg-strong';
+    if (s < 0)    return 'neg';
     return 'neutral';
 }
-
-function biasFromScore(score) {
-    if (score >= 8) return { label: 'STRONG BULL', cls: 'bias-strong-bullish' };
-    if (score >= 4) return { label: 'BULLISH',     cls: 'bias-bullish' };
-    if (score >= 2) return { label: 'MILD BULL',   cls: 'bias-mild-bullish' };
-    if (score <= -8) return { label: 'STRONG BEAR',cls: 'bias-strong-bearish' };
-    if (score <= -4) return { label: 'BEARISH',    cls: 'bias-bearish' };
-    if (score <= -2) return { label: 'MILD BEAR',  cls: 'bias-mild-bearish' };
+function biasFromScore(s) {
+    if (s >= 8)   return { label: 'STRONG BULL', cls: 'bias-strong-bullish' };
+    if (s >= 4)   return { label: 'BULLISH',     cls: 'bias-bullish' };
+    if (s >= 2)   return { label: 'MILD BULL',   cls: 'bias-mild-bullish' };
+    if (s <= -8)  return { label: 'STRONG BEAR', cls: 'bias-strong-bearish' };
+    if (s <= -4)  return { label: 'BEARISH',     cls: 'bias-bearish' };
+    if (s <= -2)  return { label: 'MILD BEAR',   cls: 'bias-mild-bearish' };
     return { label: 'NEUTRAL', cls: 'bias-neutral' };
 }
 
@@ -291,235 +593,176 @@ function renderScoring() {
     if (!tbody) return;
 
     let html = '';
-    // Factor rows
-    SCORING_FACTORS.forEach(factor => {
-        let row = `<tr><td class="factor-name">${factor.label}</td><td class="num weight-cell">${factor.weight}</td>`;
+    SCORING_FACTORS.forEach(f => {
+        let row = `<tr><td class="factor-name">${f.label}</td><td class="num weight-cell">${f.weight}</td>`;
         CCYS.forEach(ccy => {
-            const value = getFactorValue(factor.id, ccy);
-            const cls = classForScore(value);
-            const editable = factor.src === 'manual' ? 'editable-cell' : '';
-            const display = value > 0 ? `+${value.toFixed(1)}` : value.toFixed(1);
-            row += `<td class="num ${cls} ${editable}" data-factor="${factor.id}" data-ccy="${ccy}">${display}</td>`;
+            const v = getFactorValue(f.id, ccy);
+            const cls = clsScore(v);
+            const ed = f.src === 'manual' ? 'editable-cell' : '';
+            const disp = v > 0 ? `+${v.toFixed(1)}` : v.toFixed(1);
+            row += `<td class="num ${cls} ${ed}" data-factor="${f.id}" data-ccy="${ccy}">${disp}</td>`;
         });
-        const srcTag = factor.src === 'auto' ? '<span class="src-auto">auto</span>' : '<span class="src-manual">manual</span>';
-        row += `<td>${srcTag}</td></tr>`;
+        const tag = f.src.startsWith('auto') ? '<span class="src-auto">auto</span>' : '<span class="src-manual">manual</span>';
+        row += `<td>${tag}</td></tr>`;
         html += row;
     });
 
-    // Score brut row
-    let bruts = {};
-    let pondereds = {};
+    let bruts = {}, ponds = {};
     CCYS.forEach(ccy => {
-        let brut = 0, pondered = 0;
-        SCORING_FACTORS.forEach(factor => {
-            const v = getFactorValue(factor.id, ccy);
-            brut += v;
-            pondered += v * factor.weight;
+        let b = 0, p = 0;
+        SCORING_FACTORS.forEach(f => {
+            const v = getFactorValue(f.id, ccy);
+            b += v; p += v * f.weight;
         });
-        bruts[ccy] = brut;
-        pondereds[ccy] = pondered;
+        bruts[ccy] = b; ponds[ccy] = p;
     });
 
-    let brutRow = '<tr class="score-row"><td colspan="2" class="score-label">SCORE BRUT (somme)</td>';
-    CCYS.forEach(ccy => {
-        const v = bruts[ccy];
-        const cls = classForScore(v);
-        const display = v > 0 ? `+${v.toFixed(2)}` : v.toFixed(2);
-        brutRow += `<td class="num ${cls}">${display}</td>`;
+    let r1 = '<tr class="score-row"><td colspan="2" class="score-label">SCORE BRUT (somme)</td>';
+    CCYS.forEach(c => {
+        const v = bruts[c]; const cls = clsScore(v);
+        r1 += `<td class="num ${cls}">${v > 0 ? '+' : ''}${v.toFixed(2)}</td>`;
     });
-    brutRow += '<td></td></tr>';
-    html += brutRow;
+    r1 += '<td></td></tr>'; html += r1;
 
-    let pondRow = '<tr class="score-row score-pondere"><td colspan="2" class="score-label">SCORE PONDÉRÉ</td>';
-    CCYS.forEach(ccy => {
-        const v = pondereds[ccy];
-        const cls = classForScore(v);
-        const display = v > 0 ? `+${v.toFixed(2)}` : v.toFixed(2);
-        pondRow += `<td class="num ${cls}">${display}</td>`;
+    let r2 = '<tr class="score-row score-pondere"><td colspan="2" class="score-label">SCORE PONDÉRÉ</td>';
+    CCYS.forEach(c => {
+        const v = ponds[c]; const cls = clsScore(v);
+        r2 += `<td class="num ${cls}">${v > 0 ? '+' : ''}${v.toFixed(2)}</td>`;
     });
-    pondRow += '<td></td></tr>';
-    html += pondRow;
+    r2 += '<td></td></tr>'; html += r2;
 
-    let biasRow = '<tr class="bias-row"><td colspan="2" class="score-label">BIAIS</td>';
-    CCYS.forEach(ccy => {
-        const b = biasFromScore(pondereds[ccy]);
-        biasRow += `<td class="num ${b.cls}">${b.label}</td>`;
+    let r3 = '<tr class="bias-row"><td colspan="2" class="score-label">BIAIS</td>';
+    CCYS.forEach(c => {
+        const b = biasFromScore(ponds[c]);
+        r3 += `<td class="num ${b.cls}">${b.label}</td>`;
     });
-    biasRow += '<td></td></tr>';
-    html += biasRow;
+    r3 += '<td></td></tr>'; html += r3;
 
     tbody.innerHTML = html;
+    tbody.querySelectorAll('.editable-cell').forEach(cell => cell.addEventListener('click', () => editScoringCell(cell)));
 
-    // Wire up click handlers for editable cells
-    tbody.querySelectorAll('.editable-cell').forEach(cell => {
-        cell.addEventListener('click', () => editScoringCell(cell));
-    });
-
-    const updEl = document.getElementById('scoring-update');
-    if (updEl) {
+    const e = document.getElementById('scoring-update');
+    if (e) {
         const now = new Date();
-        updEl.textContent = `last update: ${String(now.getUTCHours()).padStart(2,'0')}:${String(now.getUTCMinutes()).padStart(2,'0')} GMT`;
+        e.textContent = `last update: ${String(now.getUTCHours()).padStart(2,'0')}:${String(now.getUTCMinutes()).padStart(2,'0')} GMT`;
     }
 }
 
 function editScoringCell(cell) {
-    const factor = cell.dataset.factor;
-    const ccy = cell.dataset.ccy;
-    const current = getManualValue(`scoring_${factor}_${ccy}`, 0);
-    const input = prompt(`Enter score for ${ccy} (between -2 and +2, e.g. -1, 0, 0.5, 1):`, current);
-    if (input === null) return;
-    const v = parseFloat(input);
-    if (isNaN(v) || v < -2 || v > 2) {
-        alert('Invalid value. Must be between -2 and +2.');
-        return;
-    }
-    setManualValue(`scoring_${factor}_${ccy}`, v);
+    const f = cell.dataset.factor;
+    const c = cell.dataset.ccy;
+    const cur = lsGet(`scoring_${f}_${c}`, 0);
+    const inp = prompt(`Score for ${c} (-2 to +2):`, cur);
+    if (inp === null) return;
+    const v = parseFloat(inp);
+    if (isNaN(v) || v < -2 || v > 2) { alert('Must be between -2 and +2'); return; }
+    lsSet(`scoring_${f}_${c}`, v);
     renderScoring();
 }
 
-// ---- Module 6 : CARRY MATRIX ----
 function renderCarryMatrix() {
     const tbody = document.querySelector('#carry-table tbody');
     if (!tbody) return;
-
     let html = '<tr><td class="ccy-h"></td>';
-    CCYS.forEach(ccy => { html += `<th class="ccy-h">${ccy}</th>`; });
+    CCYS.forEach(c => html += `<th class="ccy-h">${c}</th>`);
     html += '</tr>';
-
-    CCYS.forEach(longCcy => {
-        html += `<tr><td class="factor-name">${longCcy}</td>`;
-        CCYS.forEach(shortCcy => {
-            if (longCcy === shortCcy) {
-                html += '<td class="carry-diag">—</td>';
-            } else {
-                const longRate = getCurrentRate(longCcy);
-                const shortRate = getCurrentRate(shortCcy);
-                if (longRate === null || shortRate === null) {
-                    html += '<td class="carry-na">—</td>';
-                } else {
-                    const diff = longRate - shortRate;
-                    let cls;
-                    if (diff >= 2) cls = 'carry-cell-strong-pos';
-                    else if (diff > 0) cls = 'carry-cell-pos';
-                    else if (diff <= -2) cls = 'carry-cell-strong-neg';
-                    else if (diff < 0) cls = 'carry-cell-neg';
-                    else cls = 'carry-zero';
-                    const sign = diff > 0 ? '+' : '';
-                    html += `<td class="num ${cls}">${sign}${diff.toFixed(2)}</td>`;
-                }
-            }
+    CCYS.forEach(L => {
+        html += `<tr><td class="factor-name">${L}</td>`;
+        CCYS.forEach(S => {
+            if (L === S) { html += '<td class="carry-diag">—</td>'; return; }
+            const lr = getCurrentRate(L), sr = getCurrentRate(S);
+            if (lr === null || sr === null) { html += '<td class="carry-na">—</td>'; return; }
+            const d = lr - sr;
+            let cls;
+            if (d >= 2) cls = 'carry-cell-strong-pos';
+            else if (d > 0) cls = 'carry-cell-pos';
+            else if (d <= -2) cls = 'carry-cell-strong-neg';
+            else if (d < 0) cls = 'carry-cell-neg';
+            else cls = 'carry-zero';
+            html += `<td class="num ${cls}">${d > 0 ? '+' : ''}${d.toFixed(2)}</td>`;
         });
         html += '</tr>';
     });
-
     tbody.innerHTML = html;
 }
 
-// ---- Module 7 : CARRY RANKING ----
 function renderRanking() {
     const tbody = document.getElementById('ranking-tbody');
     if (!tbody) return;
-
     let html = '';
-    const rateUSD = getCurrentRate('USD');
-
-    CCYS.forEach(ccy => {
-        const rate = getCurrentRate(ccy);
-        const carry = (rate !== null && rateUSD !== null) ? rate - rateUSD : null;
-        const yields = yieldsData.yields ? yieldsData.yields[ccy] : null;
-
-        // 2Y: from FRED for USD, from manual for others
-        let y2 = null;
-        if (ccy === 'USD' && yields && yields.y2 !== null) y2 = yields.y2;
-        else y2 = getManualValue(`yield_2y_${ccy}`, null);
-
-        const y10 = yields ? yields.y10 : null;
-        const spread = (y10 !== null && y2 !== null) ? y10 - y2 : null;
-
-        let signal, signalCls;
-        if (spread === null) { signal = '—'; signalCls = 'signal-na'; }
-        else if (spread < 0) { signal = 'INVERTED'; signalCls = 'signal-inverted'; }
-        else if (spread < 0.3) { signal = 'FLAT'; signalCls = 'signal-flat'; }
-        else if (spread > 1.0) { signal = 'PENTUE'; signalCls = 'signal-pentue'; }
-        else { signal = 'NORMALE'; signalCls = 'signal-normale'; }
-
-        const carryCls = carry === null ? 'neutral' : carry > 0 ? 'pos' : carry < 0 ? 'neg' : 'neutral';
-        const carryText = carry === null ? '—' : (carry > 0 ? '+' : '') + carry.toFixed(2);
-        const spreadText = spread === null ? '—' : (spread > 0 ? '+' : '') + spread.toFixed(2);
-        const spreadCls = spread === null ? 'neutral' : spread < 0 ? 'neg' : 'pos';
-
-        // y2 cell: editable if not USD
-        const y2Display = y2 === null ? '—' : y2.toFixed(2);
-        const y2Editable = ccy !== 'USD' ? 'editable-cell' : '';
-
+    const ru = getCurrentRate('USD');
+    CCYS.forEach(c => {
+        const r = getCurrentRate(c);
+        const carry = (r !== null && ru !== null) ? r - ru : null;
+        // Yields: priority macro state > API
+        let y2 = getMacroValue('yield_2y', c);
+        if (y2 === null && c === 'USD' && yieldsData.yields && yieldsData.yields.USD) y2 = yieldsData.yields.USD.y2;
+        let y10 = getMacroValue('yield_10y', c);
+        if (y10 === null && yieldsData.yields && yieldsData.yields[c]) y10 = yieldsData.yields[c].y10;
+        const sp = (y10 !== null && y2 !== null) ? y10 - y2 : null;
+        let sig, scls;
+        if (sp === null) { sig = '—'; scls = 'signal-na'; }
+        else if (sp < 0) { sig = 'INVERTED'; scls = 'signal-inverted'; }
+        else if (sp < 0.3) { sig = 'FLAT'; scls = 'signal-flat'; }
+        else if (sp > 1.0) { sig = 'PENTUE'; scls = 'signal-pentue'; }
+        else { sig = 'NORMALE'; scls = 'signal-normale'; }
+        const cc = carry === null ? 'neutral' : carry > 0 ? 'pos' : carry < 0 ? 'neg' : 'neutral';
+        const ct = carry === null ? '—' : (carry > 0 ? '+' : '') + carry.toFixed(2);
+        const sc = sp === null ? 'neutral' : sp < 0 ? 'neg' : 'pos';
+        const st = sp === null ? '—' : (sp > 0 ? '+' : '') + sp.toFixed(2);
         html += `
             <tr>
-                <td class="factor-name">${ccy}</td>
-                <td class="num">${rate !== null ? rate.toFixed(2) : '—'}</td>
-                <td class="num ${carryCls}">${carryText}</td>
-                <td class="num ${y2Editable}" data-yield-ccy="${ccy}">${y2Display}</td>
+                <td class="factor-name">${c}</td>
+                <td class="num">${r !== null ? r.toFixed(2) : '—'}</td>
+                <td class="num ${cc}">${ct}</td>
+                <td class="num">${y2 !== null ? y2.toFixed(2) : '—'}</td>
                 <td class="num">${y10 !== null ? y10.toFixed(2) : '—'}</td>
-                <td class="num ${spreadCls}">${spreadText}</td>
-                <td class="${signalCls}">${signal}</td>
+                <td class="num ${sc}">${st}</td>
+                <td class="${scls}">${sig}</td>
             </tr>
         `;
     });
-
     tbody.innerHTML = html;
-
-    tbody.querySelectorAll('.editable-cell').forEach(cell => {
-        cell.addEventListener('click', () => editYield2Y(cell));
-    });
 }
 
-function editYield2Y(cell) {
-    const ccy = cell.dataset.yieldCcy;
-    const current = getManualValue(`yield_2y_${ccy}`, '');
-    const input = prompt(`Enter 2Y yield for ${ccy} (e.g. 2.50):`, current);
-    if (input === null) return;
-    if (input === '') {
-        clearManualValue(`yield_2y_${ccy}`);
-    } else {
-        const v = parseFloat(input);
-        if (isNaN(v)) { alert('Invalid number'); return; }
-        setManualValue(`yield_2y_${ccy}`, v);
-    }
-    renderRanking();
-}
-
-// ---- Fetch all data ----
+// ============================================
+// FETCH ALL
+// ============================================
 async function fetchAllData() {
     setStatus('connecting', 'fetching data...');
     try {
-        const [ratesRes, meetingsRes, yieldsRes] = await Promise.all([
+        const [r1, r2, r3] = await Promise.all([
             fetch('/api/rates'),
             fetch('/api/meetings'),
             fetch('/api/yields')
         ]);
-        if (!ratesRes.ok) throw new Error('Rates failed');
-        ratesData = await ratesRes.json();
-        const meetingsData = meetingsRes.ok ? await meetingsRes.json() : {};
-        yieldsData = yieldsRes.ok ? await yieldsRes.json() : {};
-
-        renderRatesTable(ratesData, meetingsData);
-
+        if (!r1.ok) throw new Error('Rates failed');
+        ratesData = await r1.json();
+        const meetings = r2.ok ? await r2.json() : {};
+        yieldsData = r3.ok ? await r3.json() : {};
+        renderRatesTable(ratesData, meetings);
         if (ratesData.banks) {
             rateHistoryState.banks = ratesData.banks;
             renderAllRateCharts();
         }
-
+        renderMacroTable();
+        renderMacroCharts();
         renderScoring();
         renderCarryMatrix();
         renderRanking();
-
         setStatus('live', 'live');
-    } catch (err) {
-        console.error('Fetch error:', err);
+    } catch (e) {
+        console.error('Fetch error:', e);
         setStatus('error', 'connection error');
     }
 }
 
-// ---- Démarrage ----
+// ============================================
+// INIT
+// ============================================
+loadMacroState();
 setupPeriodSelector();
+setupCSVButtons();
+setupEditableText();
 fetchAllData();
 setInterval(fetchAllData, 10 * 60 * 1000);
