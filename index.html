@@ -153,7 +153,66 @@
                 </div>
             </div>
         </section>
+<!-- ============================================
+             MODULE 4B — MACRO DATA (saisie manuelle)
+             ============================================ -->
+        <section class="module" id="module-macro">
+            <div class="module-header">
+                <div class="module-title">
+                    <span class="module-bullet"></span>
+                    <h2>MACRO DATA</h2>
+                    <span class="module-sub">8 MAJOR CCY · 14 INDICATORS · MANUAL</span>
+                </div>
+                <div class="header-actions">
+                    <button class="action-btn" id="btn-import-csv">↑ IMPORT CSV</button>
+                    <button class="action-btn" id="btn-export-csv">↓ EXPORT CSV</button>
+                    <input type="file" id="csv-input" accept=".csv" style="display:none;">
+                </div>
+            </div>
 
+            <div class="saisie-indicator">
+                💡 Click any cell to edit · Values auto-save · Scoring updates automatically · <span id="macro-saved">no data yet</span>
+            </div>
+
+            <table class="macro-table">
+                <thead>
+                    <tr>
+                        <th>INDICATEUR</th>
+                        <th class="num ccy-h">USD</th>
+                        <th class="num ccy-h">EUR</th>
+                        <th class="num ccy-h">GBP</th>
+                        <th class="num ccy-h">JPY</th>
+                        <th class="num ccy-h">CAD</th>
+                        <th class="num ccy-h">AUD</th>
+                        <th class="num ccy-h">NZD</th>
+                        <th class="num ccy-h">CHF</th>
+                    </tr>
+                </thead>
+                <tbody id="macro-tbody"></tbody>
+            </table>
+
+            <div class="commentaire-block">
+                <div class="commentaire-label">COMMENTAIRE / CONTEXTE</div>
+                <div class="commentaire-text editable-text" id="macro-comment" data-key="macro_comment">Click here to add notes...</div>
+            </div>
+        </section>
+
+        <!-- ============================================
+             MODULE 4C — VISUALIZATIONS (12 mini-charts)
+             ============================================ -->
+        <section class="module" id="module-macro-charts">
+            <div class="module-header">
+                <div class="module-title">
+                    <span class="module-bullet"></span>
+                    <h2>VISUALIZATIONS</h2>
+                    <span class="module-sub">12 INDICATORS · CROSS-CCY COMPARISON</span>
+                </div>
+                <span class="module-source">auto from Macro Data</span>
+            </div>
+
+            <div class="charts-grid-12" id="macro-charts-grid"></div>
+        </section>
+        
         <!-- MODULE 5 — CURRENCY STRENGTH SCORING -->
         <section class="module" id="module-scoring">
             <div class="module-header">
