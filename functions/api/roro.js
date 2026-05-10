@@ -12,7 +12,6 @@ export async function onRequest(context) {
     const FRED_SERIES = [
         { id: 'sp500',   series: 'SP500',                 name: 'S&P 500',  type: 'on',  weight: 1.5 },
         { id: 'vix',     series: 'VIXCLS',                name: 'VIX',      type: 'off', weight: 1.5 },
-        { id: 'gold',    series: 'GOLDPMGBD228NLBM',      name: 'GOLD',     type: 'off', weight: 1.0 },
         { id: 'oil',     series: 'DCOILWTICO',            name: 'WTI OIL',  type: 'on',  weight: 0.8 },
         { id: 'ust10y',  series: 'DGS10',                 name: 'US 10Y',   type: 'on',  weight: 0.7 },
         { id: 'usdjpy',  series: 'DEXJPUS',               name: 'USD/JPY',  type: 'on',  weight: 1.0 },
