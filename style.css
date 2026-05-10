@@ -608,3 +608,173 @@ body {
         grid-template-rows: repeat(4, 1fr);
     }
 }
+/* ============================================
+   MODULES 5-7 — SCORING / CARRY / RANKING
+   ============================================ */
+
+/* Tables génériques */
+.scoring-table,
+.carry-table,
+.ranking-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
+}
+
+.scoring-table thead th,
+.ranking-table thead th {
+    padding: 8px 10px;
+    text-align: right;
+    font-weight: 400;
+    color: #666;
+    font-size: 9px;
+    letter-spacing: 1px;
+    border-bottom: 1px solid #1f1f1f;
+    background: #0f0f0f;
+}
+
+.scoring-table thead th:first-child,
+.ranking-table thead th:first-child {
+    text-align: left;
+}
+
+.scoring-table th.ccy-h,
+.carry-table .ccy-h {
+    color: #ff8c00;
+    font-weight: 500;
+    letter-spacing: 1px;
+}
+
+.scoring-table td,
+.carry-table td,
+.ranking-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #141414;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.scoring-table td:first-child,
+.carry-table td:first-child,
+.ranking-table td:first-child {
+    text-align: left;
+}
+
+.scoring-table tbody tr:hover,
+.carry-table tbody tr:hover,
+.ranking-table tbody tr:hover {
+    background: #0f0f0f;
+}
+
+/* Factor name */
+.factor-name {
+    color: #ff8c00 !important;
+    font-weight: 500;
+}
+
+/* Weight column */
+.weight-cell {
+    color: #888;
+    font-size: 10px;
+}
+
+/* Score colors */
+.pos-strong { color: #4ade80; font-weight: 500; }
+.pos        { color: #86d4a3; }
+.neutral    { color: #777; }
+.neg        { color: #f5a3a3; }
+.neg-strong { color: #f87171; font-weight: 500; }
+
+/* Score brut + pondéré rows */
+.score-row td {
+    background: #0f0f0f;
+    padding: 8px 10px;
+    font-weight: 500;
+    border-top: 1px solid #1f1f1f;
+}
+
+.score-pondere td {
+    background: #131313;
+}
+
+.score-label {
+    color: #ff8c00 !important;
+    letter-spacing: 1px;
+    text-align: left !important;
+}
+
+/* Bias row */
+.bias-row td {
+    padding: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-align: center !important;
+}
+
+.bias-strong-bullish { background: #25693a; color: #4ade80; }
+.bias-bullish        { background: #1a4d2a; color: #4ade80; }
+.bias-mild-bullish   { background: #173d24; color: #86d4a3; }
+.bias-neutral        { background: #1a1a1a; color: #888; }
+.bias-mild-bearish   { background: #3d1818; color: #f5a3a3; }
+.bias-bearish        { background: #4d1a1a; color: #f87171; }
+.bias-strong-bearish { background: #5c1c1c; color: #ff5555; }
+
+/* Editable cells (manual input) */
+.editable-cell {
+    cursor: pointer;
+    position: relative;
+}
+
+.editable-cell:hover {
+    background: rgba(255, 140, 0, 0.08) !important;
+    outline: 1px dashed #ff8c00;
+    outline-offset: -1px;
+}
+
+/* Source tags */
+.src-auto   { color: #4ade80; font-size: 9px; }
+.src-manual { color: #fbbf24; font-size: 9px; }
+
+/* ============================================
+   CARRY MATRIX SPECIFIC
+   ============================================ */
+
+.carry-table {
+    margin: 0;
+}
+
+.carry-table th,
+.carry-table tr:first-child td {
+    padding: 8px 10px;
+    text-align: right;
+    font-weight: 400;
+    color: #ff8c00;
+    font-size: 10px;
+    letter-spacing: 1px;
+    border-bottom: 1px solid #1f1f1f;
+    background: #0f0f0f;
+}
+
+.carry-table tr:first-child td:first-child {
+    background: #0a0a0a;
+}
+
+.carry-cell-strong-pos { background: #1d4a2c; color: #4ade80; font-weight: 600; }
+.carry-cell-pos        { background: #14331e; color: #4ade80; font-weight: 500; }
+.carry-cell-neg        { background: #331414; color: #f87171; font-weight: 500; }
+.carry-cell-strong-neg { background: #4a1d1d; color: #f87171; font-weight: 600; }
+.carry-zero            { color: #555; }
+.carry-diag            { background: #0a0a0a !important; color: #333; }
+.carry-na              { color: #444; }
+
+/* ============================================
+   RANKING SPECIFIC
+   ============================================ */
+
+.signal-normale  { color: #4ade80; font-weight: 500; }
+.signal-pentue   { color: #fbbf24; font-weight: 500; }
+.signal-flat     { color: #888; }
+.signal-inverted { color: #f87171; font-weight: 600; }
+.signal-na       { color: #444; }
