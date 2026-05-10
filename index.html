@@ -154,6 +154,91 @@
             </div>
         </section>
 
+        <!-- MODULE 5 — CURRENCY STRENGTH SCORING -->
+        <section class="module" id="module-scoring">
+            <div class="module-header">
+                <div class="module-title">
+                    <span class="module-bullet"></span>
+                    <h2>CURRENCY STRENGTH SCORING</h2>
+                    <span class="module-sub">9 FACTEURS PONDÉRÉS · BIAIS AUTO</span>
+                </div>
+                <span class="module-source">FRED · Manual</span>
+            </div>
+
+            <table class="scoring-table">
+                <thead>
+                    <tr>
+                        <th>FACTEUR</th>
+                        <th class="num">POIDS</th>
+                        <th class="num ccy-h">USD</th>
+                        <th class="num ccy-h">EUR</th>
+                        <th class="num ccy-h">GBP</th>
+                        <th class="num ccy-h">JPY</th>
+                        <th class="num ccy-h">CAD</th>
+                        <th class="num ccy-h">AUD</th>
+                        <th class="num ccy-h">NZD</th>
+                        <th class="num ccy-h">CHF</th>
+                        <th>SRC</th>
+                    </tr>
+                </thead>
+                <tbody id="scoring-tbody">
+                    <tr><td colspan="11" class="loading">Loading scoring data...</td></tr>
+                </tbody>
+            </table>
+
+            <div class="module-footer">
+                <span id="scoring-update">last update: --</span>
+                <span class="source-tag">click on yellow cells to edit</span>
+            </div>
+        </section>
+
+        <!-- MODULE 6 — CARRY MATRIX -->
+        <section class="module" id="module-carry">
+            <div class="module-header">
+                <div class="module-title">
+                    <span class="module-bullet"></span>
+                    <h2>CARRY MATRIX</h2>
+                    <span class="module-sub">DIFF. TAUX DIRECTEUR · LONG ↓ / SHORT →</span>
+                </div>
+                <span class="module-source">FRED · auto</span>
+            </div>
+
+            <table class="carry-table" id="carry-table">
+                <tbody>
+                    <tr><td colspan="9" class="loading">Loading carry matrix...</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- MODULE 7 — CARRY RANKING vs USD -->
+        <section class="module" id="module-ranking">
+            <div class="module-header">
+                <div class="module-title">
+                    <span class="module-bullet"></span>
+                    <h2>CARRY RANKING vs USD</h2>
+                    <span class="module-sub">+ PENTE 10Y-2Y</span>
+                </div>
+                <span class="module-source">FRED · auto + Manual 2Y</span>
+            </div>
+
+            <table class="ranking-table">
+                <thead>
+                    <tr>
+                        <th>DEVISE</th>
+                        <th class="num">TAUX DIRECTEUR</th>
+                        <th class="num">CARRY vs USD</th>
+                        <th class="num">RENDT 2Y</th>
+                        <th class="num">RENDT 10Y</th>
+                        <th class="num">PENTE 10Y-2Y</th>
+                        <th>SIGNAL COURBE</th>
+                    </tr>
+                </thead>
+                <tbody id="ranking-tbody">
+                    <tr><td colspan="7" class="loading">Loading ranking data...</td></tr>
+                </tbody>
+            </table>
+        </section>
+
         <!-- MODULE 2 — FX CROSS RATES -->
         <section class="module" id="module-fx">
             <div class="module-header">
@@ -270,7 +355,7 @@
     </main>
 
     <footer class="terminal-footer">
-        <span>PL Terminal v0.1 — Rates · History · FX · Chart · Calendar</span>
+        <span>PL Terminal v0.1 — Rates · History · Scoring · Carry · Ranking · FX · Calendar</span>
         <span>Data: FRED + Finnhub + TradingView</span>
     </footer>
 
