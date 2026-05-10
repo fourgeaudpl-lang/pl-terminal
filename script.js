@@ -1,6 +1,6 @@
 /* ============================================
    PL TERMINAL — Frontend logic (full + macro data)
-   Scoring rules match Excel formulas
+   Pure macro scoring — 6 factors
    ============================================ */
 
 const CCYS = ['USD','EUR','GBP','JPY','CAD','AUD','NZD','CHF'];
@@ -14,7 +14,6 @@ const CENTRAL_BANKS = [
 
 const CCY_TO_BANK = { USD: 'FED', EUR: 'ECB', AUD: 'RBA', NZD: 'RBNZ' };
 
-// Macro indicators (matches Excel)
 const MACRO_INDICATORS = [
     { id: 'rate',          label: 'Taux directeur (%)',         decimals: 2 },
     { id: 'bias',          label: 'Biais BC (Hawkish/Dovish)',  decimals: 0, text: true },
@@ -52,16 +51,14 @@ let ratesData = {};
 let macroState = {};
 let macroChartInstances = {};
 
+// 6 facteurs macro purs (sans Momentum/Risk/Géo)
 const SCORING_FACTORS = [
     { id: 'monetary',   label: 'Politique monétaire (hawkish+)', weight: 2,   src: 'auto-monetary' },
     { id: 'rate_diff',  label: 'Différentiel de taux',           weight: 2,   src: 'auto-spread'   },
     { id: 'inflation',  label: 'Inflation (tendance)',            weight: 1,   src: 'auto-cpi'      },
     { id: 'gdp',        label: 'Croissance PIB',                  weight: 1.5, src: 'auto-gdp'      },
     { id: 'employment', label: 'Emploi / Chômage',                weight: 1,   src: 'auto-unemp'    },
-    { id: 'pmi',        label: 'PMI / Activité',                  weight: 1,   src: 'auto-pmi'      },
-    { id: 'momentum',   label: 'Momentum technique',              weight: 1,   src: 'manual'        },
-    { id: 'risk',       label: 'Risk Sentiment (risk-on/off)',    weight: 1,   src: 'manual'        },
-    { id: 'geo',        label: 'Géopolitique / Risque',           weight: 0.5, src: 'manual'        }
+    { id: 'pmi',        label: 'PMI / Activité',                  weight: 1,   src: 'auto-pmi'      }
 ];
 
 // ---- Horloge ----
@@ -475,7 +472,7 @@ function renderMacroCharts() {
 }
 
 // ============================================
-// SCORING — rules from Excel formulas
+// SCORING — 6 facteurs macro purs
 // ============================================
 function getCurrentRate(ccy) {
     const macroRate = getMacroValue('rate', ccy);
@@ -486,7 +483,7 @@ function getCurrentRate(ccy) {
     return bank ? bank.rate : null;
 }
 
-// Politique monétaire (basée sur Taux directeur — formule Excel B5)
+// Politique monétaire (Taux directeur — formule Excel B5)
 function scoreMonetary(ccy) {
     const v = getMacroValue('rate', ccy);
     if (v === null) return 0;
@@ -497,7 +494,7 @@ function scoreMonetary(ccy) {
     return -2;
 }
 
-// Différentiel de taux (basé sur Spread 10Y-2Y — formule Excel B17)
+// Différentiel de taux (Spread 10Y-2Y — formule Excel B17)
 function scoreSpread(ccy) {
     const v = getMacroValue('spread', ccy);
     if (v === null) return 0;
@@ -508,7 +505,7 @@ function scoreSpread(ccy) {
     return -2;
 }
 
-// Inflation tendance (basée sur Inflation CPI YoY — formule Excel B7)
+// Inflation tendance (CPI YoY — formule Excel B7)
 function scoreCPI(ccy) {
     const v = getMacroValue('cpi', ccy);
     if (v === null) return 0;
@@ -519,7 +516,7 @@ function scoreCPI(ccy) {
     return -2;
 }
 
-// Croissance PIB (basée sur PIB YoY — formule Excel B9)
+// Croissance PIB (PIB YoY — formule Excel B9)
 function scoreGDP(ccy) {
     const v = getMacroValue('gdp', ccy);
     if (v === null) return 0;
@@ -530,7 +527,7 @@ function scoreGDP(ccy) {
     return -2;
 }
 
-// Chômage (inversé) — formule Excel B10
+// Chômage inversé (formule Excel B10)
 function scoreUnemp(ccy) {
     const v = getMacroValue('unemployment', ccy);
     if (v === null) return 0;
@@ -541,7 +538,7 @@ function scoreUnemp(ccy) {
     return -2;
 }
 
-// PMI (moyenne Manuf+Services) — formule Excel B11/B12
+// PMI moyen Manuf+Services (formule Excel B11/B12)
 function scorePMI(ccy) {
     const m = getMacroValue('pmi_manuf', ccy);
     const s = getMacroValue('pmi_services', ccy);
@@ -554,10 +551,6 @@ function scorePMI(ccy) {
     return -2;
 }
 
-function scoreManual(factor, ccy) {
-    return lsGet(`scoring_${factor}_${ccy}`, 0);
-}
-
 function getFactorValue(factorId, ccy) {
     const f = SCORING_FACTORS.find(x => x.id === factorId);
     if (!f) return 0;
@@ -567,7 +560,7 @@ function getFactorValue(factorId, ccy) {
     if (f.src === 'auto-gdp')      return scoreGDP(ccy);
     if (f.src === 'auto-unemp')    return scoreUnemp(ccy);
     if (f.src === 'auto-pmi')      return scorePMI(ccy);
-    return scoreManual(factorId, ccy);
+    return 0;
 }
 
 function clsScore(s) {
@@ -578,13 +571,14 @@ function clsScore(s) {
     return 'neutral';
 }
 
+// Seuils calibrés sur score pondéré max ±17 (6 facteurs macro purs)
 function biasFromScore(s) {
-    if (s >= 8)   return { label: 'STRONG BULL', cls: 'bias-strong-bullish' };
-    if (s >= 4)   return { label: 'BULLISH',     cls: 'bias-bullish' };
-    if (s >= 2)   return { label: 'MILD BULL',   cls: 'bias-mild-bullish' };
-    if (s <= -8)  return { label: 'STRONG BEAR', cls: 'bias-strong-bearish' };
-    if (s <= -4)  return { label: 'BEARISH',     cls: 'bias-bearish' };
-    if (s <= -2)  return { label: 'MILD BEAR',   cls: 'bias-mild-bearish' };
+    if (s >= 12)  return { label: 'STRONG BULL', cls: 'bias-strong-bullish' };
+    if (s >= 7)   return { label: 'BULLISH',     cls: 'bias-bullish' };
+    if (s >= 3)   return { label: 'MILD BULL',   cls: 'bias-mild-bullish' };
+    if (s <= -12) return { label: 'STRONG BEAR', cls: 'bias-strong-bearish' };
+    if (s <= -7)  return { label: 'BEARISH',     cls: 'bias-bearish' };
+    if (s <= -3)  return { label: 'MILD BEAR',   cls: 'bias-mild-bearish' };
     return { label: 'NEUTRAL', cls: 'bias-neutral' };
 }
 
@@ -598,12 +592,10 @@ function renderScoring() {
         CCYS.forEach(ccy => {
             const v = getFactorValue(f.id, ccy);
             const cls = clsScore(v);
-            const ed = f.src === 'manual' ? 'editable-cell' : '';
             const disp = v > 0 ? `+${v.toFixed(1)}` : v.toFixed(1);
-            row += `<td class="num ${cls} ${ed}" data-factor="${f.id}" data-ccy="${ccy}">${disp}</td>`;
+            row += `<td class="num ${cls}" data-factor="${f.id}" data-ccy="${ccy}">${disp}</td>`;
         });
-        const tag = f.src.startsWith('auto') ? '<span class="src-auto">auto</span>' : '<span class="src-manual">manual</span>';
-        row += `<td>${tag}</td></tr>`;
+        row += `<td><span class="src-auto">auto</span></td></tr>`;
         html += row;
     });
 
@@ -639,25 +631,12 @@ function renderScoring() {
     r3 += '<td></td></tr>'; html += r3;
 
     tbody.innerHTML = html;
-    tbody.querySelectorAll('.editable-cell').forEach(cell => cell.addEventListener('click', () => editScoringCell(cell)));
 
     const e = document.getElementById('scoring-update');
     if (e) {
         const now = new Date();
         e.textContent = `last update: ${String(now.getUTCHours()).padStart(2,'0')}:${String(now.getUTCMinutes()).padStart(2,'0')} GMT`;
     }
-}
-
-function editScoringCell(cell) {
-    const f = cell.dataset.factor;
-    const c = cell.dataset.ccy;
-    const cur = lsGet(`scoring_${f}_${c}`, 0);
-    const inp = prompt(`Score for ${c} (-2 to +2):`, cur);
-    if (inp === null) return;
-    const v = parseFloat(inp);
-    if (isNaN(v) || v < -2 || v > 2) { alert('Must be between -2 and +2'); return; }
-    lsSet(`scoring_${f}_${c}`, v);
-    renderScoring();
 }
 
 function renderCarryMatrix() {
