@@ -1,6 +1,6 @@
 /**
  * RORO METER - Risk-On / Risk-Off Sentiment Score
- * Mix FRED (VIX, SP500, Gold, Oil, 10Y) + Finnhub (FX, Crypto)
+ * All sources via FRED (more reliable than Finnhub free tier for non-US assets)
  * Returns score 0-100 + components breakdown
  */
 
@@ -8,20 +8,21 @@ export async function onRequest(context) {
     const FRED_KEY = context.env.FRED_API_KEY;
     const FINNHUB_KEY = context.env.FINNHUB_API_KEY;
 
-    // 9 instruments — mix sources
+    // FRED series for all instruments
     const FRED_SERIES = [
-        { id: 'sp500',   series: 'SP500',                name: 'S&P 500',  type: 'on',  weight: 1.5 },
-        { id: 'vix',     series: 'VIXCLS',               name: 'VIX',      type: 'off', weight: 1.5 },
-        { id: 'gold',    series: 'GOLDAMGBD228NLBM',     name: 'GOLD',     type: 'off', weight: 1.0 },
-        { id: 'oil',     series: 'DCOILWTICO',           name: 'WTI OIL',  type: 'on',  weight: 0.8 },
-        { id: 'ust10y',  series: 'DGS10',                name: 'US 10Y',   type: 'on',  weight: 0.7 }
+        { id: 'sp500',   series: 'SP500',                 name: 'S&P 500',  type: 'on',  weight: 1.5 },
+        { id: 'vix',     series: 'VIXCLS',                name: 'VIX',      type: 'off', weight: 1.5 },
+        { id: 'gold',    series: 'GOLDPMGBD228NLBM',      name: 'GOLD',     type: 'off', weight: 1.0 },
+        { id: 'oil',     series: 'DCOILWTICO',            name: 'WTI OIL',  type: 'on',  weight: 0.8 },
+        { id: 'ust10y',  series: 'DGS10',                 name: 'US 10Y',   type: 'on',  weight: 0.7 },
+        { id: 'usdjpy',  series: 'DEXJPUS',               name: 'USD/JPY',  type: 'on',  weight: 1.0 },
+        { id: 'usdchf',  series: 'DEXSZUS',               name: 'USD/CHF',  type: 'on',  weight: 0.8 },
+        { id: 'audusd',  series: 'DEXUSAL',               name: 'AUD/USD',  type: 'on',  weight: 1.2 }
     ];
 
+    // Bitcoin via Finnhub (FRED doesn't have crypto)
     const FINNHUB_SYMBOLS = [
-        { id: 'usdjpy', symbol: 'OANDA:USD_JPY',       name: 'USD/JPY', type: 'on',  weight: 1.0 },
-        { id: 'audjpy', symbol: 'OANDA:AUD_JPY',       name: 'AUD/JPY', type: 'on',  weight: 1.2 },
-        { id: 'usdchf', symbol: 'OANDA:USD_CHF',       name: 'USD/CHF', type: 'on',  weight: 0.8 },
-        { id: 'btc',    symbol: 'BINANCE:BTCUSDT',     name: 'BITCOIN', type: 'on',  weight: 0.8 }
+        { id: 'btc',     symbol: 'BINANCE:BTCUSDT',       name: 'BITCOIN',  type: 'on',  weight: 0.8 }
     ];
 
     const components = [];
@@ -35,7 +36,9 @@ export async function onRequest(context) {
             const j = await r.json();
             const obs = (j.observations || []).filter(o => o.value !== '.');
             if (obs.length < 2) {
-                components.push({ ...s, current: null, prev: null, change: null, normScore: 50, status: 'no-data' });
+                components.push({ id: s.id, name: s.name, type: s.type, weight: s.weight,
+                    current: null, prev: null, change: null,
+                    source: 'FRED', status: 'no-data' });
                 continue;
             }
             const current = parseFloat(obs[0].value);
@@ -52,7 +55,7 @@ export async function onRequest(context) {
         }
     }
 
-    // --- Fetch Finnhub quotes ---
+    // --- Fetch Finnhub (for crypto) ---
     for (const s of FINNHUB_SYMBOLS) {
         try {
             const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(s.symbol)}&token=${FINNHUB_KEY}`;
@@ -60,7 +63,8 @@ export async function onRequest(context) {
             if (!r.ok) throw new Error('Finnhub failed');
             const j = await r.json();
             if (j.dp === undefined || j.dp === null) {
-                components.push({ ...s, current: null, change: null, status: 'no-data' });
+                components.push({ id: s.id, name: s.name, type: s.type, weight: s.weight,
+                    current: null, change: null, source: 'Finnhub', status: 'no-data' });
                 continue;
             }
             components.push({
@@ -75,9 +79,9 @@ export async function onRequest(context) {
     }
 
     // --- Compute RORO score 0-100 ---
-    // Each component: change% normalized to 0-100 scale (-3% → 0, 0% → 50, +3% → 100)
-    // Risk-off instruments (VIX, Gold) are inverted: a rise in VIX = risk-off = lower score
-    const NORM_RANGE = 3.0; // ±3% maps to 0-100
+    // Each component: change% normalized (-3% → 0, 0% → 50, +3% → 100)
+    // Risk-off instruments inverted (rise in VIX = risk-off = lower score)
+    const NORM_RANGE = 3.0;
 
     let totalWeight = 0;
     let weightedSum = 0;
@@ -89,13 +93,12 @@ export async function onRequest(context) {
             return;
         }
         let pct = c.change;
-        if (c.type === 'off') pct = -pct; // invert risk-off
-        // Clip and normalize to 0-100
+        if (c.type === 'off') pct = -pct;
         pct = Math.max(-NORM_RANGE, Math.min(NORM_RANGE, pct));
         const norm = 50 + (pct / NORM_RANGE) * 50;
-        c.normScore = norm;
-        c.contribution = norm * c.weight;
-        weightedSum += c.contribution;
+        c.normScore = Math.round(norm * 10) / 10;
+        c.contribution = Math.round(norm * c.weight * 10) / 10;
+        weightedSum += norm * c.weight;
         totalWeight += c.weight;
     });
 
