@@ -1,5 +1,6 @@
 /* ============================================
    PL TERMINAL — Frontend logic (full + macro data)
+   Scoring rules match Excel formulas
    ============================================ */
 
 const CCYS = ['USD','EUR','GBP','JPY','CAD','AUD','NZD','CHF'];
@@ -30,7 +31,6 @@ const MACRO_INDICATORS = [
     { id: 'spread',        label: 'Spread 10Y-2Y (%)',           decimals: 2, computed: true }
 ];
 
-// Charts to draw (12 — without bias which is text)
 const MACRO_CHARTS = [
     { id: 'rate',         label: 'TAUX DIRECTEUR (%)',     color: '#ff8c00' },
     { id: 'cpi',          label: 'INFLATION CPI YoY (%)',  color: '#ff8c00' },
@@ -46,24 +46,22 @@ const MACRO_CHARTS = [
     { id: 'pmi_manuf',    label: 'PMI MANUFACTURIER',      color: '#ff8c00', threshold: 50 }
 ];
 
-// État global
 let rateHistoryState = { banks: [], selectedYears: 5, chartInstances: {} };
 let yieldsData = {};
 let ratesData = {};
-let macroState = {}; // { 'rate_USD': 3.75, 'cpi_EUR': 2.6, ... }
+let macroState = {};
 let macroChartInstances = {};
 
-// Scoring factors
 const SCORING_FACTORS = [
-    { id: 'monetary',   label: 'Politique monétaire (hawkish+)', weight: 2,   src: 'auto-bias' },
-    { id: 'rate_diff',  label: 'Différentiel de taux',           weight: 2,   src: 'auto-rate' },
-    { id: 'inflation',  label: 'Inflation (tendance)',            weight: 1,   src: 'auto-cpi'  },
-    { id: 'gdp',        label: 'Croissance PIB',                  weight: 1.5, src: 'auto-gdp'  },
-    { id: 'employment', label: 'Emploi / Chômage',                weight: 1,   src: 'auto-unemp'},
-    { id: 'pmi',        label: 'PMI / Activité',                  weight: 1,   src: 'auto-pmi'  },
-    { id: 'momentum',   label: 'Momentum technique',              weight: 1,   src: 'manual'    },
-    { id: 'risk',       label: 'Risk Sentiment (risk-on/off)',    weight: 1,   src: 'manual'    },
-    { id: 'geo',        label: 'Géopolitique / Risque',           weight: 0.5, src: 'manual'    }
+    { id: 'monetary',   label: 'Politique monétaire (hawkish+)', weight: 2,   src: 'auto-monetary' },
+    { id: 'rate_diff',  label: 'Différentiel de taux',           weight: 2,   src: 'auto-spread'   },
+    { id: 'inflation',  label: 'Inflation (tendance)',            weight: 1,   src: 'auto-cpi'      },
+    { id: 'gdp',        label: 'Croissance PIB',                  weight: 1.5, src: 'auto-gdp'      },
+    { id: 'employment', label: 'Emploi / Chômage',                weight: 1,   src: 'auto-unemp'    },
+    { id: 'pmi',        label: 'PMI / Activité',                  weight: 1,   src: 'auto-pmi'      },
+    { id: 'momentum',   label: 'Momentum technique',              weight: 1,   src: 'manual'        },
+    { id: 'risk',       label: 'Risk Sentiment (risk-on/off)',    weight: 1,   src: 'manual'        },
+    { id: 'geo',        label: 'Géopolitique / Risque',           weight: 0.5, src: 'manual'        }
 ];
 
 // ---- Horloge ----
@@ -288,12 +286,10 @@ function renderMacroTable() {
     });
     tbody.innerHTML = html;
 
-    // Wire editable cells
     tbody.querySelectorAll('.editable-macro').forEach(cell => {
         cell.addEventListener('click', () => editMacroCell(cell));
     });
 
-    // Update saved indicator
     const count = Object.keys(macroState).length;
     const e = document.getElementById('macro-saved');
     if (e) e.textContent = count > 0 ? `${count} values saved` : 'no data yet';
@@ -327,7 +323,6 @@ function editMacroCell(cell) {
     renderRanking();
 }
 
-// ---- Editable text (commentaire) ----
 function setupEditableText() {
     document.querySelectorAll('.editable-text').forEach(el => {
         const key = el.dataset.key;
@@ -426,7 +421,6 @@ function renderMacroCharts() {
     const grid = document.getElementById('macro-charts-grid');
     if (!grid) return;
 
-    // Initial DOM setup (only first time)
     if (grid.children.length === 0) {
         MACRO_CHARTS.forEach(ch => {
             const cell = document.createElement('div');
@@ -481,10 +475,9 @@ function renderMacroCharts() {
 }
 
 // ============================================
-// MODULES 5-7 — Scoring + Carry + Ranking
+// SCORING — rules from Excel formulas
 // ============================================
 function getCurrentRate(ccy) {
-    // Priority: macro state > API
     const macroRate = getMacroValue('rate', ccy);
     if (macroRate !== null) return macroRate;
     const bankCode = CCY_TO_BANK[ccy];
@@ -493,68 +486,74 @@ function getCurrentRate(ccy) {
     return bank ? bank.rate : null;
 }
 
-// Auto-score functions per factor
-function scoreBias(ccy) {
-    const v = getMacroValue('bias', ccy);
+// Politique monétaire (basée sur Taux directeur — formule Excel B5)
+function scoreMonetary(ccy) {
+    const v = getMacroValue('rate', ccy);
     if (v === null) return 0;
-    const s = String(v).toLowerCase();
-    if (s.includes('strong hawk') || s.includes('très hawk')) return 2;
-    if (s.includes('hawk')) return 1;
-    if (s.includes('strong dov') || s.includes('très dov')) return -2;
-    if (s.includes('dov')) return -1;
-    return 0;
+    if (v >= 4)    return 2;
+    if (v >= 3)    return 1;
+    if (v >= 1.5)  return 0;
+    if (v >= 0.5)  return -1;
+    return -2;
 }
-function scoreRateDiff(ccy) {
-    const r = getCurrentRate(ccy);
-    const ru = getCurrentRate('USD');
-    if (r === null || ru === null) return 0;
-    const d = r - ru;
-    if (d > 1.5) return 2;
-    if (d > 0.5) return 1;
-    if (d < -1.5) return -2;
-    if (d < -0.5) return -1;
-    return 0;
+
+// Différentiel de taux (basé sur Spread 10Y-2Y — formule Excel B17)
+function scoreSpread(ccy) {
+    const v = getMacroValue('spread', ccy);
+    if (v === null) return 0;
+    if (v >= 1)     return 2;
+    if (v >= 0.5)   return 1;
+    if (v >= 0)     return 0;
+    if (v >= -0.5)  return -1;
+    return -2;
 }
+
+// Inflation tendance (basée sur Inflation CPI YoY — formule Excel B7)
 function scoreCPI(ccy) {
     const v = getMacroValue('cpi', ccy);
     if (v === null) return 0;
-    // Higher inflation than 2% target => hawkish pressure => bullish currency
-    if (v > 4) return 2;
-    if (v > 2.5) return 1;
-    if (v < 1) return -2;
-    if (v < 1.5) return -1;
-    return 0;
+    if (v >= 4)    return 2;
+    if (v >= 3)    return 1;
+    if (v >= 1.5)  return 0;
+    if (v >= 1)    return -1;
+    return -2;
 }
+
+// Croissance PIB (basée sur PIB YoY — formule Excel B9)
 function scoreGDP(ccy) {
     const v = getMacroValue('gdp', ccy);
     if (v === null) return 0;
-    if (v > 3) return 2;
-    if (v > 2) return 1;
-    if (v < 0) return -2;
-    if (v < 0.5) return -1;
-    return 0;
+    if (v >= 3)  return 2;
+    if (v >= 2)  return 1;
+    if (v >= 1)  return 0;
+    if (v >= 0)  return -1;
+    return -2;
 }
+
+// Chômage (inversé) — formule Excel B10
 function scoreUnemp(ccy) {
     const v = getMacroValue('unemployment', ccy);
     if (v === null) return 0;
-    // Lower unemployment = better
-    if (v < 3.5) return 2;
-    if (v < 4.5) return 1;
-    if (v > 7) return -2;
-    if (v > 5.5) return -1;
-    return 0;
+    if (v <= 3.5)  return 2;
+    if (v <= 4.5)  return 1;
+    if (v <= 5.5)  return 0;
+    if (v <= 6.5)  return -1;
+    return -2;
 }
+
+// PMI (moyenne Manuf+Services) — formule Excel B11/B12
 function scorePMI(ccy) {
     const m = getMacroValue('pmi_manuf', ccy);
     const s = getMacroValue('pmi_services', ccy);
     if (m === null && s === null) return 0;
-    const avg = (m === null ? s : (s === null ? m : (m + s) / 2));
-    if (avg > 55) return 2;
-    if (avg > 51) return 1;
-    if (avg < 45) return -2;
-    if (avg < 49) return -1;
-    return 0;
+    const avg = (m === null) ? s : (s === null ? m : (m + s) / 2);
+    if (avg >= 55)  return 2;
+    if (avg >= 52)  return 1;
+    if (avg >= 48)  return 0;
+    if (avg >= 45)  return -1;
+    return -2;
 }
+
 function scoreManual(factor, ccy) {
     return lsGet(`scoring_${factor}_${ccy}`, 0);
 }
@@ -562,12 +561,12 @@ function scoreManual(factor, ccy) {
 function getFactorValue(factorId, ccy) {
     const f = SCORING_FACTORS.find(x => x.id === factorId);
     if (!f) return 0;
-    if (f.src === 'auto-bias') return scoreBias(ccy);
-    if (f.src === 'auto-rate') return scoreRateDiff(ccy);
-    if (f.src === 'auto-cpi')  return scoreCPI(ccy);
-    if (f.src === 'auto-gdp')  return scoreGDP(ccy);
-    if (f.src === 'auto-unemp')return scoreUnemp(ccy);
-    if (f.src === 'auto-pmi')  return scorePMI(ccy);
+    if (f.src === 'auto-monetary') return scoreMonetary(ccy);
+    if (f.src === 'auto-spread')   return scoreSpread(ccy);
+    if (f.src === 'auto-cpi')      return scoreCPI(ccy);
+    if (f.src === 'auto-gdp')      return scoreGDP(ccy);
+    if (f.src === 'auto-unemp')    return scoreUnemp(ccy);
+    if (f.src === 'auto-pmi')      return scorePMI(ccy);
     return scoreManual(factorId, ccy);
 }
 
@@ -578,6 +577,7 @@ function clsScore(s) {
     if (s < 0)    return 'neg';
     return 'neutral';
 }
+
 function biasFromScore(s) {
     if (s >= 8)   return { label: 'STRONG BULL', cls: 'bias-strong-bullish' };
     if (s >= 4)   return { label: 'BULLISH',     cls: 'bias-bullish' };
@@ -694,7 +694,6 @@ function renderRanking() {
     CCYS.forEach(c => {
         const r = getCurrentRate(c);
         const carry = (r !== null && ru !== null) ? r - ru : null;
-        // Yields: priority macro state > API
         let y2 = getMacroValue('yield_2y', c);
         if (y2 === null && c === 'USD' && yieldsData.yields && yieldsData.yields.USD) y2 = yieldsData.yields.USD.y2;
         let y10 = getMacroValue('yield_10y', c);
