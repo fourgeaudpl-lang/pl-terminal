@@ -93,6 +93,7 @@
             <a href="#cb" class="nav-link" data-page="cb">CB</a>
             <a href="#macro" class="nav-link" data-page="macro">MACRO</a>
             <a href="#score" class="nav-link" data-page="score">SCORE</a>
+            <a href="#scan" class="nav-link" data-page="scan">SCAN</a>
             <a href="#fx" class="nav-link" data-page="fx">FX</a>
             <a href="#news" class="nav-link" data-page="news">NEWS</a>
             <a href="#cal" class="nav-link" data-page="cal">CAL</a>
@@ -787,6 +788,100 @@
         </div>
 
         <!-- ============================================
+             PAGE SCAN — FX Pair Scanner (auto from MACRO data)
+             ============================================ -->
+        <div class="page" id="page-scan">
+
+            <!-- Header avec titre + risk sentiment manuel + refresh -->
+            <section class="module" id="module-scan-header">
+                <div class="scan-header-inner">
+                    <div class="scan-header-left">
+                        <div class="scan-icon">⚡</div>
+                        <div>
+                            <h1 class="scan-title">FX PAIR SCANNER</h1>
+                            <div class="scan-subtitle">
+                                <span><b id="scan-pair-count">28</b> paires</span>
+                                <span class="scan-sep">·</span>
+                                <span>Risk Sentiment: <b id="scan-rs-label" class="up">Risk-On</b> (<span id="scan-rs-num">67</span>/100)</span>
+                                <span class="scan-sep">·</span>
+                                <span id="scan-rs-mood">Greed</span>
+                                <span class="scan-sep">·</span>
+                                <span>CNN F&amp;G</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="scan-header-right">
+                        <input type="number" id="scan-rs-input" min="0" max="100" step="1" class="scan-rs-input" title="Risk Sentiment 0-100">
+                        <button class="action-btn" id="scan-rs-save" title="Sauver le score">SAVE</button>
+                        <button class="action-btn" id="scan-refresh" title="Rafraîchir depuis Macro Data">↻ REFRESH</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Best Edge Top 5 -->
+            <section class="module" id="module-scan-edge">
+                <div class="scan-edge-bar">
+                    <div class="scan-edge-title">
+                        <span class="scan-edge-icon">🛡</span>
+                        <span class="scan-edge-label">BEST EDGE — TOP 5</span>
+                    </div>
+                    <div class="scan-edge-list" id="scan-edge-list">
+                        <span class="scan-edge-empty">Saisir des valeurs dans MACRO pour activer le scanner</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Risk Sentiment bandeau interprétation -->
+            <section class="module" id="module-scan-rs">
+                <div class="scan-rs-banner" id="scan-rs-banner">
+                    <span class="scan-rs-banner-label">Risk Sentiment Actuel:</span>
+                    <span class="scan-rs-banner-mood" id="scan-rs-banner-mood">Risk-On — 67/100</span>
+                    <span class="scan-rs-banner-arrow">→</span>
+                    <span class="scan-rs-banner-text" id="scan-rs-banner-text">Favorise AUD, NZD | Défavorable JPY, CHF, USD (partiel)</span>
+                </div>
+            </section>
+
+            <!-- Filtres -->
+            <section class="module" id="module-scan-filters">
+                <div class="scan-filters-bar">
+                    <input type="text" id="scan-search" class="scan-search" placeholder="🔍 Rechercher une paire (ex: EUR/USD)">
+                    <div class="scan-filter-tabs">
+                        <button class="scan-tab active" data-filter="all">Tous</button>
+                        <button class="scan-tab" data-filter="majors">Majeurs</button>
+                        <button class="scan-tab" data-filter="eur">EUR Crosses</button>
+                        <button class="scan-tab" data-filter="gbp">GBP Crosses</button>
+                        <button class="scan-tab" data-filter="audnzd">AUD/NZD</button>
+                        <button class="scan-tab" data-filter="jpychf">JPY/CHF</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Grille de paires (28 cartes) -->
+            <section class="module" id="module-scan-grid">
+                <div class="scan-pair-grid" id="scan-pair-grid">
+                    <div class="scan-empty-state">Saisir des données dans <b>MACRO</b> pour calculer le scanner.</div>
+                </div>
+            </section>
+
+            <!-- Modal détail paire -->
+            <div class="scan-detail-modal" id="scan-detail-modal">
+                <div class="scan-detail-inner">
+                    <div class="scan-detail-head">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2 id="scan-detail-title">EUR/USD — ANALYSE COMPLÈTE</h2>
+                        </div>
+                        <button class="action-btn" id="scan-detail-close">CLOSE ×</button>
+                    </div>
+                    <div class="scan-detail-body" id="scan-detail-body">
+                        <!-- généré en JS -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ============================================
              PAGE FX — Forex
              ============================================ -->
         <div class="page" id="page-fx">
@@ -940,7 +1035,7 @@
     </main>
 
     <footer class="terminal-footer">
-        <span>PL Terminal v0.4 — HOME · CB · MACRO · SCORE · FX · NEWS · CAL</span>
+        <span>PL Terminal v0.5 — HOME · CB · MACRO · SCORE · SCAN · FX · NEWS · CAL</span>
         <span>Data: FRED + Finnhub + TradingView + FinancialJuice</span>
     </footer>
 
