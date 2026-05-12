@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 </head>
 <body>
 
@@ -45,7 +46,8 @@
             <span class="logo-sub">MACRO FX</span>
         </div>
         <nav class="header-nav">
-            <a href="#cb" class="nav-link active" data-page="cb">CB</a>
+            <a href="#home" class="nav-link active" data-page="home">HOME</a>
+            <a href="#cb" class="nav-link" data-page="cb">CB</a>
             <a href="#macro" class="nav-link" data-page="macro">MACRO</a>
             <a href="#fx" class="nav-link" data-page="fx">FX</a>
             <a href="#news" class="nav-link" data-page="news">NEWS</a>
@@ -59,6 +61,300 @@
     </header>
 
     <main class="terminal-main">
+
+        <!-- ============================================
+             PAGE HOME — Dashboard (résumé personnalisable)
+             ============================================ -->
+        <div class="page active" id="page-home">
+
+            <!-- Edit toolbar (visible quand mode édition activé) -->
+            <div class="home-toolbar">
+                <div class="home-toolbar-left">
+                    <span class="home-edit-label" id="home-edit-label">DASHBOARD HOME</span>
+                    <span class="home-edit-hint" id="home-edit-hint">vue d'ensemble personnalisable</span>
+                </div>
+                <div class="home-toolbar-right">
+                    <button class="action-btn" id="home-add-btn" style="display:none;">+ ADD WIDGET</button>
+                    <button class="action-btn" id="home-reset-btn" style="display:none;">↺ RESET</button>
+                    <button class="action-btn primary" id="home-edit-btn">✎ EDIT</button>
+                </div>
+            </div>
+
+            <!-- Grille de widgets HOME (drag&drop dans #home-grid) -->
+            <div class="home-grid" id="home-grid">
+
+                <!-- ======= ROW 1 : CHART + PRICES (2/3 + 1/3) ======= -->
+                <section class="module home-widget" data-widget="chart" data-size="large">
+                    <div class="widget-edit-overlay">
+                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
+                        <button class="widget-x-btn" data-hide="chart" title="Masquer">×</button>
+                    </div>
+                    <div class="module-header">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2>EUR/USD CHART</h2>
+                            <span class="module-sub">TRADINGVIEW · INTRADAY</span>
+                        </div>
+                        <span class="module-source">TradingView</span>
+                    </div>
+                    <div class="home-chart-wrap">
+                        <iframe class="home-tv-iframe"
+                                src="https://s.tradingview.com/widgetembed/?frameElementId=tv_home&symbol=FX%3AEURUSD&interval=60&theme=dark&style=1&toolbarbg=0a0a0a&hidesidetoolbar=1&hideideas=1&withdateranges=1&studies=%5B%5D&timezone=Etc%2FUTC&locale=en"
+                                allowtransparency="true" scrolling="no"></iframe>
+                    </div>
+                </section>
+
+                <section class="module home-widget" data-widget="prices" data-size="small">
+                    <div class="widget-edit-overlay">
+                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
+                        <button class="widget-x-btn" data-hide="prices" title="Masquer">×</button>
+                    </div>
+                    <div class="module-header">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2>G10 PRICES</h2>
+                            <span class="module-sub">28 PAIRS · LIVE</span>
+                        </div>
+                        <span class="module-source">TradingView</span>
+                    </div>
+                    <div class="home-prices-wrap" id="home-prices-wrap">
+                        <!-- iframe TV embed-widget-market-overview injecté en JS -->
+                    </div>
+                </section>
+
+                <!-- ======= ROW 2 : STRENGTH + CB + EVENTS (3 col) ======= -->
+                <section class="module home-widget" data-widget="strength" data-size="small">
+                    <div class="widget-edit-overlay">
+                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
+                        <button class="widget-x-btn" data-hide="strength" title="Masquer">×</button>
+                    </div>
+                    <div class="module-header">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2>CCY STRENGTH</h2>
+                            <span class="module-sub">SCORE PONDÉRÉ</span>
+                        </div>
+                        <span class="module-source">auto from Macro</span>
+                    </div>
+                    <div class="home-strength-list" id="home-strength-list">
+                        <div class="loading">Loading scoring...</div>
+                    </div>
+                </section>
+
+                <section class="module home-widget" data-widget="cb" data-size="small">
+                    <div class="widget-edit-overlay">
+                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
+                        <button class="widget-x-btn" data-hide="cb" title="Masquer">×</button>
+                    </div>
+                    <div class="module-header">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2>CENTRAL BANKS</h2>
+                            <span class="module-sub">RATES + NEXT MEETINGS</span>
+                        </div>
+                        <span class="module-source">FRED + Finnhub</span>
+                    </div>
+                    <table class="rates-table home-cb-table">
+                        <tbody id="home-cb-tbody">
+                            <tr><td colspan="3" class="loading">Loading banks...</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section class="module home-widget" data-widget="events" data-size="small">
+                    <div class="widget-edit-overlay">
+                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
+                        <button class="widget-x-btn" data-hide="events" title="Masquer">×</button>
+                    </div>
+                    <div class="module-header">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2>NEXT EVENTS</h2>
+                            <span class="module-sub">G10 · HIGH IMPACT</span>
+                        </div>
+                        <span class="module-source">TradingView</span>
+                    </div>
+                    <div class="home-events-wrap" id="home-events-wrap">
+                        <!-- iframe TV calendar injecté en JS -->
+                    </div>
+                </section>
+
+                <!-- ======= ROW 3 : NEWS HEADLINES (full width) ======= -->
+                <section class="module home-widget" data-widget="news" data-size="full">
+                    <div class="widget-edit-overlay">
+                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
+                        <button class="widget-x-btn" data-hide="news" title="Masquer">×</button>
+                    </div>
+                    <div class="module-header">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2>LIVE HEADLINES</h2>
+                            <span class="module-sub">FINANCIAL JUICE</span>
+                        </div>
+                        <span class="module-source">FinancialJuice</span>
+                    </div>
+                    <div class="fj-widget-wrapper home-news-wrap" style="min-height: 320px;">
+                        <div id="home-fj-news-container"></div>
+                    </div>
+                </section>
+
+                <!-- ============================================
+                     WIDGETS OPTIONNELS (cachés par défaut)
+                     ============================================ -->
+                <section class="module home-widget" data-widget="carry" data-size="medium" data-default-hidden="true">
+                    <div class="widget-edit-overlay">
+                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
+                        <button class="widget-x-btn" data-hide="carry" title="Masquer">×</button>
+                    </div>
+                    <div class="module-header">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2>CARRY MATRIX</h2>
+                            <span class="module-sub">DIFF. TAUX · MINI</span>
+                        </div>
+                        <span class="module-source">auto</span>
+                    </div>
+                    <table class="carry-table home-carry-table" id="home-carry-table">
+                        <tbody><tr><td colspan="9" class="loading">Loading carry...</td></tr></tbody>
+                    </table>
+                </section>
+
+                <section class="module home-widget" data-widget="ranking" data-size="medium" data-default-hidden="true">
+                    <div class="widget-edit-overlay">
+                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
+                        <button class="widget-x-btn" data-hide="ranking" title="Masquer">×</button>
+                    </div>
+                    <div class="module-header">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2>CARRY RANKING</h2>
+                            <span class="module-sub">vs USD + PENTE</span>
+                        </div>
+                        <span class="module-source">auto</span>
+                    </div>
+                    <table class="ranking-table home-ranking-table">
+                        <tbody id="home-ranking-tbody">
+                            <tr><td colspan="4" class="loading">Loading ranking...</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section class="module home-widget" data-widget="dxy" data-size="medium" data-default-hidden="true">
+                    <div class="widget-edit-overlay">
+                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
+                        <button class="widget-x-btn" data-hide="dxy" title="Masquer">×</button>
+                    </div>
+                    <div class="module-header">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2>DXY INDEX</h2>
+                            <span class="module-sub">USD STRENGTH</span>
+                        </div>
+                        <span class="module-source">TradingView</span>
+                    </div>
+                    <div class="home-chart-wrap" style="height: 240px;">
+                        <iframe class="home-tv-iframe"
+                                src="https://s.tradingview.com/widgetembed/?symbol=TVC%3ADXY&interval=D&theme=dark&style=2&toolbarbg=0a0a0a&hidesidetoolbar=1&hideideas=1&locale=en"
+                                allowtransparency="true" scrolling="no"></iframe>
+                    </div>
+                </section>
+
+                <section class="module home-widget" data-widget="gold" data-size="medium" data-default-hidden="true">
+                    <div class="widget-edit-overlay">
+                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
+                        <button class="widget-x-btn" data-hide="gold" title="Masquer">×</button>
+                    </div>
+                    <div class="module-header">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2>GOLD</h2>
+                            <span class="module-sub">XAU/USD</span>
+                        </div>
+                        <span class="module-source">TradingView</span>
+                    </div>
+                    <div class="home-chart-wrap" style="height: 240px;">
+                        <iframe class="home-tv-iframe"
+                                src="https://s.tradingview.com/widgetembed/?symbol=TVC%3AGOLD&interval=D&theme=dark&style=2&toolbarbg=0a0a0a&hidesidetoolbar=1&hideideas=1&locale=en"
+                                allowtransparency="true" scrolling="no"></iframe>
+                    </div>
+                </section>
+
+                <section class="module home-widget" data-widget="us10y" data-size="medium" data-default-hidden="true">
+                    <div class="widget-edit-overlay">
+                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
+                        <button class="widget-x-btn" data-hide="us10y" title="Masquer">×</button>
+                    </div>
+                    <div class="module-header">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2>US 10Y YIELD</h2>
+                            <span class="module-sub">TREASURIES</span>
+                        </div>
+                        <span class="module-source">TradingView</span>
+                    </div>
+                    <div class="home-chart-wrap" style="height: 240px;">
+                        <iframe class="home-tv-iframe"
+                                src="https://s.tradingview.com/widgetembed/?symbol=TVC%3AUS10Y&interval=D&theme=dark&style=2&toolbarbg=0a0a0a&hidesidetoolbar=1&hideideas=1&locale=en"
+                                allowtransparency="true" scrolling="no"></iframe>
+                    </div>
+                </section>
+
+                <section class="module home-widget" data-widget="voice" data-size="small" data-default-hidden="true">
+                    <div class="widget-edit-overlay">
+                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
+                        <button class="widget-x-btn" data-hide="voice" title="Masquer">×</button>
+                    </div>
+                    <div class="module-header">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2>VOICE NEWS</h2>
+                            <span class="module-sub">FJ AUDIO LIVE</span>
+                        </div>
+                        <span class="module-source">FinancialJuice</span>
+                    </div>
+                    <div class="fj-widget-wrapper" style="min-height: 100px;">
+                        <div id="home-fj-voice-container"></div>
+                    </div>
+                </section>
+
+                <section class="module home-widget" data-widget="heatmap" data-size="full" data-default-hidden="true">
+                    <div class="widget-edit-overlay">
+                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
+                        <button class="widget-x-btn" data-hide="heatmap" title="Masquer">×</button>
+                    </div>
+                    <div class="module-header">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2>FX CROSS RATES</h2>
+                            <span class="module-sub">MATRIX</span>
+                        </div>
+                        <span class="module-source">TradingView</span>
+                    </div>
+                    <div class="home-heatmap-wrap" id="home-heatmap-wrap">
+                        <!-- iframe TV cross rates injecté en JS -->
+                    </div>
+                </section>
+
+            </div>
+
+            <!-- Modal "Add Widget" -->
+            <div class="home-modal" id="home-modal">
+                <div class="home-modal-inner">
+                    <div class="home-modal-head">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2>WIDGET LIBRARY</h2>
+                            <span class="module-sub">activer / désactiver</span>
+                        </div>
+                        <button class="action-btn" id="home-modal-close">CLOSE ×</button>
+                    </div>
+                    <div class="home-modal-body" id="home-modal-body">
+                        <!-- généré en JS -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
 
         <!-- ============================================
              PAGE CB — Central Banks
@@ -434,11 +730,11 @@
     </main>
 
     <footer class="terminal-footer">
-        <span>PL Terminal v0.2 — CB · MACRO · FX · NEWS · CAL</span>
+        <span>PL Terminal v0.3 — HOME · CB · MACRO · FX · NEWS · CAL</span>
         <span>Data: FRED + Finnhub + TradingView + FinancialJuice</span>
     </footer>
 
-    <!-- Financial Juice script (loaded once, used by all 3 widgets) -->
+    <!-- Financial Juice script (loaded once, used by all widgets) -->
     <script type="text/javascript">
         (function() {
             var jo = document.createElement("script");
@@ -448,6 +744,7 @@
             jo.src = "https://feed.financialjuice.com/widgets/widgets.js?r=" + r;
             jo.onload = function() {
                 if (window.FJWidgets) {
+                    // Page NEWS
                     new window.FJWidgets.createWidget({
                         container: "financialjuice-voice-widget-container",
                         mode: "standard", width: "100%", height: "auto",
@@ -462,6 +759,17 @@
                         container: "financialjuice-eco-widget-container",
                         mode: "standard", width: "100%", height: "600px",
                         backColor: "1e222d", fontColor: "b2b5be", widgetType: "ECOCAL"
+                    });
+                    // Page HOME — news headlines + voice (compact)
+                    new window.FJWidgets.createWidget({
+                        container: "home-fj-news-container",
+                        mode: "Dark", width: "100%", height: "320px",
+                        backColor: "0a0a0a", fontColor: "b2b5be", widgetType: "NEWS"
+                    });
+                    new window.FJWidgets.createWidget({
+                        container: "home-fj-voice-container",
+                        mode: "standard", width: "100%", height: "auto",
+                        backColor: "", fontColor: "", widgetType: "Voice"
                     });
                 }
             };
