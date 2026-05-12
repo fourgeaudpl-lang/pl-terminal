@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 </head>
 <body>
 
@@ -63,39 +62,21 @@
     <main class="terminal-main">
 
         <!-- ============================================
-             PAGE HOME — Dashboard (résumé personnalisable)
+             PAGE HOME — Dashboard statique (mockup exact)
              ============================================ -->
         <div class="page active" id="page-home">
 
-            <!-- Edit toolbar (visible quand mode édition activé) -->
-            <div class="home-toolbar">
-                <div class="home-toolbar-left">
-                    <span class="home-edit-label" id="home-edit-label">DASHBOARD HOME</span>
-                    <span class="home-edit-hint" id="home-edit-hint">vue d'ensemble personnalisable</span>
-                </div>
-                <div class="home-toolbar-right">
-                    <button class="action-btn" id="home-add-btn" style="display:none;">+ ADD WIDGET</button>
-                    <button class="action-btn" id="home-reset-btn" style="display:none;">↺ RESET</button>
-                    <button class="action-btn primary" id="home-edit-btn">✎ EDIT</button>
-                </div>
-            </div>
+            <!-- ===== ROW 1 : TradingView Chart (2/3) + G10 Prices (1/3) ===== -->
+            <div class="home-row home-row-main">
 
-            <!-- Grille de widgets HOME (drag&drop dans #home-grid) -->
-            <div class="home-grid" id="home-grid">
-
-                <!-- ======= ROW 1 : CHART + PRICES (2/3 + 1/3) ======= -->
-                <section class="module home-widget" data-widget="chart" data-size="large">
-                    <div class="widget-edit-overlay">
-                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
-                        <button class="widget-x-btn" data-hide="chart" title="Masquer">×</button>
-                    </div>
+                <section class="module home-card home-card-chart">
                     <div class="module-header">
                         <div class="module-title">
                             <span class="module-bullet"></span>
-                            <h2>EUR/USD CHART</h2>
-                            <span class="module-sub">TRADINGVIEW · INTRADAY</span>
+                            <h2>EUR/USD</h2>
+                            <span class="module-sub">TRADINGVIEW · 1H</span>
                         </div>
-                        <span class="module-source">TradingView</span>
+                        <span class="module-source">REAL-TIME</span>
                     </div>
                     <div class="home-chart-wrap">
                         <iframe class="home-tv-iframe"
@@ -104,255 +85,196 @@
                     </div>
                 </section>
 
-                <section class="module home-widget" data-widget="prices" data-size="small">
-                    <div class="widget-edit-overlay">
-                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
-                        <button class="widget-x-btn" data-hide="prices" title="Masquer">×</button>
-                    </div>
+                <section class="module home-card home-card-prices">
                     <div class="module-header">
                         <div class="module-title">
                             <span class="module-bullet"></span>
                             <h2>G10 PRICES</h2>
-                            <span class="module-sub">28 PAIRS · LIVE</span>
+                            <span class="module-sub">28 PAIRS</span>
                         </div>
-                        <span class="module-source">TradingView</span>
+                        <span class="module-source">LIVE</span>
                     </div>
-                    <div class="home-prices-wrap" id="home-prices-wrap">
-                        <!-- iframe TV embed-widget-market-overview injecté en JS -->
+                    <div class="home-prices-list">
+                        <div class="home-price-row"><span class="hp-pair">EUR/USD</span><span class="hp-val">1.0942</span><span class="hp-chg up">+0.47%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">GBP/USD</span><span class="hp-val">1.2718</span><span class="hp-chg up">+0.31%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">USD/JPY</span><span class="hp-val">154.82</span><span class="hp-chg down">-0.22%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">USD/CHF</span><span class="hp-val">0.8841</span><span class="hp-chg down">-0.18%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">AUD/USD</span><span class="hp-val">0.6587</span><span class="hp-chg up">+0.62%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">NZD/USD</span><span class="hp-val">0.5984</span><span class="hp-chg up">+0.54%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">USD/CAD</span><span class="hp-val">1.3812</span><span class="hp-chg down">-0.29%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">EUR/GBP</span><span class="hp-val">0.8602</span><span class="hp-chg up">+0.16%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">EUR/JPY</span><span class="hp-val">169.41</span><span class="hp-chg up">+0.24%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">GBP/JPY</span><span class="hp-val">196.92</span><span class="hp-chg up">+0.09%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">AUD/JPY</span><span class="hp-val">101.98</span><span class="hp-chg up">+0.38%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">CHF/JPY</span><span class="hp-val">175.13</span><span class="hp-chg down">-0.04%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">EUR/CHF</span><span class="hp-val">0.9674</span><span class="hp-chg up">+0.28%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">EUR/AUD</span><span class="hp-val">1.6612</span><span class="hp-chg down">-0.15%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">EUR/NZD</span><span class="hp-val">1.8285</span><span class="hp-chg down">-0.07%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">EUR/CAD</span><span class="hp-val">1.5108</span><span class="hp-chg up">+0.18%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">GBP/CHF</span><span class="hp-val">1.1243</span><span class="hp-chg up">+0.13%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">GBP/AUD</span><span class="hp-val">1.9308</span><span class="hp-chg down">-0.31%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">GBP/NZD</span><span class="hp-val">2.1252</span><span class="hp-chg down">-0.23%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">GBP/CAD</span><span class="hp-val">1.7565</span><span class="hp-chg up">+0.02%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">AUD/CHF</span><span class="hp-val">0.5824</span><span class="hp-chg up">+0.44%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">AUD/NZD</span><span class="hp-val">1.1009</span><span class="hp-chg up">+0.08%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">AUD/CAD</span><span class="hp-val">0.9098</span><span class="hp-chg up">+0.33%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">NZD/CHF</span><span class="hp-val">0.5290</span><span class="hp-chg up">+0.36%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">NZD/CAD</span><span class="hp-val">0.8265</span><span class="hp-chg up">+0.25%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">CAD/CHF</span><span class="hp-val">0.6401</span><span class="hp-chg up">+0.11%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">CAD/JPY</span><span class="hp-val">112.08</span><span class="hp-chg up">+0.07%</span></div>
+                        <div class="home-price-row"><span class="hp-pair">NZD/JPY</span><span class="hp-val">92.65</span><span class="hp-chg up">+0.92%</span></div>
                     </div>
                 </section>
 
-                <!-- ======= ROW 2 : STRENGTH + CB + EVENTS (3 col) ======= -->
-                <section class="module home-widget" data-widget="strength" data-size="small">
-                    <div class="widget-edit-overlay">
-                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
-                        <button class="widget-x-btn" data-hide="strength" title="Masquer">×</button>
-                    </div>
+            </div>
+
+            <!-- ===== ROW 2 : Strength + Central Banks + Top Events ===== -->
+            <div class="home-row home-row-three">
+
+                <section class="module home-card">
                     <div class="module-header">
                         <div class="module-title">
                             <span class="module-bullet"></span>
                             <h2>CCY STRENGTH</h2>
-                            <span class="module-sub">SCORE PONDÉRÉ</span>
+                            <span class="module-sub">AUTO</span>
                         </div>
-                        <span class="module-source">auto from Macro</span>
+                        <span class="module-source">SCORE</span>
                     </div>
-                    <div class="home-strength-list" id="home-strength-list">
-                        <div class="loading">Loading scoring...</div>
+                    <div class="home-strength-list">
+                        <div class="home-strength-row">
+                            <span class="hs-ccy">USD</span>
+                            <div class="hs-bar-bg"><div class="hs-bar-fill" style="width:78%;background:#4ade80;"></div></div>
+                            <span class="hs-score up">+2.1</span>
+                        </div>
+                        <div class="home-strength-row">
+                            <span class="hs-ccy">AUD</span>
+                            <div class="hs-bar-bg"><div class="hs-bar-fill" style="width:62%;background:#4ade80;"></div></div>
+                            <span class="hs-score up">+1.4</span>
+                        </div>
+                        <div class="home-strength-row">
+                            <span class="hs-ccy">EUR</span>
+                            <div class="hs-bar-bg"><div class="hs-bar-fill" style="width:48%;background:#4ade80;"></div></div>
+                            <span class="hs-score up">+0.6</span>
+                        </div>
+                        <div class="home-strength-row">
+                            <span class="hs-ccy">GBP</span>
+                            <div class="hs-bar-bg"><div class="hs-bar-fill" style="width:42%;background:#6b6b6b;"></div></div>
+                            <span class="hs-score flat">+0.2</span>
+                        </div>
+                        <div class="home-strength-row">
+                            <span class="hs-ccy">NZD</span>
+                            <div class="hs-bar-bg"><div class="hs-bar-fill" style="width:38%;background:#6b6b6b;"></div></div>
+                            <span class="hs-score flat">-0.1</span>
+                        </div>
+                        <div class="home-strength-row">
+                            <span class="hs-ccy">CAD</span>
+                            <div class="hs-bar-bg"><div class="hs-bar-fill" style="width:32%;background:#f87171;"></div></div>
+                            <span class="hs-score down">-0.8</span>
+                        </div>
+                        <div class="home-strength-row">
+                            <span class="hs-ccy">CHF</span>
+                            <div class="hs-bar-bg"><div class="hs-bar-fill" style="width:24%;background:#f87171;"></div></div>
+                            <span class="hs-score down">-1.6</span>
+                        </div>
+                        <div class="home-strength-row">
+                            <span class="hs-ccy">JPY</span>
+                            <div class="hs-bar-bg"><div class="hs-bar-fill" style="width:18%;background:#f87171;"></div></div>
+                            <span class="hs-score down">-1.8</span>
+                        </div>
                     </div>
                 </section>
 
-                <section class="module home-widget" data-widget="cb" data-size="small">
-                    <div class="widget-edit-overlay">
-                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
-                        <button class="widget-x-btn" data-hide="cb" title="Masquer">×</button>
-                    </div>
+                <section class="module home-card">
                     <div class="module-header">
                         <div class="module-title">
                             <span class="module-bullet"></span>
                             <h2>CENTRAL BANKS</h2>
-                            <span class="module-sub">RATES + NEXT MEETINGS</span>
+                            <span class="module-sub">G8</span>
                         </div>
                         <span class="module-source">FRED + Finnhub</span>
                     </div>
-                    <table class="rates-table home-cb-table">
-                        <tbody id="home-cb-tbody">
-                            <tr><td colspan="3" class="loading">Loading banks...</td></tr>
+                    <table class="home-cb-table">
+                        <tbody>
+                            <tr><td class="hcb-bank">FED</td><td class="hcb-rate">4.50%</td><td class="hcb-date">17 jun</td></tr>
+                            <tr><td class="hcb-bank">ECB</td><td class="hcb-rate">2.25%</td><td class="hcb-date">05 jun</td></tr>
+                            <tr><td class="hcb-bank">BOE</td><td class="hcb-rate">4.25%</td><td class="hcb-date">19 jun</td></tr>
+                            <tr><td class="hcb-bank">BOJ</td><td class="hcb-rate">0.50%</td><td class="hcb-date">17 jun</td></tr>
+                            <tr><td class="hcb-bank">BOC</td><td class="hcb-rate">2.75%</td><td class="hcb-date">04 jun</td></tr>
+                            <tr><td class="hcb-bank">RBA</td><td class="hcb-rate">3.85%</td><td class="hcb-date">08 jul</td></tr>
+                            <tr><td class="hcb-bank">RBNZ</td><td class="hcb-rate">3.50%</td><td class="hcb-date">28 may</td></tr>
+                            <tr><td class="hcb-bank">SNB</td><td class="hcb-rate">0.25%</td><td class="hcb-date">19 jun</td></tr>
                         </tbody>
                     </table>
                 </section>
 
-                <section class="module home-widget" data-widget="events" data-size="small">
-                    <div class="widget-edit-overlay">
-                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
-                        <button class="widget-x-btn" data-hide="events" title="Masquer">×</button>
-                    </div>
+                <section class="module home-card">
                     <div class="module-header">
                         <div class="module-title">
                             <span class="module-bullet"></span>
-                            <h2>NEXT EVENTS</h2>
-                            <span class="module-sub">G10 · HIGH IMPACT</span>
+                            <h2>TOP EVENTS</h2>
+                            <span class="module-sub">TODAY</span>
                         </div>
-                        <span class="module-source">TradingView</span>
+                        <span class="module-source">G10</span>
                     </div>
-                    <div class="home-events-wrap" id="home-events-wrap">
-                        <!-- iframe TV calendar injecté en JS -->
-                    </div>
-                </section>
-
-                <!-- ======= ROW 3 : NEWS HEADLINES (full width) ======= -->
-                <section class="module home-widget" data-widget="news" data-size="full">
-                    <div class="widget-edit-overlay">
-                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
-                        <button class="widget-x-btn" data-hide="news" title="Masquer">×</button>
-                    </div>
-                    <div class="module-header">
-                        <div class="module-title">
-                            <span class="module-bullet"></span>
-                            <h2>LIVE HEADLINES</h2>
-                            <span class="module-sub">FINANCIAL JUICE</span>
+                    <div class="home-events-list">
+                        <div class="home-event-row">
+                            <div class="hev-meta"><span class="hev-imp down">● HIGH</span><span class="hev-time">14:30</span></div>
+                            <div class="hev-name">USD · CPI YoY</div>
                         </div>
-                        <span class="module-source">FinancialJuice</span>
-                    </div>
-                    <div class="fj-widget-wrapper home-news-wrap" style="min-height: 320px;">
-                        <div id="home-fj-news-container"></div>
-                    </div>
-                </section>
-
-                <!-- ============================================
-                     WIDGETS OPTIONNELS (cachés par défaut)
-                     ============================================ -->
-                <section class="module home-widget" data-widget="carry" data-size="medium" data-default-hidden="true">
-                    <div class="widget-edit-overlay">
-                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
-                        <button class="widget-x-btn" data-hide="carry" title="Masquer">×</button>
-                    </div>
-                    <div class="module-header">
-                        <div class="module-title">
-                            <span class="module-bullet"></span>
-                            <h2>CARRY MATRIX</h2>
-                            <span class="module-sub">DIFF. TAUX · MINI</span>
+                        <div class="home-event-row">
+                            <div class="hev-meta"><span class="hev-imp down">● HIGH</span><span class="hev-time">14:30</span></div>
+                            <div class="hev-name">USD · Core CPI MoM</div>
                         </div>
-                        <span class="module-source">auto</span>
-                    </div>
-                    <table class="carry-table home-carry-table" id="home-carry-table">
-                        <tbody><tr><td colspan="9" class="loading">Loading carry...</td></tr></tbody>
-                    </table>
-                </section>
-
-                <section class="module home-widget" data-widget="ranking" data-size="medium" data-default-hidden="true">
-                    <div class="widget-edit-overlay">
-                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
-                        <button class="widget-x-btn" data-hide="ranking" title="Masquer">×</button>
-                    </div>
-                    <div class="module-header">
-                        <div class="module-title">
-                            <span class="module-bullet"></span>
-                            <h2>CARRY RANKING</h2>
-                            <span class="module-sub">vs USD + PENTE</span>
+                        <div class="home-event-row">
+                            <div class="hev-meta"><span class="hev-imp warn">● MED</span><span class="hev-time">16:00</span></div>
+                            <div class="hev-name">GBP · Bailey speech</div>
                         </div>
-                        <span class="module-source">auto</span>
-                    </div>
-                    <table class="ranking-table home-ranking-table">
-                        <tbody id="home-ranking-tbody">
-                            <tr><td colspan="4" class="loading">Loading ranking...</td></tr>
-                        </tbody>
-                    </table>
-                </section>
-
-                <section class="module home-widget" data-widget="dxy" data-size="medium" data-default-hidden="true">
-                    <div class="widget-edit-overlay">
-                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
-                        <button class="widget-x-btn" data-hide="dxy" title="Masquer">×</button>
-                    </div>
-                    <div class="module-header">
-                        <div class="module-title">
-                            <span class="module-bullet"></span>
-                            <h2>DXY INDEX</h2>
-                            <span class="module-sub">USD STRENGTH</span>
+                        <div class="home-event-row">
+                            <div class="hev-meta"><span class="hev-imp warn">● MED</span><span class="hev-time">18:00</span></div>
+                            <div class="hev-name">EUR · Lagarde speech</div>
                         </div>
-                        <span class="module-source">TradingView</span>
-                    </div>
-                    <div class="home-chart-wrap" style="height: 240px;">
-                        <iframe class="home-tv-iframe"
-                                src="https://s.tradingview.com/widgetembed/?symbol=TVC%3ADXY&interval=D&theme=dark&style=2&toolbarbg=0a0a0a&hidesidetoolbar=1&hideideas=1&locale=en"
-                                allowtransparency="true" scrolling="no"></iframe>
-                    </div>
-                </section>
-
-                <section class="module home-widget" data-widget="gold" data-size="medium" data-default-hidden="true">
-                    <div class="widget-edit-overlay">
-                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
-                        <button class="widget-x-btn" data-hide="gold" title="Masquer">×</button>
-                    </div>
-                    <div class="module-header">
-                        <div class="module-title">
-                            <span class="module-bullet"></span>
-                            <h2>GOLD</h2>
-                            <span class="module-sub">XAU/USD</span>
+                        <div class="home-event-row">
+                            <div class="hev-meta"><span class="hev-imp down">● HIGH</span><span class="hev-time">22:45</span></div>
+                            <div class="hev-name">NZD · Inflation expect.</div>
                         </div>
-                        <span class="module-source">TradingView</span>
-                    </div>
-                    <div class="home-chart-wrap" style="height: 240px;">
-                        <iframe class="home-tv-iframe"
-                                src="https://s.tradingview.com/widgetembed/?symbol=TVC%3AGOLD&interval=D&theme=dark&style=2&toolbarbg=0a0a0a&hidesidetoolbar=1&hideideas=1&locale=en"
-                                allowtransparency="true" scrolling="no"></iframe>
-                    </div>
-                </section>
-
-                <section class="module home-widget" data-widget="us10y" data-size="medium" data-default-hidden="true">
-                    <div class="widget-edit-overlay">
-                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
-                        <button class="widget-x-btn" data-hide="us10y" title="Masquer">×</button>
-                    </div>
-                    <div class="module-header">
-                        <div class="module-title">
-                            <span class="module-bullet"></span>
-                            <h2>US 10Y YIELD</h2>
-                            <span class="module-sub">TREASURIES</span>
-                        </div>
-                        <span class="module-source">TradingView</span>
-                    </div>
-                    <div class="home-chart-wrap" style="height: 240px;">
-                        <iframe class="home-tv-iframe"
-                                src="https://s.tradingview.com/widgetembed/?symbol=TVC%3AUS10Y&interval=D&theme=dark&style=2&toolbarbg=0a0a0a&hidesidetoolbar=1&hideideas=1&locale=en"
-                                allowtransparency="true" scrolling="no"></iframe>
-                    </div>
-                </section>
-
-                <section class="module home-widget" data-widget="voice" data-size="small" data-default-hidden="true">
-                    <div class="widget-edit-overlay">
-                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
-                        <button class="widget-x-btn" data-hide="voice" title="Masquer">×</button>
-                    </div>
-                    <div class="module-header">
-                        <div class="module-title">
-                            <span class="module-bullet"></span>
-                            <h2>VOICE NEWS</h2>
-                            <span class="module-sub">FJ AUDIO LIVE</span>
-                        </div>
-                        <span class="module-source">FinancialJuice</span>
-                    </div>
-                    <div class="fj-widget-wrapper" style="min-height: 100px;">
-                        <div id="home-fj-voice-container"></div>
-                    </div>
-                </section>
-
-                <section class="module home-widget" data-widget="heatmap" data-size="full" data-default-hidden="true">
-                    <div class="widget-edit-overlay">
-                        <span class="widget-drag-badge">⋮⋮ DRAG</span>
-                        <button class="widget-x-btn" data-hide="heatmap" title="Masquer">×</button>
-                    </div>
-                    <div class="module-header">
-                        <div class="module-title">
-                            <span class="module-bullet"></span>
-                            <h2>FX CROSS RATES</h2>
-                            <span class="module-sub">MATRIX</span>
-                        </div>
-                        <span class="module-source">TradingView</span>
-                    </div>
-                    <div class="home-heatmap-wrap" id="home-heatmap-wrap">
-                        <!-- iframe TV cross rates injecté en JS -->
                     </div>
                 </section>
 
             </div>
 
-            <!-- Modal "Add Widget" -->
-            <div class="home-modal" id="home-modal">
-                <div class="home-modal-inner">
-                    <div class="home-modal-head">
-                        <div class="module-title">
-                            <span class="module-bullet"></span>
-                            <h2>WIDGET LIBRARY</h2>
-                            <span class="module-sub">activer / désactiver</span>
-                        </div>
-                        <button class="action-btn" id="home-modal-close">CLOSE ×</button>
+            <!-- ===== ROW 3 : Latest Headlines full width ===== -->
+            <section class="module home-card home-card-news">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>LATEST HEADLINES</h2>
+                        <span class="module-sub">FINANCIAL JUICE</span>
                     </div>
-                    <div class="home-modal-body" id="home-modal-body">
-                        <!-- généré en JS -->
+                    <span class="module-source live-tag">● LIVE</span>
+                </div>
+                <div class="home-news-list">
+                    <div class="home-news-row">
+                        <span class="hn-time">14:31</span>
+                        <span class="hn-text">Fed's Powell: inflation progress slowed, patience warranted on cuts</span>
+                    </div>
+                    <div class="home-news-row">
+                        <span class="hn-time">14:18</span>
+                        <span class="hn-text">ECB sources: June cut not pre-committed despite weak growth</span>
+                    </div>
+                    <div class="home-news-row">
+                        <span class="hn-time">13:52</span>
+                        <span class="hn-text">UK GDP Q1 beats estimates at +0.7% QoQ, GBP rallies</span>
+                    </div>
+                    <div class="home-news-row">
+                        <span class="hn-time">13:30</span>
+                        <span class="hn-text">BoJ Ueda signals readiness for further rate hikes if outlook holds</span>
+                    </div>
+                    <div class="home-news-row">
+                        <span class="hn-time">13:12</span>
+                        <span class="hn-text">Trump tariffs front-loaded into Q2 imports — Goldman</span>
                     </div>
                 </div>
-            </div>
+            </section>
 
         </div>
 
@@ -734,7 +656,7 @@
         <span>Data: FRED + Finnhub + TradingView + FinancialJuice</span>
     </footer>
 
-    <!-- Financial Juice script (loaded once, used by all widgets) -->
+    <!-- Financial Juice script (loaded once, used by NEWS widgets) -->
     <script type="text/javascript">
         (function() {
             var jo = document.createElement("script");
@@ -744,7 +666,6 @@
             jo.src = "https://feed.financialjuice.com/widgets/widgets.js?r=" + r;
             jo.onload = function() {
                 if (window.FJWidgets) {
-                    // Page NEWS
                     new window.FJWidgets.createWidget({
                         container: "financialjuice-voice-widget-container",
                         mode: "standard", width: "100%", height: "auto",
@@ -759,17 +680,6 @@
                         container: "financialjuice-eco-widget-container",
                         mode: "standard", width: "100%", height: "600px",
                         backColor: "1e222d", fontColor: "b2b5be", widgetType: "ECOCAL"
-                    });
-                    // Page HOME — news headlines + voice (compact)
-                    new window.FJWidgets.createWidget({
-                        container: "home-fj-news-container",
-                        mode: "Dark", width: "100%", height: "320px",
-                        backColor: "0a0a0a", fontColor: "b2b5be", widgetType: "NEWS"
-                    });
-                    new window.FJWidgets.createWidget({
-                        container: "home-fj-voice-container",
-                        mode: "standard", width: "100%", height: "auto",
-                        backColor: "", fontColor: "", widgetType: "Voice"
                     });
                 }
             };
