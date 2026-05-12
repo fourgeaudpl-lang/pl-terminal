@@ -2017,3 +2017,548 @@ body {
         flex-shrink: 0;
     }
 }
+
+/* ====================================================================
+   PAGE SCAN — FX Pair Scanner (replique style RTC Terminal)
+   ==================================================================== */
+
+/* ---------- HEADER ---------- */
+
+.scan-header-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 16px 18px;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.scan-header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.scan-icon {
+    width: 44px;
+    height: 44px;
+    background: rgba(56, 132, 255, 0.12);
+    border: 1px solid rgba(56, 132, 255, 0.35);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: #3884ff;
+}
+
+.scan-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.scan-subtitle {
+    font-size: 11px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.scan-subtitle b { font-weight: 500; }
+.scan-subtitle b.up   { color: var(--green); }
+.scan-subtitle b.down { color: var(--red); }
+.scan-subtitle b.flat { color: var(--text-secondary); }
+.scan-sep { color: var(--text-tertiary); }
+
+.scan-header-right {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.scan-rs-input {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-strong);
+    color: var(--text-primary);
+    width: 60px;
+    padding: 5px 8px;
+    font-family: inherit;
+    font-size: 11px;
+    text-align: center;
+    border-radius: 2px;
+    outline: none;
+    font-variant-numeric: tabular-nums;
+}
+
+.scan-rs-input:focus { border-color: var(--accent); }
+
+/* ---------- BEST EDGE TOP 5 ---------- */
+
+.scan-edge-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 18px;
+    background: var(--bg-secondary);
+    flex-wrap: wrap;
+}
+
+.scan-edge-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 1px;
+    background: var(--bg-tertiary);
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border-strong);
+}
+
+.scan-edge-icon { font-size: 13px; }
+
+.scan-edge-list {
+    display: flex;
+    gap: 10px;
+    flex: 1;
+    flex-wrap: wrap;
+}
+
+.scan-edge-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 11px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-strong);
+    border-radius: 14px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.scan-edge-item:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.scan-edge-item .se-pair {
+    color: var(--text-primary);
+    font-weight: 500;
+    letter-spacing: 0.5px;
+}
+
+.scan-edge-item .se-bps {
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+}
+
+.scan-edge-item .se-bps.pos { color: var(--green); }
+.scan-edge-item .se-bps.neg { color: var(--red); }
+
+.scan-edge-empty {
+    color: var(--text-secondary);
+    font-size: 10.5px;
+    font-style: italic;
+}
+
+/* ---------- RISK SENTIMENT BANNER ---------- */
+
+.scan-rs-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    border: 1px solid rgba(74, 222, 128, 0.35);
+    background: rgba(74, 222, 128, 0.05);
+    border-radius: 4px;
+    margin: 0;
+    flex-wrap: wrap;
+    font-size: 11.5px;
+}
+
+.scan-rs-banner.risk-off {
+    border-color: rgba(248, 113, 113, 0.35);
+    background: rgba(248, 113, 113, 0.05);
+}
+
+.scan-rs-banner.neutral {
+    border-color: var(--border-strong);
+    background: var(--bg-tertiary);
+}
+
+.scan-rs-banner-label {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.scan-rs-banner-mood {
+    color: var(--green);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.scan-rs-banner.risk-off .scan-rs-banner-mood { color: var(--red); }
+.scan-rs-banner.neutral .scan-rs-banner-mood  { color: var(--text-secondary); }
+
+.scan-rs-banner-arrow {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.scan-rs-banner-text {
+    color: var(--text-primary);
+    flex: 1;
+}
+
+/* ---------- FILTRES ---------- */
+
+.scan-filters-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 18px;
+    background: var(--bg-secondary);
+    flex-wrap: wrap;
+}
+
+.scan-search {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-strong);
+    color: var(--text-primary);
+    padding: 8px 14px;
+    font-family: inherit;
+    font-size: 12px;
+    border-radius: 24px;
+    outline: none;
+    min-width: 280px;
+    flex: 0 0 auto;
+}
+
+.scan-search:focus { border-color: var(--accent); }
+
+.scan-filter-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.scan-tab {
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    color: var(--text-secondary);
+    padding: 6px 14px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 500;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.scan-tab:hover {
+    color: var(--text-primary);
+    border-color: var(--text-secondary);
+}
+
+.scan-tab.active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: rgba(255, 140, 0, 0.06);
+}
+
+/* ---------- GRILLE DES PAIRES ---------- */
+
+.scan-pair-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    padding: 14px;
+}
+
+.scan-empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.scan-empty-state b { color: var(--accent); font-style: normal; }
+
+/* ---------- CARTE PAIRE ---------- */
+
+.scan-pair-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.1s;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.scan-pair-card:hover {
+    border-color: var(--text-secondary);
+    transform: translateY(-1px);
+}
+
+.scan-pair-card.signal-buy:hover  { border-color: var(--green); }
+.scan-pair-card.signal-sell:hover { border-color: var(--red); }
+
+/* Première ligne : paire + signal */
+.spc-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.spc-pair {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: 0.5px;
+}
+
+.spc-signal {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+.spc-signal.buy     { color: var(--green); }
+.spc-signal.sell    { color: var(--red); }
+.spc-signal.neutral { color: var(--text-secondary); }
+
+/* Deuxième ligne : comparaison CB +score vs CB +score */
+.spc-comparison {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    flex-wrap: wrap;
+    margin-top: 2px;
+}
+
+.spc-cb-block {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.spc-cb-flag { font-size: 12px; }
+
+.spc-cb-name {
+    color: var(--text-primary);
+    font-weight: 500;
+    font-size: 10.5px;
+}
+
+.spc-cb-score {
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    font-size: 10.5px;
+}
+
+.spc-cb-score.pos { color: var(--green); }
+.spc-cb-score.neg { color: var(--red); }
+
+.spc-vs {
+    color: var(--text-tertiary);
+    font-size: 10px;
+    font-weight: 500;
+}
+
+/* Troisième ligne : Adj bps + Risk */
+.spc-metrics {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.spc-adj {
+    font-size: 14px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.spc-adj-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+    margin-right: 6px;
+    font-size: 12px;
+}
+
+.spc-adj.pos { color: var(--green); }
+.spc-adj.neg { color: var(--red); }
+.spc-adj.flat { color: var(--text-secondary); }
+
+.spc-risk {
+    font-size: 10.5px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.spc-risk-label { color: var(--text-secondary); }
+
+.spc-risk-icon { font-size: 10px; }
+.spc-risk-icon.high { color: var(--red); }
+.spc-risk-icon.med  { color: var(--yellow); }
+.spc-risk-icon.low  { color: var(--green); }
+
+.spc-risk-value {
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+}
+
+/* CTA Cliquer pour analyse */
+.spc-cta {
+    color: var(--text-tertiary);
+    font-size: 10px;
+    text-align: center;
+    margin-top: 4px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+    transition: color 0.15s;
+}
+
+.scan-pair-card:hover .spc-cta {
+    color: var(--accent);
+}
+
+/* ---------- MODAL DÉTAIL ---------- */
+
+.scan-detail-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.82);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.scan-detail-modal.open { display: flex; }
+
+.scan-detail-inner {
+    background: var(--bg-secondary);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    width: 92%;
+    max-width: 720px;
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.scan-detail-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border);
+}
+
+.scan-detail-body {
+    padding: 18px;
+    overflow-y: auto;
+    font-size: 12px;
+    color: var(--text-primary);
+}
+
+.sd-section {
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+}
+
+.sd-section:last-child { border-bottom: none; }
+
+.sd-section-title {
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+}
+
+.sd-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 11px;
+}
+
+.sd-row .sd-key { color: var(--text-secondary); }
+.sd-row .sd-val { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.sd-row .sd-val.pos { color: var(--green); }
+.sd-row .sd-val.neg { color: var(--red); }
+
+.sd-big-signal {
+    text-align: center;
+    padding: 16px;
+    border-radius: 4px;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 2px;
+}
+
+.sd-big-signal.buy {
+    background: rgba(74, 222, 128, 0.08);
+    border: 1px solid rgba(74, 222, 128, 0.4);
+    color: var(--green);
+}
+
+.sd-big-signal.sell {
+    background: rgba(248, 113, 113, 0.08);
+    border: 1px solid rgba(248, 113, 113, 0.4);
+    color: var(--red);
+}
+
+.sd-big-signal.neutral {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-strong);
+    color: var(--text-secondary);
+}
+
+.sd-bps-big {
+    font-size: 24px;
+    font-weight: 600;
+    margin-top: 6px;
+    display: block;
+}
+
+/* ---------- RESPONSIVE ---------- */
+
+@media (max-width: 1400px) {
+    .scan-pair-grid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 1100px) {
+    .scan-pair-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 800px) {
+    .scan-pair-grid { grid-template-columns: repeat(2, 1fr); }
+    .scan-search { min-width: 100%; }
+}
+@media (max-width: 500px) {
+    .scan-pair-grid { grid-template-columns: 1fr; }
+}
