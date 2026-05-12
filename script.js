@@ -729,10 +729,388 @@ async function fetchAllData() {
 }
 
 // ============================================
-// PAGE NAVIGATION (6 pages: home / cb / macro / fx / news / cal)
+// MODULE SCORE — Scoring qualitatif par annonces économiques
+// Note 3 niveaux (↑ haussier / = neutre / ↓ baissier) sur fenêtre 14j
+// Persistance: localStorage clé pl_score_events
+// ============================================
+
+const SCORE_CCYS = ['EUR','USD','GBP','JPY','CAD','AUD','NZD','CHF'];
+const SCORE_WINDOW_DAYS = 14;
+const SCORE_STORAGE_KEY = 'pl_score_events';
+
+let scoreEvents = [];           // { id, date, ccy, cat, name, impact, note }
+let scoreFormImpact = null;     // état du choix impact dans le modal
+let scoreEditingId = null;      // null = création, sinon édition
+
+// ---- Persistance ----
+function loadScoreEvents() {
+    try {
+        const raw = localStorage.getItem(SCORE_STORAGE_KEY);
+        scoreEvents = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(scoreEvents)) scoreEvents = [];
+    } catch(e) {
+        console.warn('Bad score events, reset', e);
+        scoreEvents = [];
+    }
+}
+
+function saveScoreEvents() {
+    try {
+        localStorage.setItem(SCORE_STORAGE_KEY, JSON.stringify(scoreEvents));
+        setScoreSaveStatus('ok');
+    } catch(e) {
+        console.error('Save error', e);
+        setScoreSaveStatus('error');
+    }
+}
+
+function setScoreSaveStatus(state) {
+    const el = document.getElementById('score-save-status');
+    if (!el) return;
+    if (state === 'error') {
+        el.textContent = '● erreur de sauvegarde';
+        el.classList.add('error');
+    } else {
+        el.textContent = '● auto-saved';
+        el.classList.remove('error');
+    }
+}
+
+// ---- Calcul des scores ----
+function isWithinWindow(dateStr) {
+    const d = new Date(dateStr);
+    if (isNaN(d)) return false;
+    const cutoff = new Date();
+    cutoff.setHours(0, 0, 0, 0);
+    cutoff.setDate(cutoff.getDate() - SCORE_WINDOW_DAYS);
+    return d >= cutoff;
+}
+
+function computeScoreFor(ccy) {
+    let up = 0, flat = 0, down = 0;
+    scoreEvents.forEach(ev => {
+        if (ev.ccy !== ccy) return;
+        if (!isWithinWindow(ev.date)) return;
+        if (ev.impact === 'up')   up++;
+        if (ev.impact === 'flat') flat++;
+        if (ev.impact === 'down') down++;
+    });
+    const total = up + flat + down;
+    const pct = total === 0 ? 0 : Math.round(((up - down) / total) * 100);
+    return { ccy, up, flat, down, total, pct };
+}
+
+function getAllScores() {
+    return SCORE_CCYS.map(c => computeScoreFor(c));
+}
+
+function biasFromPct(pct) {
+    if (pct >= 50)  return { label: 'Haussier', cls: 'pos' };
+    if (pct >= 15)  return { label: 'Légèrement haussier', cls: 'pos' };
+    if (pct <= -50) return { label: 'Baissier', cls: 'neg' };
+    if (pct <= -15) return { label: 'Légèrement baissier', cls: 'neg' };
+    return { label: 'Neutre', cls: 'flat' };
+}
+
+// ---- Render Classement comparatif ----
+function renderScoreRanking() {
+    const wrap = document.getElementById('score-ranking-list');
+    if (!wrap) return;
+
+    const scores = getAllScores().sort((a, b) => b.pct - a.pct);
+    wrap.innerHTML = scores.map(s => {
+        const cls = s.pct > 5 ? 'pos' : s.pct < -5 ? 'neg' : 'flat';
+        const width = Math.abs(s.pct) / 2; // 100% → 50% de la moitié de barre
+        return `
+            <div class="score-ranking-row">
+                <span class="srk-ccy">${s.ccy}</span>
+                <div class="srk-bar-wrap">
+                    <div class="srk-bar-zero"></div>
+                    <div class="srk-bar-fill ${cls}" style="width:${width}%;"></div>
+                </div>
+                <span class="srk-pct ${cls}">${s.pct > 0 ? '+' : ''}${s.pct}%</span>
+            </div>
+        `;
+    }).join('');
+}
+
+// ---- Render Vue par devise (8 cartes) ----
+function renderScoreCards() {
+    const grid = document.getElementById('score-cards-grid');
+    if (!grid) return;
+
+    grid.innerHTML = SCORE_CCYS.map(ccy => {
+        const s = computeScoreFor(ccy);
+        const bias = biasFromPct(s.pct);
+        const cls = s.pct > 5 ? 'pos' : s.pct < -5 ? 'neg' : 'flat';
+        const width = Math.abs(s.pct) / 2;
+        return `
+            <div class="score-card">
+                <div class="scc-head">
+                    <span class="scc-ccy">${ccy}</span>
+                </div>
+                <div class="scc-pct ${cls}">${s.pct > 0 ? '+' : ''}${s.pct}%</div>
+                <div class="scc-bias ${bias.cls}">${bias.label}</div>
+                <div class="scc-mini-bar">
+                    <div class="scc-mini-bar-zero"></div>
+                    <div class="scc-mini-bar-fill ${cls}" style="width:${width}%;"></div>
+                </div>
+                <div class="scc-counters">
+                    <span class="c-up"><b>${s.up}</b> ↑</span>
+                    <span class="c-flat"><b>${s.flat}</b> =</span>
+                    <span class="c-down"><b>${s.down}</b> ↓</span>
+                    <span class="c-total"><b>${s.total}</b> total</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ---- Render Historique ----
+function renderScoreHistory() {
+    const tbody = document.getElementById('score-history-tbody');
+    const countEl = document.getElementById('score-history-count');
+    if (!tbody) return;
+
+    const fCcy  = (document.getElementById('score-filter-ccy')  || {}).value || '';
+    const fCat  = (document.getElementById('score-filter-cat')  || {}).value || '';
+    const fName = ((document.getElementById('score-filter-name') || {}).value || '').toLowerCase().trim();
+    const fDate = (document.getElementById('score-filter-date') || {}).value || '';
+
+    let list = scoreEvents.slice();
+    list.sort((a, b) => b.date.localeCompare(a.date));
+
+    if (fCcy)  list = list.filter(e => e.ccy === fCcy);
+    if (fCat)  list = list.filter(e => e.cat === fCat);
+    if (fName) list = list.filter(e => (e.name || '').toLowerCase().includes(fName));
+    if (fDate) list = list.filter(e => e.date === fDate);
+
+    if (countEl) countEl.textContent = `${scoreEvents.length} ANNONCE${scoreEvents.length > 1 ? 'S' : ''}`;
+
+    if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="score-empty">${
+            scoreEvents.length === 0
+              ? 'Aucune annonce. Cliquez sur "Ajouter une annonce" pour commencer.'
+              : 'Aucun résultat ne correspond aux filtres.'
+        }</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = list.map(ev => {
+        const impactLabel = ev.impact === 'up' ? '↑ HAUSSIER' : ev.impact === 'down' ? '↓ BAISSIER' : '= NEUTRE';
+        const dateFmt = ev.date.split('-').reverse().join('/');
+        const noteAttr = ev.note ? ` title="${(ev.note || '').replace(/"/g, '&quot;')}"` : '';
+        return `
+            <tr${noteAttr}>
+                <td class="sh-date">${dateFmt}</td>
+                <td class="sh-ccy">${ev.ccy}</td>
+                <td class="sh-cat">${ev.cat}</td>
+                <td class="sh-name">${ev.name}${ev.note ? ' <span style="color:var(--text-secondary);font-size:9px;">📝</span>' : ''}</td>
+                <td class="num sh-impact ${ev.impact}">${impactLabel}</td>
+                <td class="num"><button class="sh-delete" data-del="${ev.id}" title="Supprimer">×</button></td>
+            </tr>
+        `;
+    }).join('');
+
+    tbody.querySelectorAll('[data-del]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.dataset.del;
+            if (confirm('Supprimer cette annonce ?')) {
+                scoreEvents = scoreEvents.filter(e => e.id !== id);
+                saveScoreEvents();
+                renderScoreAll();
+            }
+        });
+    });
+}
+
+function renderScoreAll() {
+    renderScoreRanking();
+    renderScoreCards();
+    renderScoreHistory();
+}
+
+// ---- Modal d'ajout / édition ----
+function openScoreModal() {
+    scoreEditingId = null;
+    scoreFormImpact = null;
+    document.getElementById('score-modal-title').textContent = 'AJOUTER UNE ANNONCE';
+    document.getElementById('score-form-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('score-form-ccy').value = 'EUR';
+    document.getElementById('score-form-cat').value = 'Inflation';
+    document.getElementById('score-form-name').value = '';
+    document.getElementById('score-form-note').value = '';
+    document.querySelectorAll('.score-impact-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('score-modal').classList.add('open');
+    setTimeout(() => document.getElementById('score-form-name').focus(), 50);
+}
+
+function closeScoreModal() {
+    document.getElementById('score-modal').classList.remove('open');
+    scoreEditingId = null;
+}
+
+function selectImpact(impact) {
+    scoreFormImpact = impact;
+    document.querySelectorAll('.score-impact-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.impact === impact);
+    });
+}
+
+function saveScoreForm() {
+    const date = document.getElementById('score-form-date').value;
+    const ccy  = document.getElementById('score-form-ccy').value;
+    const cat  = document.getElementById('score-form-cat').value;
+    const name = document.getElementById('score-form-name').value.trim();
+    const note = document.getElementById('score-form-note').value.trim();
+
+    if (!date) { alert('Date requise'); return; }
+    if (!name) { alert('Nom requis (ex: CPI YoY, NFP...)'); return; }
+    if (!scoreFormImpact) { alert('Choisis un impact : ↑ haussier, = neutre ou ↓ baissier'); return; }
+
+    const ev = {
+        id: 'ev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        date, ccy, cat, name, note,
+        impact: scoreFormImpact
+    };
+    scoreEvents.push(ev);
+    saveScoreEvents();
+    closeScoreModal();
+    renderScoreAll();
+}
+
+function resetScoreEvents() {
+    if (scoreEvents.length === 0) { alert('Aucune annonce à effacer.'); return; }
+    if (!confirm(`Supprimer définitivement les ${scoreEvents.length} annonces ?\nCette action est irréversible.`)) return;
+    scoreEvents = [];
+    saveScoreEvents();
+    renderScoreAll();
+}
+
+// ---- Export PDF (via window.print sur un layout dédié) ----
+function exportScorePDF() {
+    const today = new Date().toLocaleDateString('fr-FR');
+    const scores = getAllScores().sort((a, b) => b.pct - a.pct);
+
+    const w = window.open('', '_blank', 'width=900,height=700');
+    if (!w) { alert('Pop-up bloquée. Autorise les pop-ups pour exporter.'); return; }
+
+    let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>PL Terminal — Score Report ${today}</title>
+    <style>
+        body { font-family: 'SF Mono', Monaco, Consolas, monospace; background: #fff; color: #000; padding: 24px; font-size: 11px; }
+        h1 { color: #ff8c00; font-size: 16px; letter-spacing: 2px; margin-bottom: 4px; }
+        .meta { color: #666; font-size: 10px; margin-bottom: 24px; }
+        h2 { color: #ff8c00; font-size: 12px; letter-spacing: 1.5px; margin: 22px 0 10px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        th, td { padding: 5px 8px; border-bottom: 1px solid #eee; text-align: left; font-size: 10px; }
+        th { background: #f5f5f5; color: #666; letter-spacing: 0.5px; font-weight: 500; }
+        td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+        .pos { color: #16a34a; font-weight: 500; }
+        .neg { color: #dc2626; font-weight: 500; }
+        .flat { color: #6b6b6b; }
+        .ccy { color: #ff8c00; font-weight: 500; }
+        .bar { display: inline-block; height: 8px; background: #eee; width: 200px; position: relative; vertical-align: middle; margin-right: 8px; }
+        .bar-zero { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: #999; }
+        .bar-fill { position: absolute; top: 0; bottom: 0; }
+        .bar-fill.pos { background: #16a34a; left: 50%; }
+        .bar-fill.neg { background: #dc2626; right: 50%; }
+        .footer { margin-top: 24px; color: #999; font-size: 9px; text-align: center; }
+        @media print { body { padding: 12px; } }
+    </style></head><body>
+    <h1>PL TERMINAL — SCORE REPORT</h1>
+    <div class="meta">Fenêtre glissante 14 jours · Généré le ${today} · ${scoreEvents.length} annonces totales</div>
+
+    <h2>CLASSEMENT COMPARATIF DES DEVISES</h2>
+    <table>
+        <thead><tr><th>CCY</th><th>SCORE</th><th class="num">↑</th><th class="num">=</th><th class="num">↓</th><th class="num">TOTAL</th><th class="num">PCT</th></tr></thead>
+        <tbody>`;
+    scores.forEach(s => {
+        const cls = s.pct > 5 ? 'pos' : s.pct < -5 ? 'neg' : 'flat';
+        const width = Math.abs(s.pct) / 2;
+        html += `<tr>
+            <td class="ccy">${s.ccy}</td>
+            <td><span class="bar"><span class="bar-zero"></span><span class="bar-fill ${cls}" style="width:${width}%;"></span></span></td>
+            <td class="num pos">${s.up}</td>
+            <td class="num flat">${s.flat}</td>
+            <td class="num neg">${s.down}</td>
+            <td class="num">${s.total}</td>
+            <td class="num ${cls}">${s.pct > 0 ? '+' : ''}${s.pct}%</td>
+        </tr>`;
+    });
+    html += `</tbody></table>
+
+    <h2>HISTORIQUE COMPLET DES ANNONCES (${scoreEvents.length})</h2>
+    <table>
+        <thead><tr><th>DATE</th><th>CCY</th><th>CATÉGORIE</th><th>NOM</th><th>IMPACT</th><th>NOTE</th></tr></thead>
+        <tbody>`;
+    const sorted = scoreEvents.slice().sort((a, b) => b.date.localeCompare(a.date));
+    sorted.forEach(ev => {
+        const impLabel = ev.impact === 'up' ? '↑ HAUSSIER' : ev.impact === 'down' ? '↓ BAISSIER' : '= NEUTRE';
+        const dateFmt = ev.date.split('-').reverse().join('/');
+        html += `<tr>
+            <td>${dateFmt}</td>
+            <td class="ccy">${ev.ccy}</td>
+            <td class="flat">${ev.cat}</td>
+            <td>${ev.name}</td>
+            <td class="${ev.impact}">${impLabel}</td>
+            <td class="flat">${ev.note || ''}</td>
+        </tr>`;
+    });
+    html += `</tbody></table>
+    <div class="footer">PL Terminal v0.4 — Score qualitatif par annonces · pl-terminal.pages.dev</div>
+    <script>setTimeout(() => window.print(), 300);<\/script>
+    </body></html>`;
+
+    w.document.write(html);
+    w.document.close();
+}
+
+// ---- Setup événements SCORE ----
+function setupScoreEvents() {
+    const addBtn = document.getElementById('score-add-btn');
+    const closeBtn = document.getElementById('score-modal-close');
+    const cancelBtn = document.getElementById('score-form-cancel');
+    const saveBtn = document.getElementById('score-form-save');
+    const resetBtn = document.getElementById('score-reset-btn');
+    const pdfBtn = document.getElementById('score-pdf-btn');
+    const modal = document.getElementById('score-modal');
+
+    if (addBtn) addBtn.addEventListener('click', openScoreModal);
+    if (closeBtn) closeBtn.addEventListener('click', closeScoreModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeScoreModal);
+    if (saveBtn) saveBtn.addEventListener('click', saveScoreForm);
+    if (resetBtn) resetBtn.addEventListener('click', resetScoreEvents);
+    if (pdfBtn) pdfBtn.addEventListener('click', exportScorePDF);
+
+    if (modal) {
+        modal.addEventListener('click', e => {
+            if (e.target.id === 'score-modal') closeScoreModal();
+        });
+    }
+
+    document.querySelectorAll('.score-impact-btn').forEach(b => {
+        b.addEventListener('click', () => selectImpact(b.dataset.impact));
+    });
+
+    ['score-filter-ccy','score-filter-cat','score-filter-name','score-filter-date'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', renderScoreHistory);
+        if (el) el.addEventListener('change', renderScoreHistory);
+    });
+
+    document.addEventListener('keydown', e => {
+        const m = document.getElementById('score-modal');
+        if (!m || !m.classList.contains('open')) return;
+        if (e.key === 'Escape') closeScoreModal();
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) saveScoreForm();
+    });
+}
+
+// ============================================
+// PAGE NAVIGATION (7 pages: home / cb / macro / score / fx / news / cal)
 // HOME = page statique HTML — pas de logique JS associée
 // ============================================
-const PAGES = ['home', 'cb', 'macro', 'fx', 'news', 'cal'];
+const PAGES = ['home', 'cb', 'macro', 'score', 'fx', 'news', 'cal'];
 
 function showPage(pageId) {
     if (!PAGES.includes(pageId)) pageId = 'home';
@@ -758,6 +1136,12 @@ function showPage(pageId) {
     if (pageId === 'cb') {
         setTimeout(() => {
             renderAllRateCharts();
+        }, 50);
+    }
+
+    if (pageId === 'score') {
+        setTimeout(() => {
+            renderScoreAll();
         }, 50);
     }
 
@@ -789,8 +1173,11 @@ function setupPageNavigation() {
 // ============================================
 setupPageNavigation();
 loadMacroState();
+loadScoreEvents();
 setupPeriodSelector();
 setupCSVButtons();
 setupEditableText();
+setupScoreEvents();
+renderScoreAll();
 fetchAllData();
 setInterval(fetchAllData, 10 * 60 * 1000);
