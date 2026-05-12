@@ -1916,3 +1916,104 @@ body {
         flex-wrap: wrap;
     }
 }
+
+/* ====================================================================
+   WORLD CLOCKS BAR — 5 horloges places financières (always visible)
+   ==================================================================== */
+
+.world-clocks-bar {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    padding: 8px 16px;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+.wclock {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 14px;
+    min-width: 130px;
+    transition: border-color 0.15s;
+}
+
+.wclock.is-open {
+    border-color: rgba(74, 222, 128, 0.4);
+}
+
+.wclock-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 3px;
+}
+
+.wclock-flag {
+    font-size: 13px;
+    line-height: 1;
+}
+
+.wclock-city {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    color: var(--text-primary);
+}
+
+.wclock-time {
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 1.5px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    margin: 1px 0 2px;
+}
+
+.wclock-status {
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.wclock-status.is-open {
+    color: var(--green);
+}
+
+.wclock-status.is-closed {
+    color: var(--text-secondary);
+}
+
+/* Responsive : sur petit écran, on garde la rangée fluide */
+@media (max-width: 900px) {
+    .world-clocks-bar {
+        gap: 6px;
+        padding: 6px 8px;
+    }
+    .wclock {
+        min-width: 105px;
+        padding: 5px 10px;
+    }
+    .wclock-time {
+        font-size: 14px;
+    }
+    .wclock-city {
+        font-size: 9px;
+    }
+}
+
+@media (max-width: 600px) {
+    .world-clocks-bar {
+        justify-content: flex-start;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+    }
+    .wclock {
+        flex-shrink: 0;
+    }
+}
