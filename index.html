@@ -48,6 +48,7 @@
             <a href="#home" class="nav-link active" data-page="home">HOME</a>
             <a href="#cb" class="nav-link" data-page="cb">CB</a>
             <a href="#macro" class="nav-link" data-page="macro">MACRO</a>
+            <a href="#score" class="nav-link" data-page="score">SCORE</a>
             <a href="#fx" class="nav-link" data-page="fx">FX</a>
             <a href="#news" class="nav-link" data-page="news">NEWS</a>
             <a href="#cal" class="nav-link" data-page="cal">CAL</a>
@@ -499,6 +500,249 @@
         </div>
 
         <!-- ============================================
+             PAGE SCORE — Scoring qualitatif par annonces
+             ============================================ -->
+        <div class="page" id="page-score">
+
+            <!-- Toolbar du haut -->
+            <div class="score-toolbar">
+                <div class="score-toolbar-left">
+                    <button class="action-btn primary" id="score-add-btn">+ AJOUTER UNE ANNONCE</button>
+                    <button class="action-btn" id="score-pdf-btn">↓ EXPORT PDF</button>
+                    <button class="action-btn" id="score-reset-btn">↺ RESET</button>
+                </div>
+                <div class="score-toolbar-right">
+                    <span class="score-save-status" id="score-save-status">● auto-saved</span>
+                </div>
+            </div>
+
+            <!-- Layout 2 colonnes : main (classement+vue) à gauche, explication à droite -->
+            <div class="score-layout">
+
+                <div class="score-main">
+
+                    <!-- Classement comparatif -->
+                    <section class="module" id="module-score-ranking">
+                        <div class="module-header">
+                            <div class="module-title">
+                                <span class="module-bullet"></span>
+                                <h2>CLASSEMENT COMPARATIF DES DEVISES</h2>
+                                <span class="module-sub">FENÊTRE GLISSANTE 2 SEMAINES · TRIÉ PLUS HAUSSIER → PLUS BAISSIER</span>
+                            </div>
+                            <span class="module-source">auto</span>
+                        </div>
+                        <div class="score-ranking-list" id="score-ranking-list">
+                            <!-- généré en JS -->
+                        </div>
+                    </section>
+
+                    <!-- Vue par devise (grille 4x2) -->
+                    <section class="module" id="module-score-bydevice">
+                        <div class="module-header">
+                            <div class="module-title">
+                                <span class="module-bullet"></span>
+                                <h2>VUE PAR DEVISE</h2>
+                                <span class="module-sub">SCORE NET · COMPTAGE ↑ = ↓</span>
+                            </div>
+                            <span class="module-source">auto</span>
+                        </div>
+                        <div class="score-cards-grid" id="score-cards-grid">
+                            <!-- généré en JS -->
+                        </div>
+                    </section>
+
+                    <!-- Historique -->
+                    <section class="module" id="module-score-history">
+                        <div class="module-header">
+                            <div class="module-title">
+                                <span class="module-bullet"></span>
+                                <h2>HISTORIQUE DES ANNONCES</h2>
+                                <span class="module-sub" id="score-history-count">0 ANNONCES</span>
+                            </div>
+                            <span class="module-source">localStorage</span>
+                        </div>
+                        <div class="score-filters">
+                            <select id="score-filter-ccy" class="score-select">
+                                <option value="">Toutes devises</option>
+                                <option value="EUR">EUR</option>
+                                <option value="USD">USD</option>
+                                <option value="GBP">GBP</option>
+                                <option value="JPY">JPY</option>
+                                <option value="CAD">CAD</option>
+                                <option value="AUD">AUD</option>
+                                <option value="NZD">NZD</option>
+                                <option value="CHF">CHF</option>
+                            </select>
+                            <select id="score-filter-cat" class="score-select">
+                                <option value="">Toutes catégories</option>
+                                <option value="Inflation">Inflation</option>
+                                <option value="Emploi">Emploi</option>
+                                <option value="Croissance">Croissance</option>
+                                <option value="Banque centrale">Banque centrale</option>
+                                <option value="PMI / Activité">PMI / Activité</option>
+                                <option value="Consommation">Consommation</option>
+                                <option value="Commerce">Commerce</option>
+                                <option value="Politique">Politique</option>
+                                <option value="Autre">Autre</option>
+                            </select>
+                            <input type="text" id="score-filter-name" class="score-input" placeholder="Recherche par nom...">
+                            <input type="date" id="score-filter-date" class="score-input">
+                        </div>
+                        <table class="score-history-table">
+                            <thead>
+                                <tr>
+                                    <th>DATE</th>
+                                    <th>CCY</th>
+                                    <th>CATÉGORIE</th>
+                                    <th>NOM</th>
+                                    <th class="num">IMPACT</th>
+                                    <th class="num">ACTION</th>
+                                </tr>
+                            </thead>
+                            <tbody id="score-history-tbody">
+                                <tr><td colspan="6" class="score-empty">Aucune annonce. Cliquez sur "Ajouter une annonce" pour commencer.</td></tr>
+                            </tbody>
+                        </table>
+                    </section>
+
+                </div>
+
+                <!-- Colonne droite : explication -->
+                <aside class="score-aside">
+                    <section class="module">
+                        <div class="module-header">
+                            <div class="module-title">
+                                <span class="module-bullet"></span>
+                                <h2>COMMENT ÇA FONCTIONNE</h2>
+                                <span class="module-sub">GUIDE</span>
+                            </div>
+                            <span class="module-source">PL</span>
+                        </div>
+                        <div class="score-help-content">
+
+                            <div class="score-help-section">
+                                <div class="score-help-title">★ PRINCIPE</div>
+                                <p>Chaque annonce économique est notée comme <span class="up">haussière</span>, <span class="flat">neutre</span> ou <span class="down">baissière</span> pour une devise. Le système agrège ces notes sur une <b>fenêtre glissante de 2 semaines</b> pour faire ressortir le sentiment dominant de chaque G8.</p>
+                            </div>
+
+                            <div class="score-help-section">
+                                <div class="score-help-title">1. AJOUTER UNE ANNONCE</div>
+                                <p>Clique sur <b>+ Ajouter une annonce</b>. Tu saisis :</p>
+                                <ul>
+                                    <li><b>Date</b> (default = aujourd'hui)</li>
+                                    <li><b>Devise</b> impactée (EUR, USD, GBP...)</li>
+                                    <li><b>Catégorie</b> (Inflation, Emploi, BC, PMI...)</li>
+                                    <li><b>Nom</b> (ex: CPI YoY, NFP, GDP Q1...)</li>
+                                    <li><b>Impact</b> : ↑ haussier · = neutre · ↓ baissier</li>
+                                </ul>
+                            </div>
+
+                            <div class="score-help-section">
+                                <div class="score-help-title">2. CLASSEMENT COMPARATIF</div>
+                                <p>Score net = (nb ↑ − nb ↓) / nb total sur 14 jours. Affiché en % de −100 à +100 :</p>
+                                <ul>
+                                    <li><span class="up">+50% → +100%</span> : sentiment <b>haussier</b></li>
+                                    <li><span class="flat">−15% → +15%</span> : <b>neutre</b></li>
+                                    <li><span class="down">−100% → −50%</span> : sentiment <b>baissier</b></li>
+                                </ul>
+                                <p>Les barres sont triées du plus haussier (haut) au plus baissier (bas).</p>
+                            </div>
+
+                            <div class="score-help-section">
+                                <div class="score-help-title">3. VUE PAR DEVISE</div>
+                                <p>Carte récap pour chaque G8 : score %, biais (Haussier / Neutre / Baissier), et compteur ↑ = ↓ sur la fenêtre.</p>
+                            </div>
+
+                            <div class="score-help-section">
+                                <div class="score-help-title">4. HISTORIQUE & FILTRES</div>
+                                <p>Toutes les annonces sont listées par date décroissante. Filtre par devise, catégorie, nom ou date. Supprime à la volée avec ×.</p>
+                            </div>
+
+                            <div class="score-help-section">
+                                <div class="score-help-title">5. SAUVEGARDE</div>
+                                <p>Toutes les annonces sont sauvegardées dans le <b>localStorage</b> du navigateur (clé <code>pl_score_events</code>). Rien n'est envoyé sur internet. <b>Reset</b> efface tout. <b>Export PDF</b> génère un rapport imprimable.</p>
+                            </div>
+
+                            <div class="score-help-section">
+                                <div class="score-help-title">★ MÉTHODE</div>
+                                <p>Ce module complète le <b>scoring quantitatif</b> de la page MACRO (qui note des chiffres bruts via des seuils Excel). Ici on note du <b>qualitatif</b> : le marché a-t-il interprété l'annonce comme positive ou négative pour la devise ? Très utile pour capter le <i>narrative</i> court terme que les seuils numériques ratent.</p>
+                            </div>
+
+                        </div>
+                    </section>
+                </aside>
+
+            </div>
+
+            <!-- Modal d'ajout d'annonce -->
+            <div class="score-modal" id="score-modal">
+                <div class="score-modal-inner">
+                    <div class="score-modal-head">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2 id="score-modal-title">AJOUTER UNE ANNONCE</h2>
+                        </div>
+                        <button class="action-btn" id="score-modal-close">CLOSE ×</button>
+                    </div>
+                    <div class="score-modal-body">
+                        <div class="score-form-row">
+                            <label class="score-form-label">DATE</label>
+                            <input type="date" id="score-form-date" class="score-input">
+                        </div>
+                        <div class="score-form-row">
+                            <label class="score-form-label">DEVISE</label>
+                            <select id="score-form-ccy" class="score-select">
+                                <option value="EUR">EUR</option>
+                                <option value="USD">USD</option>
+                                <option value="GBP">GBP</option>
+                                <option value="JPY">JPY</option>
+                                <option value="CAD">CAD</option>
+                                <option value="AUD">AUD</option>
+                                <option value="NZD">NZD</option>
+                                <option value="CHF">CHF</option>
+                            </select>
+                        </div>
+                        <div class="score-form-row">
+                            <label class="score-form-label">CATÉGORIE</label>
+                            <select id="score-form-cat" class="score-select">
+                                <option value="Inflation">Inflation</option>
+                                <option value="Emploi">Emploi</option>
+                                <option value="Croissance">Croissance</option>
+                                <option value="Banque centrale">Banque centrale</option>
+                                <option value="PMI / Activité">PMI / Activité</option>
+                                <option value="Consommation">Consommation</option>
+                                <option value="Commerce">Commerce</option>
+                                <option value="Politique">Politique</option>
+                                <option value="Autre">Autre</option>
+                            </select>
+                        </div>
+                        <div class="score-form-row">
+                            <label class="score-form-label">NOM</label>
+                            <input type="text" id="score-form-name" class="score-input" placeholder="ex: CPI YoY, NFP, GDP Q1...">
+                        </div>
+                        <div class="score-form-row">
+                            <label class="score-form-label">IMPACT</label>
+                            <div class="score-impact-choice">
+                                <button type="button" class="score-impact-btn impact-up" data-impact="up">↑ HAUSSIER</button>
+                                <button type="button" class="score-impact-btn impact-flat" data-impact="flat">= NEUTRE</button>
+                                <button type="button" class="score-impact-btn impact-down" data-impact="down">↓ BAISSIER</button>
+                            </div>
+                        </div>
+                        <div class="score-form-row">
+                            <label class="score-form-label">NOTE (optionnel)</label>
+                            <textarea id="score-form-note" class="score-input" rows="2" placeholder="Contexte, réaction du marché..."></textarea>
+                        </div>
+                        <div class="score-form-actions">
+                            <button class="action-btn" id="score-form-cancel">ANNULER</button>
+                            <button class="action-btn primary" id="score-form-save">✓ ENREGISTRER</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ============================================
              PAGE FX — Forex
              ============================================ -->
         <div class="page" id="page-fx">
@@ -652,7 +896,7 @@
     </main>
 
     <footer class="terminal-footer">
-        <span>PL Terminal v0.3 — HOME · CB · MACRO · FX · NEWS · CAL</span>
+        <span>PL Terminal v0.4 — HOME · CB · MACRO · SCORE · FX · NEWS · CAL</span>
         <span>Data: FRED + Finnhub + TradingView + FinancialJuice</span>
     </footer>
 
