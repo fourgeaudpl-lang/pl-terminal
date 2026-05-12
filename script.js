@@ -383,6 +383,7 @@ function editMacroCell(cell) {
     renderScoring();
     renderCarryMatrix();
     renderRanking();
+    if (typeof renderScanAll === 'function') renderScanAll();
 }
 
 function setupEditableText() {
@@ -457,6 +458,7 @@ function importMacroCSV(file) {
         renderScoring();
         renderCarryMatrix();
         renderRanking();
+        if (typeof renderScanAll === 'function') renderScanAll();
         alert(`Imported ${imported} values from CSV`);
     };
     reader.readAsText(file);
@@ -786,6 +788,7 @@ async function fetchAllData() {
         renderScoring();
         renderCarryMatrix();
         renderRanking();
+        if (typeof renderScanAll === 'function') renderScanAll();
         setStatus('live', 'live');
     } catch (e) {
         console.error('Fetch error:', e);
@@ -1172,10 +1175,491 @@ function setupScoreEvents() {
 }
 
 // ============================================
-// PAGE NAVIGATION (7 pages: home / cb / macro / score / fx / news / cal)
+// MODULE SCAN — FX Pair Scanner
+// Calcule auto BUY/SELL/NEUTRAL pour 28 paires à partir de MACRO data
+// Adj bps = (taux_base - taux_quote) * 25 + (score_pondéré_base - score_pondéré_quote) * 10
+//        ± modificateur Risk Sentiment selon devise (refuge / risk-on)
+// ============================================
+
+const SCAN_RS_KEY = 'pl_scan_risk_sentiment'; // 0-100, saisi par l'utilisateur
+
+// Métadonnées CB par devise (drapeau + abréviation)
+const SCAN_CCY_META = {
+    USD: { flag: '🇺🇸', cb: 'FED'  },
+    EUR: { flag: '🇪🇺', cb: 'ECB'  },
+    GBP: { flag: '🇬🇧', cb: 'BOE'  },
+    JPY: { flag: '🇯🇵', cb: 'BOJ'  },
+    CAD: { flag: '🇨🇦', cb: 'BOC'  },
+    AUD: { flag: '🇦🇺', cb: 'RBA'  },
+    NZD: { flag: '🇳🇿', cb: 'RBNZ' },
+    CHF: { flag: '🇨🇭', cb: 'SNB'  }
+};
+
+// 28 paires G10 organisées par catégorie pour les filtres
+const SCAN_PAIRS = [
+    // Majeurs (7)
+    { base: 'EUR', quote: 'USD', cat: 'majors' },
+    { base: 'GBP', quote: 'USD', cat: 'majors' },
+    { base: 'USD', quote: 'JPY', cat: 'majors' },
+    { base: 'USD', quote: 'CHF', cat: 'majors' },
+    { base: 'AUD', quote: 'USD', cat: 'majors' },
+    { base: 'NZD', quote: 'USD', cat: 'majors' },
+    { base: 'USD', quote: 'CAD', cat: 'majors' },
+
+    // EUR Crosses (6)
+    { base: 'EUR', quote: 'GBP', cat: 'eur' },
+    { base: 'EUR', quote: 'JPY', cat: 'eur' },
+    { base: 'EUR', quote: 'CHF', cat: 'eur' },
+    { base: 'EUR', quote: 'AUD', cat: 'eur' },
+    { base: 'EUR', quote: 'NZD', cat: 'eur' },
+    { base: 'EUR', quote: 'CAD', cat: 'eur' },
+
+    // GBP Crosses (5)
+    { base: 'GBP', quote: 'JPY', cat: 'gbp' },
+    { base: 'GBP', quote: 'CHF', cat: 'gbp' },
+    { base: 'GBP', quote: 'AUD', cat: 'gbp' },
+    { base: 'GBP', quote: 'NZD', cat: 'gbp' },
+    { base: 'GBP', quote: 'CAD', cat: 'gbp' },
+
+    // AUD/NZD crosses (4)
+    { base: 'AUD', quote: 'JPY', cat: 'audnzd' },
+    { base: 'AUD', quote: 'CHF', cat: 'audnzd' },
+    { base: 'AUD', quote: 'NZD', cat: 'audnzd' },
+    { base: 'AUD', quote: 'CAD', cat: 'audnzd' },
+
+    // NZD complementary (3)
+    { base: 'NZD', quote: 'JPY', cat: 'audnzd' },
+    { base: 'NZD', quote: 'CHF', cat: 'audnzd' },
+    { base: 'NZD', quote: 'CAD', cat: 'audnzd' },
+
+    // JPY/CHF (3)
+    { base: 'CAD', quote: 'JPY', cat: 'jpychf' },
+    { base: 'CAD', quote: 'CHF', cat: 'jpychf' },
+    { base: 'CHF', quote: 'JPY', cat: 'jpychf' }
+];
+
+// Volatilité moyenne approximative par paire pour la note de risque (1-10)
+// Basée sur l'ATR daily relatif. Affiné pour matcher l'expérience trader.
+const SCAN_PAIR_VOL = {
+    'EUR/USD': 4, 'GBP/USD': 5, 'USD/JPY': 6, 'USD/CHF': 4, 'AUD/USD': 5,
+    'NZD/USD': 5, 'USD/CAD': 4, 'EUR/GBP': 3, 'EUR/JPY': 6, 'EUR/CHF': 4,
+    'EUR/AUD': 6, 'EUR/NZD': 7, 'EUR/CAD': 5, 'GBP/JPY': 7, 'GBP/CHF': 6,
+    'GBP/AUD': 7, 'GBP/NZD': 8, 'GBP/CAD': 6, 'AUD/JPY': 7, 'AUD/CHF': 6,
+    'AUD/NZD': 4, 'AUD/CAD': 5, 'NZD/JPY': 7, 'NZD/CHF': 6, 'NZD/CAD': 5,
+    'CAD/JPY': 6, 'CAD/CHF': 5, 'CHF/JPY': 6
+};
+
+// Devises favorisées / pénalisées selon Risk Sentiment
+const SCAN_RISKON_FAVORED  = ['AUD', 'NZD'];
+const SCAN_RISKOFF_FAVORED = ['JPY', 'CHF', 'USD'];
+
+// État scan
+let scanFilter = 'all';
+let scanSearch = '';
+let scanDetailPair = null; // pour le modal
+
+// ---- Récupérer le score pondéré d'une devise (depuis MACRO) ----
+function scanGetWeightedScore(ccy) {
+    let p = 0;
+    SCORING_FACTORS.forEach(f => {
+        p += getFactorValue(f.id, ccy) * f.weight;
+    });
+    return p;
+}
+
+// ---- Risk Sentiment (0-100, persisté localStorage) ----
+function scanGetRiskSentiment() {
+    const raw = localStorage.getItem(SCAN_RS_KEY);
+    if (raw === null) return 50; // neutre par défaut
+    const n = parseInt(raw, 10);
+    return isNaN(n) ? 50 : Math.max(0, Math.min(100, n));
+}
+
+function scanSetRiskSentiment(val) {
+    const v = Math.max(0, Math.min(100, parseInt(val, 10)));
+    if (isNaN(v)) return;
+    localStorage.setItem(SCAN_RS_KEY, String(v));
+}
+
+function scanRSLabel(rs) {
+    if (rs >= 70) return { label: 'Risk-On', cls: 'up', mood: 'Greed' };
+    if (rs >= 55) return { label: 'Risk-On', cls: 'up', mood: 'Mild Greed' };
+    if (rs >= 45) return { label: 'Neutral', cls: 'flat', mood: 'Neutral' };
+    if (rs >= 30) return { label: 'Risk-Off', cls: 'down', mood: 'Mild Fear' };
+    return { label: 'Risk-Off', cls: 'down', mood: 'Fear' };
+}
+
+function scanRSInterpretation(rs) {
+    if (rs >= 60) return { mood: 'Risk-On', text: 'Favorise AUD, NZD | Défavorable JPY, CHF, USD (partiel)', cls: '' };
+    if (rs >= 40) return { mood: 'Neutral', text: 'Pas de biais dominant — privilégier les fondamentaux', cls: 'neutral' };
+    return { mood: 'Risk-Off', text: 'Favorise JPY, CHF, USD | Défavorable AUD, NZD', cls: 'risk-off' };
+}
+
+// ---- Modificateur Risk Sentiment (en bps) ----
+// Plus on est "Risk-On" plus on bonifie AUD/NZD et pénalise JPY/CHF/USD
+// Échelle ±25 bps max à RS=100/0
+function scanRSModifier(ccy, rs) {
+    const deviation = (rs - 50) / 50; // -1 (Risk-Off total) → +1 (Risk-On total)
+    const intensity = 25;
+    if (SCAN_RISKON_FAVORED.includes(ccy))  return  deviation * intensity;
+    if (SCAN_RISKOFF_FAVORED.includes(ccy)) return -deviation * intensity;
+    return 0;
+}
+
+// ---- Calcul Adj bps d'une paire ----
+// Formule :
+//   carry component = (rate_base - rate_quote) * 25 bps (1% diff = 25 bps de signal)
+//   macro component = (score_base - score_quote) * 10  (les scores pondérés vont de -17 à +17)
+//   rs component    = mod_RS(base) - mod_RS(quote)
+//   total bps = carry + macro + rs
+function scanComputePair(p) {
+    const rs = scanGetRiskSentiment();
+    const rb = getCurrentRate(p.base);
+    const rq = getCurrentRate(p.quote);
+    const sb = scanGetWeightedScore(p.base);
+    const sq = scanGetWeightedScore(p.quote);
+
+    // Si pas de données du tout → null
+    const hasData = (rb !== null || rq !== null || sb !== 0 || sq !== 0);
+    if (!hasData) return null;
+
+    const carry  = ((rb || 0) - (rq || 0)) * 25;
+    const macro  = (sb - sq) * 10;
+    const rsMod  = scanRSModifier(p.base, rs) - scanRSModifier(p.quote, rs);
+    const adj    = carry + macro + rsMod;
+
+    // Note de risque 1-10
+    const baseVol = SCAN_PAIR_VOL[p.base + '/' + p.quote] || 5;
+    const absAdj = Math.abs(adj);
+    // bonus risque si le différentiel est très élevé (>60bps)
+    const risk = Math.min(10, Math.max(1, baseVol + (absAdj > 60 ? 1 : 0) + (absAdj > 100 ? 1 : 0)));
+
+    // Signal selon seuil
+    let signal = 'neutral';
+    if (adj >=  20) signal = 'buy';
+    if (adj <= -20) signal = 'sell';
+
+    return {
+        pair: p.base + '/' + p.quote,
+        base: p.base, quote: p.quote, cat: p.cat,
+        rb, rq, sb, sq,
+        carry, macro, rsMod, adj,
+        risk, signal, rs
+    };
+}
+
+// ---- Render header (titre + Risk Sentiment) ----
+function renderScanHeader() {
+    const rs = scanGetRiskSentiment();
+    const rsLabel = scanRSLabel(rs);
+
+    const numEl = document.getElementById('scan-rs-num');
+    const labelEl = document.getElementById('scan-rs-label');
+    const moodEl = document.getElementById('scan-rs-mood');
+    const inputEl = document.getElementById('scan-rs-input');
+
+    if (numEl) numEl.textContent = rs;
+    if (labelEl) {
+        labelEl.textContent = rsLabel.label;
+        labelEl.className = rsLabel.cls;
+    }
+    if (moodEl) moodEl.textContent = rsLabel.mood;
+    if (inputEl && document.activeElement !== inputEl) inputEl.value = rs;
+
+    // Bandeau interprétation
+    const banner = document.getElementById('scan-rs-banner');
+    const bannerMood = document.getElementById('scan-rs-banner-mood');
+    const bannerText = document.getElementById('scan-rs-banner-text');
+    const interp = scanRSInterpretation(rs);
+
+    if (banner) {
+        banner.classList.remove('risk-off', 'neutral');
+        if (interp.cls) banner.classList.add(interp.cls);
+    }
+    if (bannerMood) bannerMood.textContent = `${interp.mood} — ${rs}/100`;
+    if (bannerText)  bannerText.textContent = interp.text;
+}
+
+// ---- Render Best Edge Top 5 ----
+function renderScanEdge(results) {
+    const list = document.getElementById('scan-edge-list');
+    if (!list) return;
+
+    const validResults = results.filter(r => r !== null);
+    if (validResults.length === 0) {
+        list.innerHTML = '<span class="scan-edge-empty">Saisir des valeurs dans MACRO pour activer le scanner</span>';
+        return;
+    }
+
+    // Top 5 par |adj| descendant
+    const top5 = validResults.slice().sort((a, b) => Math.abs(b.adj) - Math.abs(a.adj)).slice(0, 5);
+    list.innerHTML = top5.map(r => {
+        const cls = r.adj > 0 ? 'pos' : r.adj < 0 ? 'neg' : '';
+        const sign = r.adj > 0 ? '+' : '';
+        return `<div class="scan-edge-item" data-pair="${r.pair}">
+            <span class="se-pair">${r.pair}</span>
+            <span class="se-bps ${cls}">${sign}${r.adj.toFixed(1)} bps</span>
+        </div>`;
+    }).join('');
+
+    list.querySelectorAll('[data-pair]').forEach(el => {
+        el.addEventListener('click', () => openScanDetail(el.dataset.pair));
+    });
+}
+
+// ---- Render grille des cartes ----
+function renderScanGrid(results) {
+    const grid = document.getElementById('scan-pair-grid');
+    const countEl = document.getElementById('scan-pair-count');
+    if (!grid) return;
+
+    const validResults = results.filter(r => r !== null);
+    if (countEl) countEl.textContent = validResults.length;
+
+    if (validResults.length === 0) {
+        grid.innerHTML = '<div class="scan-empty-state">Saisir des données dans <b>MACRO</b> pour calculer le scanner (au minimum les taux directeurs).</div>';
+        return;
+    }
+
+    // Filtre catégorie
+    let filtered = validResults;
+    if (scanFilter !== 'all') {
+        filtered = filtered.filter(r => r.cat === scanFilter);
+    }
+    // Filtre recherche
+    const q = scanSearch.trim().toLowerCase().replace(/\s/g, '');
+    if (q) {
+        filtered = filtered.filter(r =>
+            r.pair.toLowerCase().replace('/', '').includes(q) ||
+            r.base.toLowerCase().includes(q) ||
+            r.quote.toLowerCase().includes(q)
+        );
+    }
+
+    if (filtered.length === 0) {
+        grid.innerHTML = '<div class="scan-empty-state">Aucune paire ne correspond aux filtres.</div>';
+        return;
+    }
+
+    grid.innerHTML = filtered.map(r => renderScanCard(r)).join('');
+
+    // Click → modal détail
+    grid.querySelectorAll('.scan-pair-card').forEach(card => {
+        card.addEventListener('click', () => openScanDetail(card.dataset.pair));
+    });
+}
+
+function renderScanCard(r) {
+    const baseMeta = SCAN_CCY_META[r.base];
+    const quoteMeta = SCAN_CCY_META[r.quote];
+
+    const sbCls = r.sb > 0 ? 'pos' : r.sb < 0 ? 'neg' : '';
+    const sqCls = r.sq > 0 ? 'pos' : r.sq < 0 ? 'neg' : '';
+    const sbStr = (r.sb > 0 ? '+' : '') + r.sb.toFixed(1);
+    const sqStr = (r.sq > 0 ? '+' : '') + r.sq.toFixed(1);
+
+    const adjCls = r.adj > 0 ? 'pos' : r.adj < 0 ? 'neg' : 'flat';
+    const adjSign = r.adj > 0 ? '+' : '';
+
+    let signalLabel = '— NEUTRAL';
+    let signalCls = 'neutral';
+    if (r.signal === 'buy')  { signalLabel = '↗ BUY';  signalCls = 'buy'; }
+    if (r.signal === 'sell') { signalLabel = '↘ SELL'; signalCls = 'sell'; }
+
+    // Note de risque : ▲ rouge si ≥7, ▲ jaune si 5-6, ▲ vert si ≤4, — si 5 sans biais
+    let riskIcon = '▲', riskIconCls = 'low';
+    if (r.risk >= 7) riskIconCls = 'high';
+    else if (r.risk >= 5) riskIconCls = 'med';
+    if (r.risk === 5 && Math.abs(r.adj) < 30) { riskIcon = '—'; riskIconCls = ''; }
+
+    return `
+        <div class="scan-pair-card signal-${signalCls}" data-pair="${r.pair}">
+            <div class="spc-head">
+                <span class="spc-pair">${r.pair}</span>
+                <span class="spc-signal ${signalCls}">${signalLabel}</span>
+            </div>
+            <div class="spc-comparison">
+                <span class="spc-cb-block">
+                    <span class="spc-cb-flag">${baseMeta.flag}</span>
+                    <span class="spc-cb-name">${baseMeta.cb}</span>
+                    <span class="spc-cb-score ${sbCls}">${sbStr}</span>
+                </span>
+                <span class="spc-vs">vs</span>
+                <span class="spc-cb-block">
+                    <span class="spc-cb-flag">${quoteMeta.flag}</span>
+                    <span class="spc-cb-name">${quoteMeta.cb}</span>
+                    <span class="spc-cb-score ${sqCls}">${sqStr}</span>
+                </span>
+            </div>
+            <div class="spc-metrics">
+                <span class="spc-adj ${adjCls}">
+                    <span class="spc-adj-label">Adj:</span>${adjSign}${r.adj.toFixed(1)} bps
+                </span>
+                <span class="spc-risk">
+                    <span class="spc-risk-label">Risk</span>
+                    <span class="spc-risk-icon ${riskIconCls}">${riskIcon}</span>
+                    <span class="spc-risk-value">${r.risk}/10</span>
+                </span>
+            </div>
+            <div class="spc-cta">Cliquer pour analyse complète →</div>
+        </div>
+    `;
+}
+
+// ---- Render tout ----
+function renderScanAll() {
+    renderScanHeader();
+    const results = SCAN_PAIRS.map(scanComputePair);
+    renderScanEdge(results);
+    renderScanGrid(results);
+}
+
+// ---- Modal détail complet ----
+function openScanDetail(pairStr) {
+    const [base, quote] = pairStr.split('/');
+    const pairDef = SCAN_PAIRS.find(p => p.base === base && p.quote === quote);
+    if (!pairDef) return;
+    const r = scanComputePair(pairDef);
+    if (!r) return;
+
+    scanDetailPair = pairStr;
+    document.getElementById('scan-detail-title').textContent = `${r.pair} — ANALYSE COMPLÈTE`;
+
+    let signalLabel = '— NEUTRAL';
+    if (r.signal === 'buy')  signalLabel = '↗ BUY';
+    if (r.signal === 'sell') signalLabel = '↘ SELL';
+    const adjSign = r.adj > 0 ? '+' : '';
+    const rsInterp = scanRSInterpretation(r.rs);
+
+    const baseMeta = SCAN_CCY_META[base];
+    const quoteMeta = SCAN_CCY_META[quote];
+    const baseBias = biasFromScore(r.sb);
+    const quoteBias = biasFromScore(r.sq);
+
+    document.getElementById('scan-detail-body').innerHTML = `
+        <div class="sd-section">
+            <div class="sd-big-signal ${r.signal}">
+                ${signalLabel}
+                <span class="sd-bps-big">${adjSign}${r.adj.toFixed(1)} bps</span>
+            </div>
+        </div>
+
+        <div class="sd-section">
+            <div class="sd-section-title">DÉCOMPOSITION DU SIGNAL</div>
+            <div class="sd-row"><span class="sd-key">Carry (taux directeur)</span><span class="sd-val ${r.carry > 0 ? 'pos' : r.carry < 0 ? 'neg' : ''}">${r.carry > 0 ? '+' : ''}${r.carry.toFixed(1)} bps</span></div>
+            <div class="sd-row"><span class="sd-key">Macro (score pondéré)</span><span class="sd-val ${r.macro > 0 ? 'pos' : r.macro < 0 ? 'neg' : ''}">${r.macro > 0 ? '+' : ''}${r.macro.toFixed(1)} bps</span></div>
+            <div class="sd-row"><span class="sd-key">Risk Sentiment (${r.rs}/100)</span><span class="sd-val ${r.rsMod > 0 ? 'pos' : r.rsMod < 0 ? 'neg' : ''}">${r.rsMod > 0 ? '+' : ''}${r.rsMod.toFixed(1)} bps</span></div>
+            <div class="sd-row" style="border-top:1px solid var(--border); margin-top:6px; padding-top:8px;"><span class="sd-key"><b style="color:var(--accent);">TOTAL ADJUSTED</b></span><span class="sd-val ${r.adj > 0 ? 'pos' : r.adj < 0 ? 'neg' : ''}"><b>${adjSign}${r.adj.toFixed(1)} bps</b></span></div>
+        </div>
+
+        <div class="sd-section">
+            <div class="sd-section-title">${baseMeta.flag} ${base} (BASE)</div>
+            <div class="sd-row"><span class="sd-key">Banque centrale</span><span class="sd-val">${baseMeta.cb}</span></div>
+            <div class="sd-row"><span class="sd-key">Taux directeur</span><span class="sd-val">${r.rb !== null ? r.rb.toFixed(2) + '%' : '—'}</span></div>
+            <div class="sd-row"><span class="sd-key">Score pondéré macro</span><span class="sd-val ${r.sb > 0 ? 'pos' : r.sb < 0 ? 'neg' : ''}">${r.sb > 0 ? '+' : ''}${r.sb.toFixed(2)}</span></div>
+            <div class="sd-row"><span class="sd-key">Biais</span><span class="sd-val">${baseBias.label}</span></div>
+        </div>
+
+        <div class="sd-section">
+            <div class="sd-section-title">${quoteMeta.flag} ${quote} (QUOTE)</div>
+            <div class="sd-row"><span class="sd-key">Banque centrale</span><span class="sd-val">${quoteMeta.cb}</span></div>
+            <div class="sd-row"><span class="sd-key">Taux directeur</span><span class="sd-val">${r.rq !== null ? r.rq.toFixed(2) + '%' : '—'}</span></div>
+            <div class="sd-row"><span class="sd-key">Score pondéré macro</span><span class="sd-val ${r.sq > 0 ? 'pos' : r.sq < 0 ? 'neg' : ''}">${r.sq > 0 ? '+' : ''}${r.sq.toFixed(2)}</span></div>
+            <div class="sd-row"><span class="sd-key">Biais</span><span class="sd-val">${quoteBias.label}</span></div>
+        </div>
+
+        <div class="sd-section">
+            <div class="sd-section-title">CONTEXTE DE RISQUE</div>
+            <div class="sd-row"><span class="sd-key">Risk Sentiment global</span><span class="sd-val">${rsInterp.mood} (${r.rs}/100)</span></div>
+            <div class="sd-row"><span class="sd-key">Interprétation</span><span class="sd-val" style="font-size:10px; text-align:right; max-width:60%;">${rsInterp.text}</span></div>
+            <div class="sd-row"><span class="sd-key">Volatilité de la paire</span><span class="sd-val">${r.risk}/10</span></div>
+        </div>
+
+        <div class="sd-section">
+            <div class="sd-section-title">MÉTHODOLOGIE</div>
+            <p style="color:var(--text-secondary); font-size:10.5px; line-height:1.6;">
+                Le différentiel ajusté combine 3 composantes :<br>
+                <b style="color:var(--accent);">Carry</b> = (taux ${base} − taux ${quote}) × 25 bps par point de %<br>
+                <b style="color:var(--accent);">Macro</b> = (score pondéré ${base} − score pondéré ${quote}) × 10<br>
+                <b style="color:var(--accent);">Risk Sentiment</b> = bonus/malus selon que ${base} et ${quote} sont des devises risk-on (AUD, NZD) ou refuge (JPY, CHF, USD).<br><br>
+                Signal généré si |Adj| ≥ 20 bps. NEUTRAL sinon.
+            </p>
+        </div>
+    `;
+
+    document.getElementById('scan-detail-modal').classList.add('open');
+}
+
+function closeScanDetail() {
+    document.getElementById('scan-detail-modal').classList.remove('open');
+    scanDetailPair = null;
+}
+
+// ---- Setup événements SCAN ----
+function setupScanEvents() {
+    // Filtres catégorie
+    document.querySelectorAll('.scan-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.scan-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            scanFilter = tab.dataset.filter;
+            renderScanAll();
+        });
+    });
+
+    // Recherche
+    const search = document.getElementById('scan-search');
+    if (search) {
+        search.addEventListener('input', e => {
+            scanSearch = e.target.value;
+            renderScanAll();
+        });
+    }
+
+    // Risk Sentiment input
+    const rsInput = document.getElementById('scan-rs-input');
+    const rsSave = document.getElementById('scan-rs-save');
+    if (rsInput && rsSave) {
+        rsSave.addEventListener('click', () => {
+            const v = rsInput.value.trim();
+            if (v === '') return;
+            scanSetRiskSentiment(v);
+            renderScanAll();
+        });
+        rsInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                rsSave.click();
+            }
+        });
+    }
+
+    // Refresh
+    const refresh = document.getElementById('scan-refresh');
+    if (refresh) refresh.addEventListener('click', renderScanAll);
+
+    // Modal close
+    const closeBtn = document.getElementById('scan-detail-close');
+    const modal = document.getElementById('scan-detail-modal');
+    if (closeBtn) closeBtn.addEventListener('click', closeScanDetail);
+    if (modal) {
+        modal.addEventListener('click', e => {
+            if (e.target.id === 'scan-detail-modal') closeScanDetail();
+        });
+    }
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            const m = document.getElementById('scan-detail-modal');
+            if (m && m.classList.contains('open')) closeScanDetail();
+        }
+    });
+}
+
+// ============================================
+// PAGE NAVIGATION (8 pages: home / cb / macro / score / scan / fx / news / cal)
 // HOME = page statique HTML — pas de logique JS associée
 // ============================================
-const PAGES = ['home', 'cb', 'macro', 'score', 'fx', 'news', 'cal'];
+const PAGES = ['home', 'cb', 'macro', 'score', 'scan', 'fx', 'news', 'cal'];
 
 function showPage(pageId) {
     if (!PAGES.includes(pageId)) pageId = 'home';
@@ -1207,6 +1691,12 @@ function showPage(pageId) {
     if (pageId === 'score') {
         setTimeout(() => {
             renderScoreAll();
+        }, 50);
+    }
+
+    if (pageId === 'scan') {
+        setTimeout(() => {
+            renderScanAll();
         }, 50);
     }
 
@@ -1243,6 +1733,8 @@ setupPeriodSelector();
 setupCSVButtons();
 setupEditableText();
 setupScoreEvents();
+setupScanEvents();
 renderScoreAll();
+renderScanAll();
 fetchAllData();
 setInterval(fetchAllData, 10 * 60 * 1000);
