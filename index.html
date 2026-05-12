@@ -94,6 +94,7 @@
             <a href="#macro" class="nav-link" data-page="macro">MACRO</a>
             <a href="#score" class="nav-link" data-page="score">SCORE</a>
             <a href="#scan" class="nav-link" data-page="scan">SCAN</a>
+            <a href="#pos" class="nav-link" data-page="pos">POS</a>
             <a href="#fx" class="nav-link" data-page="fx">FX</a>
             <a href="#news" class="nav-link" data-page="news">NEWS</a>
             <a href="#cal" class="nav-link" data-page="cal">CAL</a>
@@ -882,6 +883,49 @@
         </div>
 
         <!-- ============================================
+             PAGE POS — Retail Positioning (Myfxbook Community Outlook)
+             ============================================ -->
+        <div class="page" id="page-pos">
+
+            <section class="module" id="module-pos-main">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>RETAIL POSITIONING</h2>
+                        <span class="module-sub">COMMUNITY OUTLOOK · LIVE FROM MYFXBOOK</span>
+                    </div>
+                    <span class="module-source" id="pos-update">myfxbook.com</span>
+                </div>
+
+                <!-- Bandeau interprétation contrarian -->
+                <div class="pos-info-banner">
+                    💡 Le sentiment retail est un <b>indicateur contrarian</b> : quand &gt;70% des traders sont positionnés dans un sens, le marché va souvent à l'inverse. Cherche les paires avec un déséquilibre extrême.
+                </div>
+
+                <!-- Légende des signaux -->
+                <div class="pos-legend">
+                    <span class="pos-legend-item"><span class="pos-legend-dot up"></span> LONG &gt; SHORT (retail bullish)</span>
+                    <span class="pos-legend-item"><span class="pos-legend-dot down"></span> SHORT &gt; LONG (retail bearish)</span>
+                    <span class="pos-legend-item"><span class="pos-legend-dot extreme"></span> &gt;70% = signal contrarian fort</span>
+                </div>
+
+                <!-- Wrapper Myfxbook avec notre style -->
+                <div class="pos-myfxbook-wrapper">
+                    <div id="pos-myfxbook-container">
+                        <script class="powered" type="text/javascript"
+                                src="https://widgets.myfxbook.com/scripts/fxOutlook.js?type=1&symbols=,1,2,3,4,5,6,7,8,9,10,11,12,13,14,17,20,24,25,26,27,28,29,46,47,48,49,103,107"></script>
+                    </div>
+                </div>
+
+                <div class="module-footer">
+                    <a href="https://www.myfxbook.com" target="_blank" rel="noopener" class="pos-myfxbook-credit">Powered by Myfxbook.com</a>
+                    <span class="source-tag">28 paires</span>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- ============================================
              PAGE FX — Forex
              ============================================ -->
         <div class="page" id="page-fx">
@@ -1035,7 +1079,7 @@
     </main>
 
     <footer class="terminal-footer">
-        <span>PL Terminal v0.5 — HOME · CB · MACRO · SCORE · SCAN · FX · NEWS · CAL</span>
+        <span>PL Terminal v0.6 — HOME · CB · MACRO · SCORE · SCAN · POS · FX · NEWS · CAL</span>
         <span>Data: FRED + Finnhub + TradingView + FinancialJuice</span>
     </footer>
 
