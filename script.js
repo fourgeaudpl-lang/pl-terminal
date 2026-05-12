@@ -1656,10 +1656,216 @@ function setupScanEvents() {
 }
 
 // ============================================
-// PAGE NAVIGATION (8 pages: home / cb / macro / score / scan / fx / news / cal)
+// MODULE POS — Retail Positioning (Myfxbook Community Outlook)
+// Le widget Myfxbook injecte son HTML de manière asynchrone.
+// On observe le DOM et on repeint les couleurs natives (orange/bleu)
+// vers notre palette vert/rouge cohérente avec le reste du terminal.
+// ============================================
+
+const POS_GREEN = '#4ade80';
+const POS_RED   = '#f87171';
+const POS_YELLOW = '#fbbf24';
+const POS_FG    = '#0a0a0a'; // texte sur fond coloré (notre fond noir)
+const POS_BG_GREEN_ALPHA = 'rgba(74, 222, 128, 0.85)';
+const POS_BG_RED_ALPHA   = 'rgba(248, 113, 113, 0.85)';
+
+let posRepaintObserver = null;
+let posRepaintAttempts = 0;
+
+// Détecte si une couleur CSS est "orange-ish" (utilisé par Myfxbook pour SHORT/baissier)
+// Myfxbook utilise typiquement du #FF9900, #F90 ou similaires pour SHORT
+function posIsOrangish(color) {
+    if (!color) return false;
+    const c = color.toLowerCase();
+    // Hex orange
+    if (/^#(ff9[0-9a-f]{1,3}|f90|fa[0-9a-f]{0,3}|f[78][0-9a-f])/.test(c)) return true;
+    // rgb orange
+    const m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    if (m) {
+        const r = +m[1], g = +m[2], b = +m[3];
+        if (r > 200 && g > 100 && g < 200 && b < 80) return true;
+    }
+    return false;
+}
+
+// Détecte si une couleur est "blue-ish" (utilisé par Myfxbook pour LONG/haussier)
+function posIsBluish(color) {
+    if (!color) return false;
+    const c = color.toLowerCase();
+    if (/^#(0[0-9a-f]{2}|[0-3][0-9a-f]{2}[0-9a-f]{2})/.test(c)) {
+        // Plage du bleu : R bas, B haut
+        const m = c.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/);
+        if (m) {
+            const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
+            return b > 150 && r < 100;
+        }
+    }
+    const m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    if (m) {
+        const r = +m[1], g = +m[2], b = +m[3];
+        if (b > 150 && r < 100) return true;
+    }
+    return false;
+}
+
+// Heuristique pour identifier les barres LONG vs SHORT dans le widget Myfxbook
+// On parcourt le DOM en repaint mode
+function posRepaintColors() {
+    const container = document.getElementById('pos-myfxbook-container');
+    if (!container) return;
+
+    // 1) Repaint des éléments avec attribut bgcolor (vieille technique HTML)
+    container.querySelectorAll('[bgcolor]').forEach(el => {
+        const bg = (el.getAttribute('bgcolor') || '').toLowerCase();
+        if (posIsBluish(bg)) {
+            el.setAttribute('bgcolor', POS_GREEN);
+            el.style.backgroundColor = POS_GREEN;
+            el.style.color = POS_FG;
+        } else if (posIsOrangish(bg)) {
+            el.setAttribute('bgcolor', POS_RED);
+            el.style.backgroundColor = POS_RED;
+            el.style.color = POS_FG;
+        }
+    });
+
+    // 2) Repaint des éléments avec style inline background-color
+    container.querySelectorAll('[style*="background"]').forEach(el => {
+        const inlineStyle = el.getAttribute('style') || '';
+        // Capture toutes les déclarations background-color: XXX et background: XXX
+        let newStyle = inlineStyle;
+        let touched = false;
+
+        newStyle = newStyle.replace(
+            /background(-color)?\s*:\s*([^;]+)/gi,
+            (match, _g1, color) => {
+                const cleanColor = color.trim();
+                if (posIsBluish(cleanColor)) {
+                    touched = true;
+                    return `background-color: ${POS_GREEN}`;
+                }
+                if (posIsOrangish(cleanColor)) {
+                    touched = true;
+                    return `background-color: ${POS_RED}`;
+                }
+                return match;
+            }
+        );
+
+        if (touched) {
+            el.setAttribute('style', newStyle);
+            el.style.color = POS_FG;
+            el.style.fontWeight = '600';
+            el.style.fontFamily = "'SF Mono', Monaco, Consolas, monospace";
+        }
+    });
+
+    // 3) Repaint des couleurs de texte (chiffres %): leurs % LONG en bleu → vert,
+    //    leurs % SHORT en orange → rouge.
+    container.querySelectorAll('*').forEach(el => {
+        // On ne touche pas aux conteneurs avec enfants (sinon on casse les enfants)
+        if (el.children.length > 0) return;
+        const computedColor = el.style.color || '';
+        if (posIsBluish(computedColor)) {
+            el.style.color = POS_GREEN;
+            el.style.fontWeight = '500';
+        } else if (posIsOrangish(computedColor)) {
+            el.style.color = POS_RED;
+            el.style.fontWeight = '500';
+        }
+    });
+
+    // 4) Heuristique sémantique : si une cellule TD contient "%" et qu'elle est
+    //    dans une colonne "long" → vert. C'est plus fiable que d'attaquer les
+    //    couleurs car le texte est explicite.
+    //    On regarde les en-têtes du tableau pour mapper colonne → type.
+    const tables = container.querySelectorAll('table');
+    tables.forEach(table => {
+        const headerCells = table.querySelectorAll('tr:first-child th, tr:first-child td');
+        const colMap = []; // index colonne -> 'long' | 'short' | null
+        headerCells.forEach((th, i) => {
+            const txt = (th.textContent || '').toLowerCase();
+            if (txt.includes('long')) colMap[i] = 'long';
+            else if (txt.includes('short')) colMap[i] = 'short';
+            else colMap[i] = null;
+        });
+
+        // Si on a identifié au moins une colonne long/short, on peut colorier
+        if (colMap.some(c => c !== null)) {
+            const rows = table.querySelectorAll('tr');
+            rows.forEach((row, rowIdx) => {
+                if (rowIdx === 0) return; // skip header
+                const cells = row.querySelectorAll('td');
+                cells.forEach((cell, i) => {
+                    if (colMap[i] === 'long') {
+                        // Si la cellule contient % → vert, sinon laisse tel quel
+                        if (/\d+(\.\d+)?\s*%/.test(cell.textContent)) {
+                            cell.style.color = POS_GREEN;
+                            cell.style.fontWeight = '500';
+                        }
+                    } else if (colMap[i] === 'short') {
+                        if (/\d+(\.\d+)?\s*%/.test(cell.textContent)) {
+                            cell.style.color = POS_RED;
+                            cell.style.fontWeight = '500';
+                        }
+                    }
+                });
+            });
+        }
+    });
+}
+
+// Initialise l'observateur DOM pour repeindre dès que Myfxbook injecte
+function initPosRepaint() {
+    const container = document.getElementById('pos-myfxbook-container');
+    if (!container) return;
+
+    // Déconnecte un observer précédent éventuel
+    if (posRepaintObserver) {
+        posRepaintObserver.disconnect();
+        posRepaintObserver = null;
+    }
+
+    posRepaintAttempts = 0;
+
+    // 1) Tente le repaint immédiat (cas où le widget était déjà chargé)
+    posRepaintColors();
+
+    // 2) Observer les futures mutations (le widget Myfxbook charge async)
+    posRepaintObserver = new MutationObserver(mutations => {
+        // Throttle : on repaint au max toutes les 200ms
+        if (posRepaintAttempts < 30) {
+            posRepaintAttempts++;
+            posRepaintColors();
+        }
+    });
+
+    posRepaintObserver.observe(container, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['style', 'bgcolor']
+    });
+
+    // 3) Force un repaint après 1s, 3s et 5s pour être sûr (au cas où l'observer rate)
+    setTimeout(posRepaintColors, 1000);
+    setTimeout(posRepaintColors, 3000);
+    setTimeout(posRepaintColors, 5000);
+
+    // Mise à jour du timestamp dans le module-source
+    const updEl = document.getElementById('pos-update');
+    if (updEl) {
+        const now = new Date();
+        const hh = String(now.getUTCHours()).padStart(2, '0');
+        const mm = String(now.getUTCMinutes()).padStart(2, '0');
+        updEl.textContent = `myfxbook.com · ${hh}:${mm} GMT`;
+    }
+}
+
+// ============================================
+// PAGE NAVIGATION (9 pages: home / cb / macro / score / scan / pos / fx / news / cal)
 // HOME = page statique HTML — pas de logique JS associée
 // ============================================
-const PAGES = ['home', 'cb', 'macro', 'score', 'scan', 'fx', 'news', 'cal'];
+const PAGES = ['home', 'cb', 'macro', 'score', 'scan', 'pos', 'fx', 'news', 'cal'];
 
 function showPage(pageId) {
     if (!PAGES.includes(pageId)) pageId = 'home';
@@ -1698,6 +1904,12 @@ function showPage(pageId) {
         setTimeout(() => {
             renderScanAll();
         }, 50);
+    }
+
+    if (pageId === 'pos') {
+        setTimeout(() => {
+            initPosRepaint();
+        }, 100);
     }
 
     if (window.location.hash !== '#' + pageId) {
