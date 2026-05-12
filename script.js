@@ -7,13 +7,20 @@
 const CCYS = ['USD','EUR','GBP','JPY','CAD','AUD','NZD','CHF'];
 
 const CENTRAL_BANKS = [
-    { code: 'FED',  ccy: 'USD' },
-    { code: 'ECB',  ccy: 'EUR' },
-    { code: 'RBA',  ccy: 'AUD' },
-    { code: 'RBNZ', ccy: 'NZD' }
+    { code: 'FED',  ccy: 'USD', fred: 'DFEDTARU'        },
+    { code: 'ECB',  ccy: 'EUR', fred: 'ECBDFR'          },
+    { code: 'BOE',  ccy: 'GBP', fred: 'IUDSOIA'         },
+    { code: 'BOJ',  ccy: 'JPY', fred: 'INTDSRJPM193N'   },
+    { code: 'BOC',  ccy: 'CAD', fred: 'IRSTCB01CAM156N' },
+    { code: 'RBA',  ccy: 'AUD', fred: 'IRSTCB01AUM156N' },
+    { code: 'RBNZ', ccy: 'NZD', fred: 'IRSTCB01NZM156N' },
+    { code: 'SNB',  ccy: 'CHF', fred: 'INTDSRCHM193N'   }
 ];
 
-const CCY_TO_BANK = { USD: 'FED', EUR: 'ECB', AUD: 'RBA', NZD: 'RBNZ' };
+const CCY_TO_BANK = {
+    USD: 'FED', EUR: 'ECB', GBP: 'BOE', JPY: 'BOJ',
+    CAD: 'BOC', AUD: 'RBA', NZD: 'RBNZ', CHF: 'SNB'
+};
 
 const MACRO_INDICATORS = [
     { id: 'rate',          label: 'Taux directeur (%)',         decimals: 2 },
@@ -764,25 +771,159 @@ function renderRanking() {
 }
 
 // ============================================
-// FETCH ALL
+// FRED API VIA PROXY PUBLIC (CORS-friendly, sans clé)
+// proxy : https://fred.libhack.so/v0/observations
+// Récupère l'historique complet d'une série FRED depuis 2010
+// ============================================
+
+const FRED_PROXY_BASE = 'https://fred.libhack.so/v0/observations';
+const FRED_HISTORY_START = '2010-01-01'; // historique pertinent depuis 2010
+
+async function fetchFredSeries(seriesId) {
+    const url = `${FRED_PROXY_BASE}?series_id=${encodeURIComponent(seriesId)}&observation_start=${FRED_HISTORY_START}`;
+    try {
+        const res = await fetch(url);
+        if (!res.ok) {
+            console.warn(`FRED proxy returned ${res.status} for ${seriesId}`);
+            return null;
+        }
+        const data = await res.json();
+        if (!Array.isArray(data)) return null;
+        // Parse + nettoyer : FRED renvoie value="." pour les jours sans data
+        const cleaned = data
+            .map(d => ({ date: d.date, value: parseFloat(d.value) }))
+            .filter(d => !isNaN(d.value));
+        // Dédoublonner : ne garder que les changements de taux (sinon courbe identique tous les jours)
+        const compact = [];
+        let prev = null;
+        cleaned.forEach(d => {
+            if (prev === null || d.value !== prev) {
+                compact.push(d);
+                prev = d.value;
+            }
+        });
+        // Toujours garder le dernier point pour avoir la dernière date
+        if (cleaned.length > 0 && compact[compact.length - 1].date !== cleaned[cleaned.length - 1].date) {
+            compact.push(cleaned[cleaned.length - 1]);
+        }
+        return compact;
+    } catch (e) {
+        console.warn(`FRED fetch failed for ${seriesId}:`, e);
+        return null;
+    }
+}
+
+// Calcule le dernier changement de taux en bps depuis l'historique
+function computeLastChangeBp(history) {
+    if (!history || history.length < 2) return null;
+    const last = history[history.length - 1];
+    // Cherche le précédent point avec une valeur différente
+    for (let i = history.length - 2; i >= 0; i--) {
+        if (history[i].value !== last.value) {
+            return Math.round((last.value - history[i].value) * 100);
+        }
+    }
+    return 0;
+}
+
+// Récupère l'historique des 8 banques en parallèle via le proxy FRED
+async function fetchAllBanksHistoryFromFred() {
+    setStatus('connecting', 'fetching FRED history...');
+    const statusEl = document.getElementById('cb-fred-status');
+
+    const results = await Promise.all(
+        CENTRAL_BANKS.map(async bank => {
+            const history = await fetchFredSeries(bank.fred);
+            return { code: bank.code, ccy: bank.ccy, history };
+        })
+    );
+
+    let successCount = 0;
+    const banks = results.map(r => {
+        if (!r.history || r.history.length === 0) {
+            return { id: r.code, rate: null, asOf: null, lastChange: null, history: [] };
+        }
+        successCount++;
+        const last = r.history[r.history.length - 1];
+        return {
+            id: r.code,
+            rate: last.value,
+            asOf: last.date,
+            lastChange: computeLastChangeBp(r.history),
+            history: r.history
+        };
+    });
+
+    if (statusEl) {
+        if (successCount === CENTRAL_BANKS.length) {
+            statusEl.textContent = `✓ ${successCount}/${CENTRAL_BANKS.length} banks loaded`;
+            statusEl.className = 'source-tag ok';
+        } else if (successCount > 0) {
+            statusEl.textContent = `⚠ ${successCount}/${CENTRAL_BANKS.length} banks loaded`;
+            statusEl.className = 'source-tag partial';
+        } else {
+            statusEl.textContent = `✗ FRED proxy unreachable`;
+            statusEl.className = 'source-tag err';
+        }
+    }
+
+    return banks;
+}
+
+// Fusionne les données FRED (historique) avec /api/rates (si dispo) et /api/meetings
+function mergeBanksData(fredBanks, apiRates, meetings) {
+    // apiRates.banks peut contenir des données plus à jour ou des taux différents (BoE intraday, etc.)
+    // On utilise FRED en priorité pour l'historique, mais on prend le RATE actuel de /api/rates s'il est plus récent
+    const apiBanksById = {};
+    if (apiRates && Array.isArray(apiRates.banks)) {
+        apiRates.banks.forEach(b => apiBanksById[b.id] = b);
+    }
+
+    return fredBanks.map(fb => {
+        const apiB = apiBanksById[fb.id];
+        if (!apiB) return fb;
+        // Si /api/rates a un taux plus récent ou différent, on l'utilise pour la valeur courante
+        const apiDate = apiB.asOf ? new Date(apiB.asOf) : null;
+        const fredDate = fb.asOf ? new Date(fb.asOf) : null;
+        const useApi = apiDate && fredDate && apiDate > fredDate;
+        return {
+            id: fb.id,
+            rate: useApi ? apiB.rate : fb.rate,
+            asOf: useApi ? apiB.asOf : fb.asOf,
+            lastChange: apiB.lastChange != null ? apiB.lastChange : fb.lastChange,
+            // On garde l'historique FRED + on ajoute le point /api/rates s'il est plus récent
+            history: useApi && fb.history.length > 0
+                ? [...fb.history, { date: apiB.asOf, value: apiB.rate }]
+                : fb.history
+        };
+    });
+}
+
 // ============================================
 async function fetchAllData() {
     setStatus('connecting', 'fetching data...');
     try {
-        const [r1, r2, r3] = await Promise.all([
-            fetch('/api/rates'),
-            fetch('/api/meetings'),
-            fetch('/api/yields')
+        // 1) Fetch en parallèle : ton backend + meetings + yields + FRED history (proxy public)
+        const [apiRatesRes, meetingsRes, yieldsRes, fredBanks] = await Promise.all([
+            fetch('/api/rates').catch(() => null),
+            fetch('/api/meetings').catch(() => null),
+            fetch('/api/yields').catch(() => null),
+            fetchAllBanksHistoryFromFred()
         ]);
-        if (!r1.ok) throw new Error('Rates failed');
-        ratesData = await r1.json();
-        const meetings = r2.ok ? await r2.json() : {};
-        yieldsData = r3.ok ? await r3.json() : {};
+
+        const apiRates = (apiRatesRes && apiRatesRes.ok) ? await apiRatesRes.json() : null;
+        const meetings = (meetingsRes && meetingsRes.ok) ? await meetingsRes.json() : {};
+        yieldsData = (yieldsRes && yieldsRes.ok) ? await yieldsRes.json() : {};
+
+        // 2) Fusionne : FRED prioritaire pour l'historique, /api/rates pour les valeurs intraday plus récentes
+        const mergedBanks = mergeBanksData(fredBanks, apiRates, meetings);
+        ratesData = { banks: mergedBanks };
+
+        // 3) Render
         renderRatesTable(ratesData, meetings);
-        if (ratesData.banks) {
-            rateHistoryState.banks = ratesData.banks;
-            renderAllRateCharts();
-        }
+        rateHistoryState.banks = mergedBanks;
+        renderAllRateCharts();
+
         renderMacroTable();
         renderMacroCharts();
         renderScoring();
