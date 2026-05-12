@@ -335,7 +335,7 @@
                     <div class="module-title">
                         <span class="module-bullet"></span>
                         <h2>INTEREST RATES</h2>
-                        <span class="module-sub">G10 CENTRAL BANKS</span>
+                        <span class="module-sub">G8 CENTRAL BANKS · LIVE</span>
                     </div>
                     <span class="module-source">FRED + Finnhub</span>
                 </div>
@@ -356,7 +356,7 @@
                 </table>
                 <div class="module-footer">
                     <span id="last-update">last update: --</span>
-                    <span class="source-tag">4 banks tracked</span>
+                    <span class="source-tag">8 banks tracked</span>
                 </div>
             </section>
 
@@ -365,7 +365,7 @@
                     <div class="module-title">
                         <span class="module-bullet"></span>
                         <h2>RATE HISTORY</h2>
-                        <span class="module-sub">POLICY RATES</span>
+                        <span class="module-sub">POLICY RATES · G8</span>
                     </div>
                     <div class="period-selector">
                         <button class="period-btn" data-years="1">1Y</button>
@@ -374,7 +374,7 @@
                         <button class="period-btn" data-years="10">10Y</button>
                     </div>
                 </div>
-                <div class="rate-charts-grid">
+                <div class="rate-charts-grid rate-charts-grid-g8">
                     <div class="rate-chart-cell">
                         <div class="chart-label">
                             <span class="chart-bank">FED</span>
@@ -393,6 +393,30 @@
                     </div>
                     <div class="rate-chart-cell">
                         <div class="chart-label">
+                            <span class="chart-bank">BOE</span>
+                            <span class="chart-ccy">GBP</span>
+                            <span class="chart-current" id="chart-current-BOE">—</span>
+                        </div>
+                        <div class="chart-canvas-wrapper"><canvas id="chart-BOE"></canvas></div>
+                    </div>
+                    <div class="rate-chart-cell">
+                        <div class="chart-label">
+                            <span class="chart-bank">BOJ</span>
+                            <span class="chart-ccy">JPY</span>
+                            <span class="chart-current" id="chart-current-BOJ">—</span>
+                        </div>
+                        <div class="chart-canvas-wrapper"><canvas id="chart-BOJ"></canvas></div>
+                    </div>
+                    <div class="rate-chart-cell">
+                        <div class="chart-label">
+                            <span class="chart-bank">BOC</span>
+                            <span class="chart-ccy">CAD</span>
+                            <span class="chart-current" id="chart-current-BOC">—</span>
+                        </div>
+                        <div class="chart-canvas-wrapper"><canvas id="chart-BOC"></canvas></div>
+                    </div>
+                    <div class="rate-chart-cell">
+                        <div class="chart-label">
                             <span class="chart-bank">RBA</span>
                             <span class="chart-ccy">AUD</span>
                             <span class="chart-current" id="chart-current-RBA">—</span>
@@ -407,6 +431,18 @@
                         </div>
                         <div class="chart-canvas-wrapper"><canvas id="chart-RBNZ"></canvas></div>
                     </div>
+                    <div class="rate-chart-cell">
+                        <div class="chart-label">
+                            <span class="chart-bank">SNB</span>
+                            <span class="chart-ccy">CHF</span>
+                            <span class="chart-current" id="chart-current-SNB">—</span>
+                        </div>
+                        <div class="chart-canvas-wrapper"><canvas id="chart-SNB"></canvas></div>
+                    </div>
+                </div>
+                <div class="module-footer">
+                    <span>data: FRED + libhack.so proxy (CORS-friendly)</span>
+                    <span class="source-tag" id="cb-fred-status">loading...</span>
                 </div>
             </section>
 
