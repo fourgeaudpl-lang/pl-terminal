@@ -95,6 +95,7 @@
             <a href="#score" class="nav-link" data-page="score">SCORE</a>
             <a href="#scan" class="nav-link" data-page="scan">SCAN</a>
             <a href="#pos" class="nav-link" data-page="pos">POS</a>
+            <a href="#prob" class="nav-link" data-page="prob">PROB</a>
             <a href="#fx" class="nav-link" data-page="fx">FX</a>
             <a href="#news" class="nav-link" data-page="news">NEWS</a>
             <a href="#cal" class="nav-link" data-page="cal">CAL</a>
@@ -962,6 +963,99 @@
         </div>
 
         <!-- ============================================
+             PAGE PROB — Rate Probabilities (Polymarket + iframe RateProbability)
+             ============================================ -->
+        <div class="page" id="page-prob">
+
+            <!-- Header avec lien externe -->
+            <section class="module" id="module-prob-header">
+                <div class="prob-header-inner">
+                    <div>
+                        <h1 class="prob-title">RATE PROBABILITIES</h1>
+                        <div class="prob-subtitle">
+                            <span>Market-implied probabilities for upcoming central bank decisions</span>
+                            <span class="scan-sep">·</span>
+                            <span><b id="prob-last-update" class="up">--</b> updated</span>
+                        </div>
+                    </div>
+                    <div class="prob-header-right">
+                        <button class="action-btn" id="prob-refresh">↻ REFRESH</button>
+                        <a href="https://rateprobability.com" target="_blank" rel="noopener" class="action-btn primary">
+                            OPEN RATEPROBABILITY.COM →
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Module 1 : Polymarket Fed Decision Tracker -->
+            <section class="module" id="module-prob-polymarket">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>FED NEXT MEETING — POLYMARKET ODDS</h2>
+                        <span class="module-sub" id="prob-poly-meeting-label">FOMC · LIVE</span>
+                    </div>
+                    <span class="module-source">polymarket.com</span>
+                </div>
+                <div class="prob-info-banner">
+                    💡 Real-time probabilities from <b>Polymarket prediction markets</b>. Updated continuously as traders bet on the next FOMC decision. The higher the % the more market believes that outcome.
+                </div>
+                <div class="prob-poly-content" id="prob-poly-content">
+                    <div class="loading">Loading Polymarket data...</div>
+                </div>
+            </section>
+
+            <!-- Module 2 : Schedule G6 next meetings (chronologie) -->
+            <section class="module" id="module-prob-schedule">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>UPCOMING DECISIONS — G6 CENTRAL BANKS</h2>
+                        <span class="module-sub">CHRONOLOGICAL ORDER</span>
+                    </div>
+                    <span class="module-source">auto from CB data</span>
+                </div>
+                <div class="prob-schedule-list" id="prob-schedule-list">
+                    <div class="loading">Loading meeting schedule...</div>
+                </div>
+            </section>
+
+            <!-- Module 3 : Iframe RateProbability (essai d'embed) -->
+            <section class="module" id="module-prob-iframe">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>RATEPROBABILITY.COM — EMBEDDED VIEW</h2>
+                        <span class="module-sub">FULL DASHBOARD · MULTI-CB COMPARISON</span>
+                    </div>
+                    <span class="module-source">rateprobability.com</span>
+                </div>
+                <div class="prob-iframe-wrap">
+                    <div class="prob-iframe-fallback" id="prob-iframe-fallback">
+                        <div class="prob-fallback-icon">⊞</div>
+                        <div class="prob-fallback-title">External embedding may be blocked</div>
+                        <div class="prob-fallback-text">
+                            If you see a blank area below, RateProbability.com prevents being shown inside other websites for security reasons.<br>
+                            Use the button above to open the site in a new tab.
+                        </div>
+                        <a href="https://rateprobability.com" target="_blank" rel="noopener" class="action-btn primary" style="margin-top: 14px; display: inline-block;">
+                            OPEN IN NEW TAB →
+                        </a>
+                    </div>
+                    <iframe
+                        id="prob-iframe"
+                        src="https://rateprobability.com"
+                        title="RateProbability.com"
+                        loading="lazy"
+                        sandbox="allow-scripts allow-same-origin allow-popups"
+                        referrerpolicy="no-referrer">
+                    </iframe>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- ============================================
              PAGE FX — Forex
              ============================================ -->
         <div class="page" id="page-fx">
@@ -1115,7 +1209,7 @@
     </main>
 
     <footer class="terminal-footer">
-        <span>PL Terminal v0.6 — HOME · CB · MACRO · SCORE · SCAN · POS · FX · NEWS · CAL</span>
+        <span>PL Terminal v0.7 — HOME · CB · MACRO · SCORE · SCAN · POS · PROB · FX · NEWS · CAL</span>
         <span>Data: FRED + Finnhub + TradingView + FinancialJuice</span>
     </footer>
 
