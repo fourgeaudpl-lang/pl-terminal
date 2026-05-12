@@ -1067,3 +1067,475 @@ body {
 #financialjuice-eco-widget-container {
     min-height: 600px;
 }
+
+/* ===================================================================
+   ============================================
+   PAGE HOME — DASHBOARD PERSONNALISABLE
+   ============================================
+   =================================================================== */
+
+/* Toolbar haut de page */
+.home-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+}
+
+.home-toolbar-left {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+}
+
+.home-edit-label {
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+}
+
+.home-edit-hint {
+    color: var(--text-secondary);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+}
+
+.home-toolbar-right {
+    display: flex;
+    gap: 6px;
+}
+
+/* En mode édition, l'aide s'adapte */
+body.home-edit-mode .home-edit-label {
+    color: var(--yellow);
+}
+
+/* ============================================
+   GRILLE PRINCIPALE
+   ============================================ */
+
+.home-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 14px;
+    grid-auto-flow: dense;
+}
+
+/* Tailles de widgets */
+.home-widget[data-size="full"]   { grid-column: span 6; }
+.home-widget[data-size="large"]  { grid-column: span 4; }
+.home-widget[data-size="medium"] { grid-column: span 3; }
+.home-widget[data-size="small"]  { grid-column: span 2; }
+
+/* Réinitialise le margin-bottom des modules dans la grille */
+.home-grid .module {
+    margin-bottom: 0;
+}
+
+/* Widgets cachés (par défaut OU masqués par l'utilisateur) */
+.home-widget.hidden {
+    display: none !important;
+}
+
+/* ============================================
+   ÉLÉMENTS D'ÉDITION (overlay sur chaque widget)
+   ============================================ */
+
+.home-widget {
+    position: relative;
+}
+
+.widget-edit-overlay {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: none;
+    gap: 6px;
+    z-index: 10;
+    align-items: center;
+}
+
+.widget-drag-badge {
+    background: var(--accent);
+    color: var(--bg-primary);
+    font-size: 8px;
+    padding: 3px 7px;
+    letter-spacing: 1px;
+    font-weight: 700;
+    border-radius: 2px;
+    cursor: grab;
+    user-select: none;
+}
+
+.widget-drag-badge:active {
+    cursor: grabbing;
+}
+
+.widget-x-btn {
+    background: rgba(248, 113, 113, 0.12);
+    border: 1px solid var(--red);
+    color: var(--red);
+    width: 22px;
+    height: 22px;
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+    transition: all 0.1s;
+}
+
+.widget-x-btn:hover {
+    background: var(--red);
+    color: var(--bg-primary);
+}
+
+/* Mode édition activé */
+body.home-edit-mode .home-widget .widget-edit-overlay {
+    display: flex;
+}
+
+body.home-edit-mode .home-widget {
+    outline: 1px dashed rgba(255, 140, 0, 0.4);
+    outline-offset: -1px;
+    cursor: move;
+}
+
+body.home-edit-mode .home-widget:hover {
+    outline-color: var(--accent);
+}
+
+/* SortableJS classes */
+.sortable-ghost {
+    opacity: 0.4;
+    background: rgba(255, 140, 0, 0.08) !important;
+}
+
+.sortable-chosen {
+    box-shadow: 0 0 0 2px var(--accent);
+}
+
+.sortable-drag {
+    opacity: 0.95;
+}
+
+/* ============================================
+   CONTENUS DES WIDGETS HOME
+   ============================================ */
+
+/* Chart wrap (iframe TradingView) */
+.home-chart-wrap {
+    height: 380px;
+    background: var(--bg-primary);
+    position: relative;
+}
+
+.home-tv-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+}
+
+/* G10 Prices (iframe TV market overview) */
+.home-prices-wrap {
+    height: 380px;
+    background: var(--bg-primary);
+    overflow: hidden;
+}
+
+.home-prices-wrap iframe {
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
+}
+
+/* CCY Strength list (barres horizontales) */
+.home-strength-list {
+    padding: 10px 14px;
+    min-height: 280px;
+}
+
+.home-strength-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 7px 0;
+    font-size: 11px;
+}
+
+.home-strength-ccy {
+    color: var(--accent);
+    font-weight: 500;
+    width: 36px;
+    letter-spacing: 1px;
+}
+
+.home-strength-bar-bg {
+    flex: 1;
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 1px;
+    overflow: hidden;
+    position: relative;
+}
+
+.home-strength-bar-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.home-strength-score {
+    min-width: 42px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+}
+
+.home-strength-bias {
+    min-width: 90px;
+    text-align: center;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    padding: 2px 8px;
+    border-radius: 2px;
+}
+
+.home-strength-list .loading {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 30px;
+    font-style: italic;
+}
+
+/* Central Banks table (réutilise .rates-table mais compact) */
+.home-cb-table td {
+    padding: 7px 12px;
+    font-size: 11px;
+}
+
+.home-cb-table .bank-code {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.home-cb-table .rate-value {
+    color: var(--accent);
+    font-weight: 500;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.home-cb-table .next-date {
+    text-align: right;
+    color: var(--text-secondary);
+    font-size: 10px;
+}
+
+.home-cb-table .meeting-soon {
+    color: var(--yellow);
+}
+
+.home-cb-table .meeting-today {
+    color: var(--yellow);
+    font-weight: 600;
+}
+
+/* Events wrap (iframe TV calendar) */
+.home-events-wrap {
+    height: 320px;
+    background: var(--bg-primary);
+    overflow: hidden;
+}
+
+.home-events-wrap iframe {
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
+}
+
+/* News wrap (FJ news widget) */
+.home-news-wrap {
+    min-height: 320px;
+}
+
+/* Carry mini matrix (réutilise .carry-table) */
+.home-carry-table {
+    font-size: 10px;
+}
+
+.home-carry-table td,
+.home-carry-table th {
+    padding: 5px 7px;
+    font-size: 10px;
+}
+
+/* Ranking mini (compact) */
+.home-ranking-table td {
+    padding: 5px 8px;
+    font-size: 10px;
+}
+
+/* Heatmap wrap (iframe TV cross rates) */
+.home-heatmap-wrap {
+    min-height: 420px;
+    background: var(--bg-primary);
+    overflow: hidden;
+}
+
+.home-heatmap-wrap iframe {
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
+}
+
+/* ============================================
+   MODAL "ADD WIDGET"
+   ============================================ */
+
+.home-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.78);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+}
+
+.home-modal.open {
+    display: flex;
+}
+
+.home-modal-inner {
+    background: var(--bg-secondary);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    width: 92%;
+    max-width: 620px;
+    max-height: 82vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.home-modal-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border);
+}
+
+.home-modal-body {
+    padding: 12px;
+    overflow-y: auto;
+}
+
+.home-lib-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    margin-bottom: 6px;
+    background: var(--bg-primary);
+    transition: border-color 0.15s;
+}
+
+.home-lib-item:hover {
+    border-color: var(--accent);
+}
+
+.home-lib-info b {
+    color: var(--accent);
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.8px;
+    display: block;
+    margin-bottom: 3px;
+}
+
+.home-lib-info span {
+    color: var(--text-secondary);
+    font-size: 10px;
+}
+
+.home-lib-toggle {
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    border-radius: 2px;
+    cursor: pointer;
+    font-family: inherit;
+    border: 1px solid;
+    background: transparent;
+    transition: all 0.1s;
+}
+
+.home-lib-toggle.is-active {
+    color: var(--green);
+    border-color: var(--green);
+    background: rgba(74, 222, 128, 0.08);
+}
+
+.home-lib-toggle.is-active:hover {
+    color: var(--red);
+    border-color: var(--red);
+    background: rgba(248, 113, 113, 0.08);
+}
+
+.home-lib-toggle.is-inactive {
+    color: var(--text-secondary);
+    border-color: var(--border-strong);
+}
+
+.home-lib-toggle.is-inactive:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: rgba(255, 140, 0, 0.08);
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 1100px) {
+    .home-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+    .home-widget[data-size="full"]   { grid-column: span 4; }
+    .home-widget[data-size="large"]  { grid-column: span 4; }
+    .home-widget[data-size="medium"] { grid-column: span 2; }
+    .home-widget[data-size="small"]  { grid-column: span 2; }
+}
+
+@media (max-width: 700px) {
+    .home-grid {
+        grid-template-columns: 1fr;
+    }
+    .home-widget[data-size="full"],
+    .home-widget[data-size="large"],
+    .home-widget[data-size="medium"],
+    .home-widget[data-size="small"] {
+        grid-column: span 1;
+    }
+    .home-toolbar {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+    }
+}
