@@ -1,5 +1,5 @@
 /* ============================================
-   PL TERMINAL — Frontend logic (full + macro data)
+   PL TERMINAL — Frontend logic (full + macro data + HOME dashboard)
    Pure macro scoring — 6 factors
    ============================================ */
 
@@ -48,6 +48,7 @@ const MACRO_CHARTS = [
 let rateHistoryState = { banks: [], selectedYears: 5, chartInstances: {} };
 let yieldsData = {};
 let ratesData = {};
+let meetingsData = {};
 let macroState = {};
 let macroChartInstances = {};
 
@@ -318,6 +319,7 @@ function editMacroCell(cell) {
     renderScoring();
     renderCarryMatrix();
     renderRanking();
+    renderHomeWidgets();
 }
 
 function setupEditableText() {
@@ -392,6 +394,7 @@ function importMacroCSV(file) {
         renderScoring();
         renderCarryMatrix();
         renderRanking();
+        renderHomeWidgets();
         alert(`Imported ${imported} values from CSV`);
     };
     reader.readAsText(file);
@@ -582,6 +585,15 @@ function biasFromScore(s) {
     return { label: 'NEUTRAL', cls: 'bias-neutral' };
 }
 
+// Helper: score pondéré d'une devise (réutilisé par HOME)
+function getWeightedScore(ccy) {
+    let p = 0;
+    SCORING_FACTORS.forEach(f => {
+        p += getFactorValue(f.id, ccy) * f.weight;
+    });
+    return p;
+}
+
 function renderScoring() {
     const tbody = document.getElementById('scoring-tbody');
     if (!tbody) return;
@@ -703,6 +715,448 @@ function renderRanking() {
     tbody.innerHTML = html;
 }
 
+/* ====================================================================
+   ============================================
+   PAGE HOME — DASHBOARD PERSONNALISABLE
+   ============================================
+   ==================================================================== */
+
+const HOME_WIDGET_LIB = {
+    chart:    { name: 'EUR/USD Chart',      desc: 'Graphique TradingView temps réel',         defaultOn: true,  size: 'large' },
+    prices:   { name: 'G10 Prices',         desc: 'Vue marché TradingView (28 paires)',       defaultOn: true,  size: 'small' },
+    strength: { name: 'Currency Strength',  desc: 'Force relative des 8 devises (auto)',       defaultOn: true,  size: 'small' },
+    cb:       { name: 'Central Banks',      desc: 'Taux directeurs + prochaines réunions',     defaultOn: true,  size: 'small' },
+    events:   { name: 'Next Events',        desc: 'Calendrier économique mini (TradingView)',  defaultOn: true,  size: 'small' },
+    news:     { name: 'Live Headlines',     desc: 'Flux Financial Juice live',                 defaultOn: true,  size: 'full' },
+    carry:    { name: 'Carry Matrix',       desc: 'Différentiel de taux cross-CCY',            defaultOn: false, size: 'medium' },
+    ranking:  { name: 'Carry Ranking',      desc: 'Carry vs USD + pente courbe',               defaultOn: false, size: 'medium' },
+    dxy:      { name: 'DXY Index',          desc: 'Indice dollar TradingView',                 defaultOn: false, size: 'medium' },
+    gold:     { name: 'Gold',               desc: 'XAU/USD TradingView',                       defaultOn: false, size: 'medium' },
+    us10y:    { name: 'US 10Y Yield',       desc: 'Rendement US 10 ans',                       defaultOn: false, size: 'medium' },
+    voice:    { name: 'Voice News',         desc: 'Stream audio Financial Juice',              defaultOn: false, size: 'small' },
+    heatmap:  { name: 'FX Cross Rates',     desc: 'Matrice cross-rates TradingView',           defaultOn: false, size: 'full' }
+};
+
+let homeState = null;
+
+function getHomeDefaults() {
+    const active = {};
+    const order = [];
+    Object.keys(HOME_WIDGET_LIB).forEach(k => {
+        active[k] = HOME_WIDGET_LIB[k].defaultOn;
+        if (HOME_WIDGET_LIB[k].defaultOn) order.push(k);
+    });
+    return { active, order };
+}
+
+function loadHomeState() {
+    try {
+        const raw = localStorage.getItem('pl_home_layout');
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.active && parsed.order) return parsed;
+        }
+    } catch(e) { console.warn('Bad home state, using defaults'); }
+    return getHomeDefaults();
+}
+
+function saveHomeState() {
+    localStorage.setItem('pl_home_layout', JSON.stringify(homeState));
+}
+
+function applyHomeState() {
+    document.querySelectorAll('.home-widget').forEach(el => {
+        const w = el.dataset.widget;
+        if (homeState.active[w]) {
+            el.classList.remove('hidden');
+        } else {
+            el.classList.add('hidden');
+        }
+    });
+
+    // Réorganise l'ordre dans le grid
+    const grid = document.getElementById('home-grid');
+    if (grid && Array.isArray(homeState.order)) {
+        homeState.order.forEach(widgetId => {
+            const el = grid.querySelector(`[data-widget="${widgetId}"]`);
+            if (el) grid.appendChild(el); // déplace en fin (= ordre)
+        });
+        // Widgets non listés dans order (nouveaux ajouts) → restent à leur place
+    }
+}
+
+// --- Render des widgets HOME (utilise les données globales déjà fetchées) ---
+
+function renderHomeStrength() {
+    const el = document.getElementById('home-strength-list');
+    if (!el) return;
+
+    // Calcule scores + tri décroissant
+    const scores = CCYS.map(c => ({ ccy: c, score: getWeightedScore(c) }))
+                       .sort((a, b) => b.score - a.score);
+
+    const maxAbs = Math.max(...scores.map(s => Math.abs(s.score)), 1);
+
+    el.innerHTML = scores.map(s => {
+        const pct = Math.min(Math.abs(s.score) / maxAbs * 100, 100);
+        const color = s.score > 0.5 ? '#4ade80' : s.score < -0.5 ? '#f87171' : '#6b6b6b';
+        const cls = s.score > 0.5 ? 'pos-strong' : s.score < -0.5 ? 'neg-strong' : 'neutral';
+        const bias = biasFromScore(s.score);
+        return `<div class="home-strength-row">
+            <span class="home-strength-ccy">${s.ccy}</span>
+            <div class="home-strength-bar-bg"><div class="home-strength-bar-fill" style="width:${pct}%;background:${color};"></div></div>
+            <span class="home-strength-score ${cls}">${s.score > 0 ? '+' : ''}${s.score.toFixed(1)}</span>
+            <span class="home-strength-bias ${bias.cls}">${bias.label}</span>
+        </div>`;
+    }).join('');
+}
+
+function renderHomeCB() {
+    const tbody = document.getElementById('home-cb-tbody');
+    if (!tbody) return;
+    if (!ratesData.banks || ratesData.banks.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="loading">Waiting for data...</td></tr>';
+        return;
+    }
+    const banksById = {};
+    ratesData.banks.forEach(b => banksById[b.id] = b);
+    let html = '';
+    CENTRAL_BANKS.forEach(bank => {
+        const d = banksById[bank.code] || {};
+        const meet = meetingsData[bank.code] || null;
+        const days = daysUntil(meet);
+        const df = fmtDays(days);
+        const r = (d.rate !== null && d.rate !== undefined) ? Number(d.rate).toFixed(2) : '--';
+        html += `
+            <tr>
+                <td class="bank-code">${bank.code} <span class="ccy">${bank.ccy}</span></td>
+                <td class="rate-value">${r}%</td>
+                <td class="next-date ${df.cls}">${meet ? formatDate(meet) : '--'} <span style="opacity:0.6;">${df.text}</span></td>
+            </tr>
+        `;
+    });
+    tbody.innerHTML = html;
+}
+
+function renderHomeCarry() {
+    const tbody = document.querySelector('#home-carry-table tbody');
+    if (!tbody) return;
+    let html = '<tr><td class="ccy-h"></td>';
+    CCYS.forEach(c => html += `<th class="ccy-h">${c}</th>`);
+    html += '</tr>';
+    CCYS.forEach(L => {
+        html += `<tr><td class="factor-name">${L}</td>`;
+        CCYS.forEach(S => {
+            if (L === S) { html += '<td class="carry-diag">—</td>'; return; }
+            const lr = getCurrentRate(L), sr = getCurrentRate(S);
+            if (lr === null || sr === null) { html += '<td class="carry-na">—</td>'; return; }
+            const d = lr - sr;
+            let cls;
+            if (d >= 2) cls = 'carry-cell-strong-pos';
+            else if (d > 0) cls = 'carry-cell-pos';
+            else if (d <= -2) cls = 'carry-cell-strong-neg';
+            else if (d < 0) cls = 'carry-cell-neg';
+            else cls = 'carry-zero';
+            html += `<td class="num ${cls}">${d > 0 ? '+' : ''}${d.toFixed(2)}</td>`;
+        });
+        html += '</tr>';
+    });
+    tbody.innerHTML = html;
+}
+
+function renderHomeRanking() {
+    const tbody = document.getElementById('home-ranking-tbody');
+    if (!tbody) return;
+    let html = '<tr><th>DEVISE</th><th class="num">TAUX</th><th class="num">vs USD</th><th>SIGNAL</th></tr>';
+    const ru = getCurrentRate('USD');
+    CCYS.forEach(c => {
+        const r = getCurrentRate(c);
+        const carry = (r !== null && ru !== null) ? r - ru : null;
+        let y2 = getMacroValue('yield_2y', c);
+        let y10 = getMacroValue('yield_10y', c);
+        const sp = (y10 !== null && y2 !== null) ? y10 - y2 : null;
+        let sig, scls;
+        if (sp === null) { sig = '—'; scls = 'signal-na'; }
+        else if (sp < 0) { sig = 'INVERTED'; scls = 'signal-inverted'; }
+        else if (sp < 0.3) { sig = 'FLAT'; scls = 'signal-flat'; }
+        else if (sp > 1.0) { sig = 'PENTUE'; scls = 'signal-pentue'; }
+        else { sig = 'NORMALE'; scls = 'signal-normale'; }
+        const cc = carry === null ? 'neutral' : carry > 0 ? 'pos' : carry < 0 ? 'neg' : 'neutral';
+        const ct = carry === null ? '—' : (carry > 0 ? '+' : '') + carry.toFixed(2);
+        html += `
+            <tr>
+                <td class="factor-name">${c}</td>
+                <td class="num">${r !== null ? r.toFixed(2) : '—'}</td>
+                <td class="num ${cc}">${ct}</td>
+                <td class="${scls}">${sig}</td>
+            </tr>
+        `;
+    });
+    tbody.innerHTML = html;
+}
+
+// Embed TradingView Market Overview (G10 Prices) — injecté une seule fois
+let homePricesInjected = false;
+function injectHomePricesWidget() {
+    if (homePricesInjected) return;
+    const wrap = document.getElementById('home-prices-wrap');
+    if (!wrap) return;
+    homePricesInjected = true;
+
+    const container = document.createElement('div');
+    container.className = 'tradingview-widget-container';
+    container.style.height = '100%';
+    container.innerHTML = '<div class="tradingview-widget-container__widget" style="height:100%;"></div>';
+    wrap.appendChild(container);
+
+    const cfg = {
+        "colorTheme": "dark",
+        "dateRange": "1D",
+        "showChart": false,
+        "locale": "en",
+        "largeChartUrl": "",
+        "isTransparent": true,
+        "showSymbolLogo": false,
+        "showFloatingTooltip": false,
+        "width": "100%",
+        "height": "100%",
+        "tabs": [{
+            "title": "Forex",
+            "symbols": [
+                {"s":"FX:EURUSD"}, {"s":"FX:GBPUSD"}, {"s":"FX:USDJPY"}, {"s":"FX:USDCHF"},
+                {"s":"FX:AUDUSD"}, {"s":"FX:NZDUSD"}, {"s":"FX:USDCAD"}, {"s":"FX:EURGBP"},
+                {"s":"FX:EURJPY"}, {"s":"FX:GBPJPY"}, {"s":"FX:AUDJPY"}, {"s":"FX:CHFJPY"},
+                {"s":"FX:EURCHF"}, {"s":"FX:EURAUD"}, {"s":"FX:EURNZD"}, {"s":"FX:EURCAD"},
+                {"s":"FX:GBPCHF"}, {"s":"FX:GBPAUD"}, {"s":"FX:GBPNZD"}, {"s":"FX:GBPCAD"},
+                {"s":"FX:AUDCHF"}, {"s":"FX:AUDNZD"}, {"s":"FX:AUDCAD"}, {"s":"FX:NZDCHF"},
+                {"s":"FX:NZDCAD"}, {"s":"FX:CADCHF"}, {"s":"FX:CADJPY"}, {"s":"FX:NZDJPY"}
+            ]
+        }]
+    };
+
+    const sc = document.createElement('script');
+    sc.type = 'text/javascript';
+    sc.src = 'https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js';
+    sc.async = true;
+    sc.innerHTML = JSON.stringify(cfg);
+    container.appendChild(sc);
+}
+
+// Embed TradingView Events Calendar (HOME Events)
+let homeEventsInjected = false;
+function injectHomeEventsWidget() {
+    if (homeEventsInjected) return;
+    const wrap = document.getElementById('home-events-wrap');
+    if (!wrap) return;
+    homeEventsInjected = true;
+
+    const container = document.createElement('div');
+    container.className = 'tradingview-widget-container';
+    container.style.height = '100%';
+    container.innerHTML = '<div class="tradingview-widget-container__widget" style="height:100%;"></div>';
+    wrap.appendChild(container);
+
+    const cfg = {
+        "colorTheme": "dark",
+        "isTransparent": true,
+        "width": "100%",
+        "height": "100%",
+        "locale": "en",
+        "importanceFilter": "0,1",
+        "currencyFilter": "USD,EUR,GBP,JPY,CHF,CAD,AUD,NZD"
+    };
+
+    const sc = document.createElement('script');
+    sc.type = 'text/javascript';
+    sc.src = 'https://s3.tradingview.com/external-embedding/embed-widget-events.js';
+    sc.async = true;
+    sc.innerHTML = JSON.stringify(cfg);
+    container.appendChild(sc);
+}
+
+// Embed TradingView Forex Cross Rates (HOME Heatmap)
+let homeHeatmapInjected = false;
+function injectHomeHeatmapWidget() {
+    if (homeHeatmapInjected) return;
+    const wrap = document.getElementById('home-heatmap-wrap');
+    if (!wrap) return;
+    homeHeatmapInjected = true;
+
+    const container = document.createElement('div');
+    container.className = 'tradingview-widget-container';
+    container.style.height = '100%';
+    container.innerHTML = '<div class="tradingview-widget-container__widget" style="height:100%;"></div>';
+    wrap.appendChild(container);
+
+    const cfg = {
+        "width": "100%",
+        "height": 420,
+        "currencies": ["EUR","USD","JPY","GBP","CHF","AUD","CAD","NZD"],
+        "isTransparent": true,
+        "colorTheme": "dark",
+        "locale": "en"
+    };
+
+    const sc = document.createElement('script');
+    sc.type = 'text/javascript';
+    sc.src = 'https://s3.tradingview.com/external-embedding/embed-widget-forex-cross-rates.js';
+    sc.async = true;
+    sc.innerHTML = JSON.stringify(cfg);
+    container.appendChild(sc);
+}
+
+// Render principal de tous les widgets HOME
+function renderHomeWidgets() {
+    renderHomeStrength();
+    renderHomeCB();
+    renderHomeCarry();
+    renderHomeRanking();
+}
+
+// --- Mode édition + drag&drop ---
+
+let homeSortable = null;
+
+function initHomeSortable() {
+    const grid = document.getElementById('home-grid');
+    if (!grid || typeof Sortable === 'undefined') return;
+
+    homeSortable = Sortable.create(grid, {
+        animation: 180,
+        handle: '.widget-drag-badge',
+        filter: '.widget-x-btn, iframe, button',
+        preventOnFilter: false,
+        disabled: true, // activé seulement en edit-mode
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        dragClass: 'sortable-drag',
+        onEnd: () => {
+            const newOrder = Array.from(grid.querySelectorAll('[data-widget]'))
+                                  .map(el => el.dataset.widget);
+            homeState.order = newOrder;
+            saveHomeState();
+        }
+    });
+}
+
+function toggleHomeEditMode() {
+    document.body.classList.toggle('home-edit-mode');
+    const isEdit = document.body.classList.contains('home-edit-mode');
+
+    const editBtn = document.getElementById('home-edit-btn');
+    const addBtn = document.getElementById('home-add-btn');
+    const resetBtn = document.getElementById('home-reset-btn');
+    const hint = document.getElementById('home-edit-hint');
+
+    if (editBtn) editBtn.textContent = isEdit ? '✓ DONE' : '✎ EDIT';
+    if (addBtn) addBtn.style.display = isEdit ? '' : 'none';
+    if (resetBtn) resetBtn.style.display = isEdit ? '' : 'none';
+    if (hint) hint.textContent = isEdit ? 'glisse-dépose · clique × pour masquer · + ADD pour activer' : "vue d'ensemble personnalisable";
+
+    if (homeSortable) homeSortable.option('disabled', !isEdit);
+}
+
+function hideHomeWidget(name) {
+    if (!homeState.active[name]) return;
+    homeState.active[name] = false;
+    homeState.order = homeState.order.filter(w => w !== name);
+    saveHomeState();
+    applyHomeState();
+    renderHomeLibrary();
+}
+
+function showHomeWidget(name) {
+    if (homeState.active[name]) return;
+    homeState.active[name] = true;
+    if (!homeState.order.includes(name)) homeState.order.push(name);
+    saveHomeState();
+    applyHomeState();
+    renderHomeLibrary();
+
+    // Inject TV widgets si activés tardivement
+    if (name === 'prices') injectHomePricesWidget();
+    if (name === 'events') injectHomeEventsWidget();
+    if (name === 'heatmap') injectHomeHeatmapWidget();
+}
+
+function resetHomeLayout() {
+    if (!confirm('Reset le layout HOME aux valeurs par défaut ?')) return;
+    homeState = getHomeDefaults();
+    saveHomeState();
+    applyHomeState();
+    renderHomeLibrary();
+}
+
+// --- Modal library ---
+
+function renderHomeLibrary() {
+    const body = document.getElementById('home-modal-body');
+    if (!body) return;
+    body.innerHTML = Object.entries(HOME_WIDGET_LIB).map(([key, info]) => {
+        const isActive = homeState.active[key];
+        return `<div class="home-lib-item">
+            <div class="home-lib-info">
+                <b>${info.name}</b>
+                <span>${info.desc}</span>
+            </div>
+            <button class="home-lib-toggle ${isActive ? 'is-active' : 'is-inactive'}" data-toggle="${key}">
+                ${isActive ? '● ACTIVE — REMOVE' : '+ ADD'}
+            </button>
+        </div>`;
+    }).join('');
+
+    body.querySelectorAll('[data-toggle]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const k = btn.dataset.toggle;
+            if (homeState.active[k]) hideHomeWidget(k);
+            else showHomeWidget(k);
+        });
+    });
+}
+
+function openHomeModal() {
+    renderHomeLibrary();
+    document.getElementById('home-modal').classList.add('open');
+}
+
+function closeHomeModal() {
+    document.getElementById('home-modal').classList.remove('open');
+}
+
+function setupHomeControls() {
+    const editBtn = document.getElementById('home-edit-btn');
+    const addBtn = document.getElementById('home-add-btn');
+    const resetBtn = document.getElementById('home-reset-btn');
+    const closeBtn = document.getElementById('home-modal-close');
+    const modal = document.getElementById('home-modal');
+
+    if (editBtn) editBtn.addEventListener('click', toggleHomeEditMode);
+    if (addBtn) addBtn.addEventListener('click', openHomeModal);
+    if (resetBtn) resetBtn.addEventListener('click', resetHomeLayout);
+    if (closeBtn) closeBtn.addEventListener('click', closeHomeModal);
+    if (modal) {
+        modal.addEventListener('click', e => {
+            if (e.target.id === 'home-modal') closeHomeModal();
+        });
+    }
+
+    // Délégation pour les boutons × sur chaque widget
+    document.querySelectorAll('.widget-x-btn').forEach(btn => {
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            hideHomeWidget(btn.dataset.hide);
+        });
+    });
+
+    // Échap ferme le modal
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            const m = document.getElementById('home-modal');
+            if (m && m.classList.contains('open')) closeHomeModal();
+        }
+    });
+}
+
 // ============================================
 // FETCH ALL
 // ============================================
@@ -716,9 +1170,9 @@ async function fetchAllData() {
         ]);
         if (!r1.ok) throw new Error('Rates failed');
         ratesData = await r1.json();
-        const meetings = r2.ok ? await r2.json() : {};
+        meetingsData = r2.ok ? await r2.json() : {};
         yieldsData = r3.ok ? await r3.json() : {};
-        renderRatesTable(ratesData, meetings);
+        renderRatesTable(ratesData, meetingsData);
         if (ratesData.banks) {
             rateHistoryState.banks = ratesData.banks;
             renderAllRateCharts();
@@ -728,6 +1182,7 @@ async function fetchAllData() {
         renderScoring();
         renderCarryMatrix();
         renderRanking();
+        renderHomeWidgets();
         setStatus('live', 'live');
     } catch (e) {
         console.error('Fetch error:', e);
@@ -736,12 +1191,12 @@ async function fetchAllData() {
 }
 
 // ============================================
-// PAGE NAVIGATION (5 pages: cb / macro / fx / news / cal)
+// PAGE NAVIGATION (6 pages: home / cb / macro / fx / news / cal)
 // ============================================
-const PAGES = ['cb', 'macro', 'fx', 'news', 'cal'];
+const PAGES = ['home', 'cb', 'macro', 'fx', 'news', 'cal'];
 
 function showPage(pageId) {
-    if (!PAGES.includes(pageId)) pageId = 'cb';
+    if (!PAGES.includes(pageId)) pageId = 'home';
 
     // Hide all pages, show the target one
     document.querySelectorAll('.page').forEach(p => {
@@ -756,19 +1211,27 @@ function showPage(pageId) {
         if (link.dataset.page === pageId) link.classList.add('active');
     });
 
-    // Re-render charts when MACRO page becomes visible (Chart.js doesn't render hidden)
+    // Re-render des widgets selon la page
     if (pageId === 'macro') {
         setTimeout(() => {
             renderMacroCharts();
-            // Force chart resize
             Object.values(macroChartInstances).forEach(c => c && c.resize && c.resize());
         }, 50);
     }
 
-    // Re-render rate history charts when CB page becomes visible
     if (pageId === 'cb') {
         setTimeout(() => {
             renderAllRateCharts();
+        }, 50);
+    }
+
+    if (pageId === 'home') {
+        // Inject les TV widgets si actifs (uniquement à la 1re visite)
+        setTimeout(() => {
+            if (homeState.active['prices']) injectHomePricesWidget();
+            if (homeState.active['events']) injectHomeEventsWidget();
+            if (homeState.active['heatmap']) injectHomeHeatmapWidget();
+            renderHomeWidgets();
         }, 50);
     }
 
@@ -779,7 +1242,6 @@ function showPage(pageId) {
 }
 
 function setupPageNavigation() {
-    // Click handlers on nav links
     document.querySelectorAll('.nav-link').forEach(link => {
         link.addEventListener('click', e => {
             e.preventDefault();
@@ -788,24 +1250,28 @@ function setupPageNavigation() {
         });
     });
 
-    // Handle browser back/forward
     window.addEventListener('hashchange', () => {
-        const pageId = window.location.hash.replace('#', '') || 'cb';
+        const pageId = window.location.hash.replace('#', '') || 'home';
         showPage(pageId);
     });
 
-    // Initial page from URL hash, or default to 'cb'
-    const initialPage = window.location.hash.replace('#', '') || 'cb';
+    // Initial page from URL hash, or default to 'home'
+    const initialPage = window.location.hash.replace('#', '') || 'home';
     showPage(initialPage);
 }
 
 // ============================================
 // INIT
 // ============================================
+homeState = loadHomeState();
+applyHomeState();
 setupPageNavigation();
 loadMacroState();
 setupPeriodSelector();
 setupCSVButtons();
 setupEditableText();
+setupHomeControls();
+initHomeSortable();
+renderHomeWidgets();
 fetchAllData();
 setInterval(fetchAllData, 10 * 60 * 1000);
