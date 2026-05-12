@@ -70,8 +70,73 @@ function updateClock() {
     const el = document.getElementById('clock');
     if (el) el.textContent = `${h}:${m}:${s} GMT`;
 }
+
+// ---- World Clocks (5 places financières) ----
+// Heures d'ouverture des bourses majeures (locales, format heure décimale)
+// NYSE: 09:30-16:00 | LSE: 08:00-16:30 | Euronext Paris: 09:00-17:30
+// TSE: 09:00-15:00 (avec pause midi simplifiée ici) | ASX: 10:00-16:00
+const WORLD_CLOCKS = [
+    { id: 'ny',  tz: 'America/New_York',     open: 9.5,  close: 16,   weekendOff: true },
+    { id: 'ldn', tz: 'Europe/London',        open: 8,    close: 16.5, weekendOff: true },
+    { id: 'par', tz: 'Europe/Paris',         open: 9,    close: 17.5, weekendOff: true },
+    { id: 'tyo', tz: 'Asia/Tokyo',           open: 9,    close: 15,   weekendOff: true },
+    { id: 'syd', tz: 'Australia/Sydney',     open: 10,   close: 16,   weekendOff: true }
+];
+
+function getLocalTimeParts(tz) {
+    const now = new Date();
+    // Utilise Intl pour récupérer l'heure dans le fuseau cible
+    const fmt = new Intl.DateTimeFormat('en-GB', {
+        timeZone: tz,
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        weekday: 'short', hour12: false
+    });
+    const parts = fmt.formatToParts(now);
+    let hh = '00', mm = '00', ss = '00', wd = 'Mon';
+    parts.forEach(p => {
+        if (p.type === 'hour')    hh = p.value;
+        if (p.type === 'minute')  mm = p.value;
+        if (p.type === 'second')  ss = p.value;
+        if (p.type === 'weekday') wd = p.value;
+    });
+    // Intl peut renvoyer "24" au lieu de "00" à minuit selon le navigateur
+    if (hh === '24') hh = '00';
+    return { hh, mm, ss, wd };
+}
+
+function updateWorldClocks() {
+    WORLD_CLOCKS.forEach(c => {
+        const { hh, mm, ss, wd } = getLocalTimeParts(c.tz);
+        const timeEl = document.getElementById('wclock-' + c.id);
+        const statusEl = document.getElementById('wstatus-' + c.id);
+        const cardEl = timeEl ? timeEl.closest('.wclock') : null;
+        if (!timeEl || !statusEl) return;
+
+        timeEl.textContent = `${hh}:${mm}:${ss}`;
+
+        // Calcul ouverture : weekend → fermé, sinon plage horaire locale
+        const isWeekend = (wd === 'Sat' || wd === 'Sun');
+        const hourDecimal = parseInt(hh, 10) + parseInt(mm, 10) / 60;
+        const isOpen = !isWeekend && hourDecimal >= c.open && hourDecimal < c.close;
+
+        if (isOpen) {
+            statusEl.textContent = '● OPEN';
+            statusEl.classList.add('is-open');
+            statusEl.classList.remove('is-closed');
+            if (cardEl) cardEl.classList.add('is-open');
+        } else {
+            statusEl.textContent = '○ CLOSED';
+            statusEl.classList.add('is-closed');
+            statusEl.classList.remove('is-open');
+            if (cardEl) cardEl.classList.remove('is-open');
+        }
+    });
+}
+
 setInterval(updateClock, 1000);
+setInterval(updateWorldClocks, 1000);
 updateClock();
+updateWorldClocks();
 
 // ---- localStorage ----
 function lsGet(key, def) {
