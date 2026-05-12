@@ -2742,3 +2742,43 @@ body {
         font-size: 10px !important;
     }
 }
+
+/* ====================================================================
+   RATE HISTORY G8 — Grid 4 colonnes × 2 lignes
+   ==================================================================== */
+.rate-charts-grid-g8 {
+    grid-template-columns: repeat(4, 1fr) !important;
+    grid-template-rows: repeat(2, 1fr) !important;
+}
+
+.rate-charts-grid-g8 .rate-chart-cell {
+    min-height: 200px;
+}
+
+.rate-charts-grid-g8 .chart-canvas-wrapper {
+    min-height: 140px;
+}
+
+@media (max-width: 1200px) {
+    .rate-charts-grid-g8 {
+        grid-template-columns: repeat(2, 1fr) !important;
+        grid-template-rows: repeat(4, 1fr) !important;
+    }
+}
+
+@media (max-width: 600px) {
+    .rate-charts-grid-g8 {
+        grid-template-columns: 1fr !important;
+        grid-template-rows: repeat(8, 1fr) !important;
+    }
+}
+
+/* Status FRED dans le footer du module CB */
+#cb-fred-status {
+    font-size: 9px;
+    letter-spacing: 0.5px;
+}
+
+#cb-fred-status.ok { color: var(--green); }
+#cb-fred-status.partial { color: var(--yellow); }
+#cb-fred-status.err { color: var(--red); }
