@@ -7,14 +7,14 @@
 const CCYS = ['USD','EUR','GBP','JPY','CAD','AUD','NZD','CHF'];
 
 const CENTRAL_BANKS = [
-    { code: 'FED',  ccy: 'USD', fred: 'DFEDTARU'        },
-    { code: 'ECB',  ccy: 'EUR', fred: 'ECBDFR'          },
-    { code: 'BOE',  ccy: 'GBP', fred: 'IUDSOIA'         },
-    { code: 'BOJ',  ccy: 'JPY', fred: 'INTDSRJPM193N'   },
+    { code: 'FED',  ccy: 'USD', fred: 'IRSTCB01USM156N' },
+    { code: 'ECB',  ccy: 'EUR', fred: 'IRSTCB01EZM156N' },
+    { code: 'BOE',  ccy: 'GBP', fred: 'IRSTCB01GBM156N' },
+    { code: 'BOJ',  ccy: 'JPY', fred: 'IRSTCB01JPM156N' },
     { code: 'BOC',  ccy: 'CAD', fred: 'IRSTCB01CAM156N' },
     { code: 'RBA',  ccy: 'AUD', fred: 'IRSTCB01AUM156N' },
     { code: 'RBNZ', ccy: 'NZD', fred: 'IRSTCB01NZM156N' },
-    { code: 'SNB',  ccy: 'CHF', fred: 'INTDSRCHM193N'   }
+    { code: 'SNB',  ccy: 'CHF', fred: 'IRSTCB01CHM156N' }
 ];
 
 const CCY_TO_BANK = {
@@ -771,16 +771,16 @@ function renderRanking() {
 }
 
 // ============================================
-// FRED API VIA PROXY PUBLIC (CORS-friendly, sans clé)
-// proxy : https://fred.libhack.so/v0/observations
-// Récupère l'historique complet d'une série FRED depuis 2010
+// FRED API VIA NOTRE CLOUDFLARE FUNCTION (/api/fred-history)
+// Cette route serveur (functions/api/fred-history.js) utilise notre clé FRED
+// stockée en variable d'env FRED_API_KEY côté Cloudflare. Pas de CORS, pas de clé exposée.
 // ============================================
 
-const FRED_PROXY_BASE = 'https://fred.libhack.so/v0/observations';
+const FRED_PROXY_BASE = '/api/fred-history';
 const FRED_HISTORY_START = '2010-01-01'; // historique pertinent depuis 2010
 
 async function fetchFredSeries(seriesId) {
-    const url = `${FRED_PROXY_BASE}?series_id=${encodeURIComponent(seriesId)}&observation_start=${FRED_HISTORY_START}`;
+    const url = `${FRED_PROXY_BASE}?series_id=${encodeURIComponent(seriesId)}&start=${FRED_HISTORY_START}`;
     try {
         const res = await fetch(url);
         if (!res.ok) {
@@ -788,23 +788,23 @@ async function fetchFredSeries(seriesId) {
             return null;
         }
         const data = await res.json();
-        if (!Array.isArray(data)) return null;
-        // Parse + nettoyer : FRED renvoie value="." pour les jours sans data
-        const cleaned = data
-            .map(d => ({ date: d.date, value: parseFloat(d.value) }))
-            .filter(d => !isNaN(d.value));
-        // Dédoublonner : ne garder que les changements de taux (sinon courbe identique tous les jours)
+        if (!Array.isArray(data)) {
+            console.warn(`FRED proxy returned non-array for ${seriesId}:`, data);
+            return null;
+        }
+        // Dédoublonner : ne garder que les changements de taux
         const compact = [];
         let prev = null;
-        cleaned.forEach(d => {
+        data.forEach(d => {
             if (prev === null || d.value !== prev) {
                 compact.push(d);
                 prev = d.value;
             }
         });
-        // Toujours garder le dernier point pour avoir la dernière date
-        if (cleaned.length > 0 && compact[compact.length - 1].date !== cleaned[cleaned.length - 1].date) {
-            compact.push(cleaned[cleaned.length - 1]);
+        // Toujours garder le dernier point pour avoir la date courante
+        if (data.length > 0 && compact.length > 0 &&
+            compact[compact.length - 1].date !== data[data.length - 1].date) {
+            compact.push(data[data.length - 1]);
         }
         return compact;
     } catch (e) {
