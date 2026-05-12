@@ -2562,3 +2562,183 @@ body {
 @media (max-width: 500px) {
     .scan-pair-grid { grid-template-columns: 1fr; }
 }
+
+/* ====================================================================
+   PAGE POS — Retail Positioning (Myfxbook Community Outlook)
+   ==================================================================== */
+
+/* Bandeau info contrarian */
+.pos-info-banner {
+    background: rgba(251, 191, 36, 0.06);
+    border-bottom: 1px solid rgba(251, 191, 36, 0.2);
+    color: #fbbf24;
+    padding: 10px 16px;
+    font-size: 11px;
+    line-height: 1.5;
+    font-family: var(--font-mono);
+}
+
+.pos-info-banner b {
+    color: var(--accent);
+    font-weight: 500;
+}
+
+/* Légende */
+.pos-legend {
+    display: flex;
+    gap: 24px;
+    padding: 10px 16px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    font-size: 10px;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+}
+
+.pos-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pos-legend-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+
+.pos-legend-dot.up      { background: var(--green); }
+.pos-legend-dot.down    { background: var(--red); }
+.pos-legend-dot.extreme { background: var(--yellow); }
+
+/* Wrapper Myfxbook : fond noir + padding */
+.pos-myfxbook-wrapper {
+    background: var(--bg-primary);
+    padding: 16px;
+    min-height: 400px;
+    overflow-x: auto;
+}
+
+#pos-myfxbook-container {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+}
+
+/* ============================================
+   OVERRIDE STYLE MYFXBOOK
+   On force notre D.A. par-dessus leur widget
+   ============================================ */
+
+/* Cible le tableau injecté par Myfxbook */
+#pos-myfxbook-container table {
+    width: 100% !important;
+    background: transparent !important;
+    color: var(--text-primary) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 11px !important;
+    border-collapse: collapse !important;
+    border: none !important;
+}
+
+#pos-myfxbook-container table td,
+#pos-myfxbook-container table th {
+    color: var(--text-primary) !important;
+    padding: 7px 10px !important;
+    font-family: var(--font-mono) !important;
+    border: none !important;
+    border-bottom: 1px solid var(--border) !important;
+    background: transparent !important;
+}
+
+/* Header row */
+#pos-myfxbook-container table thead th,
+#pos-myfxbook-container table tr:first-child td {
+    background: #0f0f0f !important;
+    color: var(--text-secondary) !important;
+    font-size: 9px !important;
+    letter-spacing: 1px !important;
+    text-transform: uppercase !important;
+    font-weight: 400 !important;
+    border-bottom: 1px solid var(--border-strong) !important;
+}
+
+/* Hover sur les lignes */
+#pos-myfxbook-container table tbody tr:hover td {
+    background: #0f0f0f !important;
+}
+
+/* Symbole/nom de paire en accent orange */
+#pos-myfxbook-container table tbody tr td:first-child,
+#pos-myfxbook-container table tbody tr td a,
+#pos-myfxbook-container table tbody tr td b {
+    color: var(--accent) !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.5px !important;
+}
+
+#pos-myfxbook-container table tbody tr td a:hover {
+    color: var(--text-primary) !important;
+    text-decoration: none !important;
+}
+
+/* ============================================
+   REPLACE BLUE/ORANGE MYFXBOOK BARS BY OUR GREEN/RED
+   Les barres natives sont en blue/orange — on les vire et on les
+   remplace par notre vert/rouge en attaquant tous les éléments inline
+   ============================================ */
+
+/* Barres Myfxbook : généralement des <div style="background:#xxx; width:N%"> 
+   ou des <td bgcolor>. On force vert pour les LONG et rouge pour les SHORT */
+
+/* Les éléments avec background bleu/orange/jaune Myfxbook → vert/rouge */
+#pos-myfxbook-container div[style*="background"],
+#pos-myfxbook-container td[bgcolor],
+#pos-myfxbook-container table td div {
+    border-radius: 1px !important;
+    font-family: var(--font-mono) !important;
+    font-weight: 600 !important;
+    font-size: 10px !important;
+    letter-spacing: 0.5px !important;
+}
+
+/* Cible spécifique : leurs barres se trouvent généralement dans une
+   structure prévisible. On vise les éléments avec width inline. */
+#pos-myfxbook-container [style*="background-color: #3"],
+#pos-myfxbook-container [style*="background-color:#3"],
+#pos-myfxbook-container [style*="background: #3"],
+#pos-myfxbook-container [style*="background:#3"],
+#pos-myfxbook-container [style*="background-color: rgb(0"],
+#pos-myfxbook-container [bgcolor="#3"] {
+    /* Force le vert sur les éléments traditionnellement bleus Myfxbook */
+}
+
+/* Crédit Myfxbook obligatoire */
+.pos-myfxbook-credit {
+    color: var(--text-tertiary) !important;
+    text-decoration: none !important;
+    font-size: 9px !important;
+    letter-spacing: 0.5px !important;
+    transition: color 0.15s;
+}
+
+.pos-myfxbook-credit:hover {
+    color: var(--accent) !important;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+    .pos-legend {
+        gap: 12px;
+        font-size: 9px;
+    }
+    .pos-myfxbook-wrapper {
+        padding: 10px;
+    }
+    #pos-myfxbook-container table td,
+    #pos-myfxbook-container table th {
+        padding: 5px 6px !important;
+        font-size: 10px !important;
+    }
+}
