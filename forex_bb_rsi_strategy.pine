@@ -1,0 +1,327 @@
+//@version=5
+// =============================================================================
+//  Forex BB + RSI Strategy with Divergences
+//  Optimisé pour EUR/USD, GBP/USD, USD/JPY, AUD/USD — Timeframes H1 / H4
+//
+//  Combine :
+//    - Bollinger Bands (mean reversion)
+//    - RSI (momentum + overbought/oversold)
+//    - Détection de divergences régulières (bullish / bearish)
+//    - Filtres spécifiques Forex (sessions, news, volatilité, tendance, squeeze)
+//    - Gestion du risque via ATR (SL/TP dynamiques + R:R configurable)
+// =============================================================================
+
+indicator("Forex BB + RSI Strategy (with Divergences)", overlay=true, max_labels_count=500, max_lines_count=500)
+
+// ============================== INPUTS =======================================
+//
+// --- Bollinger Bands ---
+grpBB     = "Bollinger Bands"
+bbLen     = input.int(20,  "BB Length",      minval=2,  group=grpBB)
+bbMult    = input.float(2.0,"BB StdDev",     minval=0.1, step=0.1, group=grpBB)
+bbSrc     = input.source(close, "BB Source", group=grpBB)
+
+// --- RSI ---
+grpRSI    = "RSI"
+rsiLen    = input.int(14, "RSI Length",     minval=2,  group=grpRSI)
+rsiOB     = input.int(70, "RSI Overbought", minval=50, maxval=99, group=grpRSI)
+rsiOS     = input.int(30, "RSI Oversold",   minval=1,  maxval=50, group=grpRSI)
+
+// --- Divergences ---
+grpDiv    = "Divergences"
+divLookL  = input.int(5,  "Pivot Left bars",  minval=1, group=grpDiv)
+divLookR  = input.int(2,  "Pivot Right bars", minval=1, group=grpDiv)
+divNearBB = input.float(0.2, "Distance max. à la bande (× largeur BB)", minval=0.0, step=0.05, group=grpDiv,
+                         tooltip="Le pivot doit être à moins de X * largeur de BB de la bande pour qualifier le signal 'STRONG'")
+
+// --- Filtres Forex ---
+grpF      = "Filtres Forex"
+useSess   = input.bool(false, "Activer filtre de session",           group=grpF)
+sessChoice= input.string("London/NY Overlap", "Session autorisée",
+                         options=["London","New York","Asia","London/NY Overlap"], group=grpF)
+useNews   = input.bool(true,  "Filtre anti-news (vendredi soir / dimanche)", group=grpF)
+
+useATRFilt= input.bool(true,  "Filtre de volatilité ATR",            group=grpF)
+atrLen    = input.int(14,   "ATR Length",                            minval=1, group=grpF)
+atrMinPts = input.float(5.0,"ATR min (en 'mintick' x10)",
+                         minval=0.0, step=0.5, group=grpF,
+                         tooltip="Seuil bas exprimé en mintick*10 (≈ pips pour la plupart des paires). En dessous = range trop serré.")
+atrMaxPts = input.float(60.0,"ATR max (en 'mintick' x10)",
+                         minval=0.0, step=1.0, group=grpF,
+                         tooltip="Seuil haut exprimé en mintick*10. Au dessus = volatilité extrême (news).")
+
+useTrend  = input.bool(true, "Filtre de tendance (EMA 200)",         group=grpF)
+trendMode = input.string("Trend-Following", "Mode tendance",
+                         options=["Trend-Following","Mean-Reversion"], group=grpF)
+emaLen    = input.int(200, "EMA Length",                             minval=10, group=grpF)
+
+useSqueeze= input.bool(true,  "Filtre anti-squeeze",                 group=grpF)
+sqzMinPct = input.float(0.5, "Largeur BB min (% du prix)",
+                         minval=0.0, step=0.05, group=grpF,
+                         tooltip="Largeur (haut-bas)/basis × 100. Si < seuil, on saute le signal (range trop serré).")
+
+// --- Gestion du risque ---
+grpRisk   = "Risque & TP/SL"
+atrMultSL = input.float(1.5,  "Stop Loss (× ATR)",    minval=0.1, step=0.1, group=grpRisk)
+tpMode    = input.string("Bande opposée", "Take Profit",
+                         options=["Bande opposée","R:R fixe"], group=grpRisk)
+rrFixed   = input.float(2.0, "R:R fixe (si choisi)",  minval=0.5, step=0.5, group=grpRisk)
+
+// --- Affichage ---
+grpDisp   = "Affichage"
+showBB    = input.bool(true,  "Afficher Bollinger Bands", group=grpDisp)
+showEMA   = input.bool(true,  "Afficher EMA200",          group=grpDisp)
+showTable = input.bool(true,  "Afficher tableau de stats",group=grpDisp)
+showLines = input.bool(true,  "Afficher lignes SL/TP",    group=grpDisp)
+
+// ============================== INDICATEURS ==================================
+basis   = ta.sma(bbSrc, bbLen)
+dev     = bbMult * ta.stdev(bbSrc, bbLen)
+upperBB = basis + dev
+lowerBB = basis - dev
+bbWidth = (upperBB - lowerBB) / basis * 100.0  // largeur BB en % du basis
+
+rsi     = ta.rsi(close, rsiLen)
+atr     = ta.atr(atrLen)
+ema200  = ta.ema(close, emaLen)
+
+// Plot indicateurs
+plot(showBB ? basis   : na, "BB Basis", color=color.new(color.orange, 0))
+plot(showBB ? upperBB : na, "BB Upper", color=color.new(color.teal,  0))
+plot(showBB ? lowerBB : na, "BB Lower", color=color.new(color.teal,  0))
+plot(showEMA ? ema200 : na, "EMA 200",  color=color.new(color.yellow,0), linewidth=2)
+
+// ============================== FILTRES ======================================
+// --- Sessions (heures UTC) ---
+// On utilise timestamp("UTC", ...) pour rester indépendant du fuseau du symbole
+hUTC = hour(time, "UTC")
+
+inLondon  = (hUTC >=  8) and (hUTC < 16)
+inNY      = (hUTC >= 13) and (hUTC < 21)
+inAsia    = (hUTC >=  0) and (hUTC <  8)
+inOverlap = (hUTC >= 13) and (hUTC < 16)
+
+sessionOK = not useSess
+            or (sessChoice == "London"             and inLondon)
+            or (sessChoice == "New York"           and inNY)
+            or (sessChoice == "Asia"               and inAsia)
+            or (sessChoice == "London/NY Overlap"  and inOverlap)
+
+// --- Anti-news (vendredi 20:00+ UTC, dimanche soir) ---
+dowUTC = dayofweek(time, "UTC")
+isFridayLate = (dowUTC == dayofweek.friday) and (hUTC >= 20)
+isSundayEve  = (dowUTC == dayofweek.sunday) and (hUTC >= 20)
+newsOK = not useNews or (not isFridayLate and not isSundayEve)
+
+// --- Volatilité ATR ---
+// On convertit le seuil "mintick*10" en prix : 1 pip ≈ 10 * mintick pour la majorité des paires Forex.
+atrMinPrice = atrMinPts * syminfo.mintick
+atrMaxPrice = atrMaxPts * syminfo.mintick
+atrOK = not useATRFilt or (atr >= atrMinPrice and atr <= atrMaxPrice)
+
+// --- Squeeze ---
+squeezeOK = not useSqueeze or (bbWidth >= sqzMinPct)
+
+// --- Tendance ---
+trendLongOK  = not useTrend
+               or (trendMode == "Trend-Following" and close > ema200)
+               or (trendMode == "Mean-Reversion"  and close < ema200)
+trendShortOK = not useTrend
+               or (trendMode == "Trend-Following" and close < ema200)
+               or (trendMode == "Mean-Reversion"  and close > ema200)
+
+baseFilters = sessionOK and newsOK and atrOK and squeezeOK
+
+// ============================== SIGNAUX SIMPLES ==============================
+touchLower = low  <= lowerBB
+touchUpper = high >= upperBB
+
+longSimple  = touchLower and rsi <= rsiOS and baseFilters and trendLongOK
+shortSimple = touchUpper and rsi >= rsiOB and baseFilters and trendShortOK
+
+// ============================== DIVERGENCES ==================================
+// Pivots sur le PRIX (low/high) et sur le RSI
+plPrice = ta.pivotlow(low,  divLookL, divLookR)
+phPrice = ta.pivothigh(high,divLookL, divLookR)
+plRsi   = ta.pivotlow(rsi,  divLookL, divLookR)
+phRsi   = ta.pivothigh(rsi, divLookL, divLookR)
+
+// Sauvegarde des deux derniers pivots
+var float lastPL1 = na, var float lastPL2 = na
+var int   lastPLb1= na, var int   lastPLb2= na
+var float lastPH1 = na, var float lastPH2 = na
+var int   lastPHb1= na, var int   lastPHb2= na
+
+var float lastRL1 = na, var float lastRL2 = na
+var float lastRH1 = na, var float lastRH2 = na
+
+// Bar offset où le pivot s'est confirmé (bar_index - divLookR)
+if not na(plPrice)
+    lastPL2 := lastPL1
+    lastPLb2:= lastPLb1
+    lastPL1 := plPrice
+    lastPLb1:= bar_index - divLookR
+if not na(phPrice)
+    lastPH2 := lastPH1
+    lastPHb2:= lastPHb1
+    lastPH1 := phPrice
+    lastPHb1:= bar_index - divLookR
+if not na(plRsi)
+    lastRL2 := lastRL1
+    lastRL1 := plRsi
+if not na(phRsi)
+    lastRH2 := lastRH1
+    lastRH1 := phRsi
+
+// Divergence bullish régulière : prix LL + RSI HL (sur même séquence)
+bullDivPivot = not na(plPrice) and not na(plRsi)
+               and not na(lastPL2) and not na(lastRL2)
+               and (lastPL1 < lastPL2) and (lastRL1 > lastRL2)
+
+// Divergence bearish régulière : prix HH + RSI LH
+bearDivPivot = not na(phPrice) and not na(phRsi)
+               and not na(lastPH2) and not na(lastRH2)
+               and (lastPH1 > lastPH2) and (lastRH1 < lastRH2)
+
+// Proximité à la bande au moment du pivot
+bbW             = upperBB - lowerBB
+nearLowerOnPivot= not na(plPrice) and (plPrice - lowerBB[divLookR]) <= divNearBB * bbW[divLookR]
+nearUpperOnPivot= not na(phPrice) and (upperBB[divLookR] - phPrice) <= divNearBB * bbW[divLookR]
+
+strongLong  = bullDivPivot and nearLowerOnPivot and baseFilters and trendLongOK
+strongShort = bearDivPivot and nearUpperOnPivot and baseFilters and trendShortOK
+
+// ============================== RISK MANAGEMENT ==============================
+// On calcule SL/TP au moment du signal
+longSL  = close - atrMultSL * atr
+shortSL = close + atrMultSL * atr
+
+longTP  = tpMode == "Bande opposée" ? upperBB : close + rrFixed * (close - longSL)
+shortTP = tpMode == "Bande opposée" ? lowerBB : close - rrFixed * (shortSL - close)
+
+longRR  = (longTP  - close) / (close - longSL)
+shortRR = (close   - shortTP) / (shortSL - close)
+
+// ============================== AFFICHAGE SIGNAUX ============================
+plotshape(longSimple  and not strongLong,  title="Long",  style=shape.triangleup,   location=location.belowbar, color=color.new(color.green, 0), size=size.small,  text="LONG")
+plotshape(shortSimple and not strongShort, title="Short", style=shape.triangledown, location=location.abovebar, color=color.new(color.red,   0), size=size.small,  text="SHORT")
+
+if strongLong
+    label.new(bar_index, low, "STRONG LONG\nDIV",
+              style=label.style_label_up,   color=color.new(color.lime, 0),
+              textcolor=color.black, size=size.normal, yloc=yloc.belowbar)
+if strongShort
+    label.new(bar_index, high, "STRONG SHORT\nDIV",
+              style=label.style_label_down, color=color.new(color.fuchsia, 0),
+              textcolor=color.white, size=size.normal, yloc=yloc.abovebar)
+
+// --- Lignes SL/TP + étiquette R:R ---
+drawRiskLines(bool isLong, float entry, float slP, float tpP, float rr) =>
+    if showLines
+        sl_line = line.new(bar_index, slP, bar_index + 10, slP, color=color.new(color.red,   0), width=1, style=line.style_dashed)
+        tp_line = line.new(bar_index, tpP, bar_index + 10, tpP, color=color.new(color.green, 0), width=1, style=line.style_dashed)
+        en_line = line.new(bar_index, entry, bar_index + 10, entry, color=color.new(color.gray, 0), width=1)
+        txt = (isLong ? "L  " : "S  ") + "R:R " + str.tostring(rr, "#.##")
+        label.new(bar_index + 10, tpP, txt,
+                  style=isLong ? label.style_label_left : label.style_label_left,
+                  color=color.new(color.blue, 70), textcolor=color.white, size=size.small)
+
+if longSimple or strongLong
+    drawRiskLines(true,  close, longSL,  longTP,  longRR)
+if shortSimple or strongShort
+    drawRiskLines(false, close, shortSL, shortTP, shortRR)
+
+// ============================== STATS ========================================
+// Stats simples : nombre de signaux, win rate estimé, R:R moyen.
+// "Win" = TP atteint avant SL dans les N barres suivantes (lookahead via barssince).
+var int   nSignals   = 0
+var int   nWins      = 0
+var float rrSum      = 0.0
+var int   rrCount    = 0
+
+barsAhead = 100  // fenêtre d'évaluation
+trackLong  = longSimple  or strongLong
+trackShort = shortSimple or strongShort
+
+// On enregistre l'évènement et on cherche dans le futur via security non disponible ici;
+// on utilise une approche par mémorisation : tableaux de signaux ouverts
+var array<float> openEntries = array.new_float()
+var array<float> openSLs     = array.new_float()
+var array<float> openTPs     = array.new_float()
+var array<int>   openBars    = array.new_int()
+var array<bool>  openLongs   = array.new_bool()
+
+if trackLong
+    array.push(openEntries, close)
+    array.push(openSLs,     longSL)
+    array.push(openTPs,     longTP)
+    array.push(openBars,    bar_index)
+    array.push(openLongs,   true)
+    nSignals := nSignals + 1
+    rrSum    := rrSum + longRR
+    rrCount  := rrCount + 1
+
+if trackShort
+    array.push(openEntries, close)
+    array.push(openSLs,     shortSL)
+    array.push(openTPs,     shortTP)
+    array.push(openBars,    bar_index)
+    array.push(openLongs,   false)
+    nSignals := nSignals + 1
+    rrSum    := rrSum + shortRR
+    rrCount  := rrCount + 1
+
+// Résolution des trades ouverts
+if array.size(openEntries) > 0
+    i = 0
+    while i < array.size(openEntries)
+        en  = array.get(openEntries, i)
+        sl  = array.get(openSLs, i)
+        tp  = array.get(openTPs, i)
+        bb  = array.get(openBars, i)
+        isL = array.get(openLongs, i)
+        hitTP = isL ? (high >= tp) : (low  <= tp)
+        hitSL = isL ? (low  <= sl) : (high >= sl)
+        expired = (bar_index - bb) >= barsAhead
+        if hitTP or hitSL or expired
+            if hitTP and not hitSL
+                nWins := nWins + 1
+            // si les 2 sont touchés sur la même bougie on considère prudent = SL (pas de win)
+            array.remove(openEntries, i)
+            array.remove(openSLs,     i)
+            array.remove(openTPs,     i)
+            array.remove(openBars,    i)
+            array.remove(openLongs,   i)
+        else
+            i := i + 1
+
+winRate = nSignals > 0 ? (nWins / float(nSignals)) * 100.0 : 0.0
+avgRR   = rrCount  > 0 ? rrSum / rrCount : 0.0
+
+// --- Tableau ---
+var table stat = table.new(position.top_right, 2, 5, border_width=1)
+if showTable and barstate.islast
+    table.cell(stat, 0, 0, "Stats",          bgcolor=color.new(color.navy,0), text_color=color.white, text_size=size.small)
+    table.cell(stat, 1, 0, "Valeur",         bgcolor=color.new(color.navy,0), text_color=color.white, text_size=size.small)
+    table.cell(stat, 0, 1, "Signaux",        text_color=color.white, text_size=size.small)
+    table.cell(stat, 1, 1, str.tostring(nSignals), text_color=color.white, text_size=size.small)
+    table.cell(stat, 0, 2, "Wins",           text_color=color.white, text_size=size.small)
+    table.cell(stat, 1, 2, str.tostring(nWins),    text_color=color.white, text_size=size.small)
+    table.cell(stat, 0, 3, "Win rate (~)",   text_color=color.white, text_size=size.small)
+    table.cell(stat, 1, 3, str.tostring(winRate, "#.#") + " %", text_color=color.white, text_size=size.small)
+    table.cell(stat, 0, 4, "R:R moyen",      text_color=color.white, text_size=size.small)
+    table.cell(stat, 1, 4, str.tostring(avgRR,   "#.##"), text_color=color.white, text_size=size.small)
+
+// ============================== BACKGROUND ===================================
+bgcolor(useSess and not sessionOK ? color.new(color.gray, 92)   : na, title="Hors session")
+bgcolor(useNews and not newsOK    ? color.new(color.orange, 92) : na, title="Fenêtre news")
+
+// ============================== ALERTES ======================================
+alertcondition(longSimple  and not strongLong,  title="Long Signal",
+               message="Forex BB+RSI: LONG simple sur {{ticker}} @ {{close}} (TF {{interval}})")
+alertcondition(shortSimple and not strongShort, title="Short Signal",
+               message="Forex BB+RSI: SHORT simple sur {{ticker}} @ {{close}} (TF {{interval}})")
+alertcondition(strongLong,  title="Strong Long (Divergence)",
+               message="Forex BB+RSI: STRONG LONG (divergence bullish) sur {{ticker}} @ {{close}} (TF {{interval}})")
+alertcondition(strongShort, title="Strong Short (Divergence)",
+               message="Forex BB+RSI: STRONG SHORT (divergence bearish) sur {{ticker}} @ {{close}} (TF {{interval}})")
