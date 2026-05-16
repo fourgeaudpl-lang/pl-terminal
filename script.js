@@ -2002,72 +2002,130 @@ function initPosRepaint() {
 
     posRepaintAttempts = 0;
 
-    // CRITIQUE : on doit re-injecter le script Myfxbook dynamiquement
-    // car les scripts dans des divs cachées (display:none) ne s'exécutent pas correctement.
-    // À chaque fois qu'on arrive sur la page POS, on vide + recrée le script.
+    // SOLUTION : on isole le widget Myfxbook dans un iframe srcdoc.
+    // Le widget utilise document.write() qui ne marche QUE pendant le chargement initial
+    // d'une page. Donc on charge la page dans un iframe → tout s'exécute proprement.
 
-    // 1) Vide complètement le conteneur
+    // Vide le conteneur
     container.innerHTML = '';
 
-    // 2) Crée dynamiquement un nouveau script Myfxbook
-    const script = document.createElement('script');
-    script.type = 'text/javascript';
-    script.className = 'powered';
-    script.src = 'https://widgets.myfxbook.com/scripts/fxOutlook.js?type=1&symbols=,1,2,3,4,5,6,7,8,9,10,11,12,13,14,17,20,24,25,26,27,28,29,46,47,48,49,103,107';
-    script.async = false; // synchrone pour que document.write fonctionne
-    container.appendChild(script);
+    // Crée un iframe sandbox
+    const iframe = document.createElement('iframe');
+    iframe.id = 'pos-myfxbook-iframe';
+    iframe.style.width = '100%';
+    iframe.style.height = '900px';
+    iframe.style.border = 'none';
+    iframe.style.background = 'transparent';
+    iframe.setAttribute('scrolling', 'no');
 
-    // 3) Affiche un loader pendant le chargement
-    const loader = document.createElement('div');
-    loader.className = 'pos-loading';
-    loader.id = 'pos-myfxbook-loader';
-    loader.textContent = 'Loading Myfxbook community outlook...';
-    container.appendChild(loader);
+    // HTML interne de l'iframe : page minimaliste qui charge le widget Myfxbook
+    // On y inclut aussi du CSS pour repeindre les couleurs (orange/bleu → vert/rouge)
+    const innerHtml = `<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<style>
+  body {
+    margin: 0; padding: 12px;
+    background: #0a0a0a;
+    color: #e5e5e5;
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
+    font-size: 12px;
+  }
+  a { color: #ff8c00; text-decoration: none; }
+  table { width: 100%; border-collapse: collapse; }
+  table tr { border-bottom: 1px solid #1a1a1a; }
+  table td, table th { padding: 6px 8px; font-size: 11px; }
 
-    // 4) Observer pour détecter quand le widget est injecté → repaint + retire loader
-    posRepaintObserver = new MutationObserver(mutations => {
-        // Quand on détecte du contenu Myfxbook (tableau ou div ajouté par le script)
-        const hasContent = container.querySelector('table, .fxOutlookContainer, [class*="fxoutlook"], [class*="myfxbook"]');
-        if (hasContent) {
-            const ld = document.getElementById('pos-myfxbook-loader');
-            if (ld) ld.remove();
-        }
-        if (posRepaintAttempts < 30) {
-            posRepaintAttempts++;
-            posRepaintColors();
-        }
-    });
+  /* Repaint des couleurs natives Myfxbook : bleu (long) → vert, orange (short) → rouge */
+  [bgcolor="#7cb5ec"], [bgcolor="#3b87cd"], [bgcolor*="#0"][bgcolor*="ff"], [bgcolor*="blue"],
+  [style*="background: #7cb5ec"], [style*="background:#7cb5ec"],
+  [style*="background-color: #7cb5ec"], [style*="background-color:#7cb5ec"],
+  [style*="background: rgb(124"], [style*="background-color: rgb(124"] {
+    background-color: #4ade80 !important;
+    color: #000 !important;
+  }
+  [bgcolor="#f7a35c"], [bgcolor="#ff9933"], [bgcolor*="ff9"], [bgcolor*="fa8"], [bgcolor*="orange"],
+  [style*="background: #f7a35c"], [style*="background:#f7a35c"],
+  [style*="background-color: #f7a35c"], [style*="background-color:#f7a35c"],
+  [style*="background: rgb(247"], [style*="background-color: rgb(247"] {
+    background-color: #f87171 !important;
+    color: #000 !important;
+  }
 
-    posRepaintObserver.observe(container, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['style', 'bgcolor']
-    });
+  /* Force les textes en noir sur les barres colorées */
+  [bgcolor] font, [bgcolor] b, [bgcolor] span, [bgcolor] div {
+    color: #000 !important;
+  }
+</style>
+</head><body>
+<script type="text/javascript" src="https://widgets.myfxbook.com/scripts/fxOutlook.js?type=1&symbols=,1,2,3,4,5,6,7,8,9,10,11,12,13,14,17,20,24,25,26,27,28,29,46,47,48,49,103,107"></script>
+<script>
+// Après chargement, repaint via JS aussi pour rattraper ce que CSS ne peut pas
+function repaint() {
+  document.querySelectorAll('[bgcolor]').forEach(el => {
+    const bg = (el.getAttribute('bgcolor') || '').toLowerCase();
+    // Détecte bleu/orange par patterns
+    const isBlue = /^#([0-7][a-f0-9]|[0-3][0-9a-f]{1,2})/.test(bg) ||
+                   /rgb\(\s*[0-7]?\d,\s*1\d{2},\s*2/i.test(bg);
+    const isOrange = /^#(f[a-f0-9][7-9a-f]|f7[a-f0-9])/.test(bg) ||
+                     /^#ff9|^#fa[8-9]/.test(bg);
+    if (isBlue) {
+      el.setAttribute('bgcolor', '#4ade80');
+      el.style.backgroundColor = '#4ade80';
+      el.style.color = '#000';
+    } else if (isOrange) {
+      el.setAttribute('bgcolor', '#f87171');
+      el.style.backgroundColor = '#f87171';
+      el.style.color = '#000';
+    }
+  });
+  // Auto-resize iframe au contenu
+  if (window.parent) {
+    const h = document.body.scrollHeight;
+    window.parent.postMessage({type: 'pos-iframe-height', height: h}, '*');
+  }
+}
+setTimeout(repaint, 500);
+setTimeout(repaint, 2000);
+setTimeout(repaint, 4000);
+new MutationObserver(repaint).observe(document.body, {childList: true, subtree: true, attributes: true});
+</script>
+</body></html>`;
 
-    // 5) Repaints forcés à intervalles pour rattraper si l'observer rate
-    setTimeout(() => { posRepaintColors(); removePosLoaderIfReady(); }, 1500);
-    setTimeout(() => { posRepaintColors(); removePosLoaderIfReady(); }, 3000);
-    setTimeout(() => { posRepaintColors(); removePosLoaderIfReady(); }, 5000);
-    setTimeout(() => { posRepaintColors(); removePosLoaderIfReady(); }, 8000);
+    iframe.srcdoc = innerHtml;
+    container.appendChild(iframe);
 
-    // Si après 10s rien n'est apparu, on retire le loader et on affiche un message d'erreur
-    setTimeout(() => {
-        const container = document.getElementById('pos-myfxbook-container');
-        if (!container) return;
-        const hasContent = container.querySelector('table, .fxOutlookContainer, [class*="fxoutlook"], [class*="myfxbook"]');
-        if (!hasContent) {
-            const ld = document.getElementById('pos-myfxbook-loader');
-            if (ld) {
-                ld.innerHTML = '⚠ Myfxbook widget failed to load.<br>' +
-                    '<a href="https://www.myfxbook.com/community/outlook" target="_blank" style="color:var(--accent); text-decoration:underline; margin-top:8px; display:inline-block;">Open Myfxbook directly →</a>';
-                ld.style.color = 'var(--text-secondary)';
-                ld.style.lineHeight = '1.8';
+    // Écoute les messages de l'iframe pour auto-resize
+    window.addEventListener('message', function posMsgHandler(e) {
+        if (e.data && e.data.type === 'pos-iframe-height' && e.data.height) {
+            const ifr = document.getElementById('pos-myfxbook-iframe');
+            if (ifr) {
+                // Limite raisonnable : entre 300px et 1500px
+                const h = Math.min(1500, Math.max(300, e.data.height + 30));
+                ifr.style.height = h + 'px';
             }
         }
-    }, 10000);
+    });
 
-    // Mise à jour du timestamp dans le module-source
+    // Si après 15s rien d'affiché → message d'erreur
+    setTimeout(() => {
+        const ifr = document.getElementById('pos-myfxbook-iframe');
+        if (!ifr) return;
+        try {
+            const doc = ifr.contentDocument || ifr.contentWindow.document;
+            const hasContent = doc.body && doc.body.querySelector('table');
+            if (!hasContent) {
+                container.innerHTML = '<div class="pos-loading" style="color:var(--text-secondary); line-height:1.8;">' +
+                    '⚠ Myfxbook widget unable to load (possibly blocked by ad-blocker or CSP).<br><br>' +
+                    '<a href="https://www.myfxbook.com/community/outlook" target="_blank" style="color:var(--accent); text-decoration:underline;">Open Myfxbook directly →</a>' +
+                    '</div>';
+            }
+        } catch (err) {
+            // Cross-origin, on peut pas check le contenu mais on assume que ça marche
+        }
+    }, 15000);
+
+    // Mise à jour du timestamp
     const updEl = document.getElementById('pos-update');
     if (updEl) {
         const now = new Date();
@@ -2078,13 +2136,7 @@ function initPosRepaint() {
 }
 
 function removePosLoaderIfReady() {
-    const container = document.getElementById('pos-myfxbook-container');
-    if (!container) return;
-    const hasContent = container.querySelector('table, .fxOutlookContainer, [class*="fxoutlook"], [class*="myfxbook"]');
-    if (hasContent) {
-        const ld = document.getElementById('pos-myfxbook-loader');
-        if (ld) ld.remove();
-    }
+    // Pas utilisé dans la version iframe mais conservé pour compatibilité
 }
 
 // ============================================
