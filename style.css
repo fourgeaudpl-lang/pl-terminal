@@ -4015,3 +4015,59 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* === Grand chart dans le modal détail projection === */
+.proj-detail-chart-wrap {
+    height: 320px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 12px;
+    margin-top: 8px;
+}
+
+.proj-detail-chart-wrap canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.proj-detail-chart-legend {
+    display: flex;
+    gap: 18px;
+    padding: 10px 4px 0;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.pdcl-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: 10.5px;
+    letter-spacing: 0.5px;
+}
+
+.pdcl-dot {
+    width: 22px;
+    height: 3px;
+    border-radius: 1px;
+    display: inline-block;
+}
+
+.pdcl-dot.macro {
+    background: #ff8c00;
+}
+
+.pdcl-dot.ois {
+    background: #fbbf24;
+    background-image: linear-gradient(to right, #fbbf24 50%, transparent 50%);
+    background-size: 6px 100%;
+}
+
+.pdcl-dot.current {
+    background: transparent;
+    border-top: 1px dashed rgba(150, 150, 150, 0.6);
+    height: 1px;
+    margin-top: 1px;
+}
