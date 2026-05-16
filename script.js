@@ -1039,13 +1039,15 @@ function loadRatesCache() {
 async function fetchAllData() {
     setStatus('connecting', 'fetching data...');
     try {
-        // 1) Fetch en parallèle : ton backend + meetings + yields + FRED history (proxy public) + CNN F&G
-        const [apiRatesRes, meetingsRes, yieldsRes, fredBanks, _cnnDone] = await Promise.all([
+        // 1) Fetch en parallèle : ton backend + meetings + yields + FRED history (proxy public) + CNN F&G + WIRP + Yield Curve
+        const [apiRatesRes, meetingsRes, yieldsRes, fredBanks, _cnnDone, _wirpDone, _ycDone] = await Promise.all([
             fetch('/api/rates').catch(() => null),
             fetch('/api/meetings').catch(() => null),
             fetch('/api/yields').catch(() => null),
             fetchAllBanksHistoryFromFred(),
-            scanFetchCNN()
+            scanFetchCNN(),
+            fetchWirpData(),
+            fetchYieldsData()
         ]);
 
         const apiRates = (apiRatesRes && apiRatesRes.ok) ? await apiRatesRes.json() : null;
@@ -1074,6 +1076,8 @@ async function fetchAllData() {
         if (typeof renderScanAll === 'function') renderScanAll();
     if (typeof renderPosTable === 'function') renderPosTable();
         if (typeof renderHomeAll === 'function') renderHomeAll();
+        if (typeof renderWirp === 'function') renderWirp();
+        if (typeof renderYieldsAllAsync === 'function') renderYieldsAllAsync();
 
         // Timestamp global mis à jour
         localStorage.setItem(SCAN_LAST_UPDATE_KEY, new Date().toISOString());
@@ -3282,10 +3286,342 @@ async function renderHomeAll() {
 }
 
 // ============================================
+// MODULE WIRP — Meeting Probabilities (Tier 5 CB)
+// Source : /api/wirp (estimé depuis yield curve FRED)
+// ============================================
+
+const WIRP_BANKS = ['FED', 'ECB', 'BOE', 'BOJ', 'BOC', 'RBA', 'RBNZ', 'SNB'];
+const WIRP_CCY = { FED: 'USD', ECB: 'EUR', BOE: 'GBP', BOJ: 'JPY', BOC: 'CAD', RBA: 'AUD', RBNZ: 'NZD', SNB: 'CHF' };
+
+let wirpData = null;
+
+async function fetchWirpData() {
+    try {
+        const r = await fetch('/api/wirp');
+        if (!r.ok) {
+            wirpData = { error: 'API returned ' + r.status };
+            return;
+        }
+        wirpData = await r.json();
+    } catch (e) {
+        wirpData = { error: e.message || 'Fetch failed' };
+    }
+}
+
+function renderWirp() {
+    const container = document.getElementById('wirp-container');
+    if (!container) return;
+
+    if (!wirpData) {
+        container.innerHTML = '<div class="wirp-loading">Loading meeting probabilities...</div>';
+        return;
+    }
+    if (wirpData.error) {
+        container.innerHTML = `<div class="wirp-error">⚠ Failed to load WIRP data: ${wirpData.error}</div>`;
+        return;
+    }
+
+    let html = '';
+    for (const bankCode of WIRP_BANKS) {
+        const data = wirpData.banks[bankCode];
+        if (!data || data.error) {
+            html += `<div class="wirp-card wirp-card-error">
+                <div class="wirp-card-header">
+                    <div class="wirp-card-title">${bankCode} <span class="ccy">${WIRP_CCY[bankCode]}</span></div>
+                </div>
+                <div class="wirp-error-msg">${data ? data.error : 'No data'}</div>
+            </div>`;
+            continue;
+        }
+
+        const cumulCls = data.totalImpliedBps > 5 ? 'up' : data.totalImpliedBps < -5 ? 'down' : 'flat';
+        const cumulSign = data.totalImpliedBps > 0 ? '+' : '';
+
+        html += `<div class="wirp-card">
+            <div class="wirp-card-header">
+                <div class="wirp-card-title">${bankCode} <span class="ccy">${data.ccy} · ${data.currentRate.toFixed(2)}%</span></div>
+                <div class="wirp-card-meta">2Y yield: <b>${data.yield2y.toFixed(2)}%</b> · Cumul implied 6m: <b class="${cumulCls}">${cumulSign}${data.totalImpliedBps} bps</b></div>
+            </div>
+            <div class="wirp-grid">
+                ${data.meetings.map(m => renderWirpMeeting(m)).join('')}
+            </div>
+        </div>`;
+    }
+
+    container.innerHTML = html;
+}
+
+function renderWirpMeeting(m) {
+    const d = new Date(m.date);
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    const mm = d.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+    const dateStr = `${dd} ${mm}`;
+
+    let countdownCls = '';
+    if (m.daysUntil !== null) {
+        if (m.daysUntil <= 30) countdownCls = 'imminent';
+        else if (m.daysUntil <= 90) countdownCls = 'soon';
+    }
+    const countdown = m.daysUntil !== null ? `${m.daysUntil}d` : '—';
+
+    const impliedCls = m.impliedBps > 1 ? 'up' : m.impliedBps < -1 ? 'down' : 'flat';
+    const impliedSign = m.impliedBps > 0 ? '+' : '';
+
+    return `<div class="wirp-meeting">
+        <div class="wirp-date">${dateStr}</div>
+        <div class="wirp-countdown ${countdownCls}">${countdown}</div>
+        <div class="wirp-bar">
+            ${m.pHike > 2 ? `<div class="wirp-segment wirp-seg-hike" style="height:${m.pHike}%">${m.pHike}%</div>` : ''}
+            <div class="wirp-segment wirp-seg-hold" style="height:${m.pHold}%">${m.pHold}%</div>
+            ${m.pCut > 2 ? `<div class="wirp-segment wirp-seg-cut" style="height:${m.pCut}%">${m.pCut}%</div>` : ''}
+        </div>
+        <div class="wirp-implied"><span class="${impliedCls}">${impliedSign}${m.impliedBps} bps</span></div>
+    </div>`;
+}
+
+async function renderWirpAll() {
+    if (!wirpData) await fetchWirpData();
+    renderWirp();
+}
+
+// ============================================
+// MODULE YIELDS — Yield Curve (nouvelle page)
+// Source : /api/yields-grid (FRED)
+// ============================================
+
+let yieldsCurveData = {};
+let yieldsCurrentCcy = 'USD';
+let yieldsChartInstance = null;
+
+async function fetchYieldsData() {
+    try {
+        const r = await fetch('/api/yields-grid');
+        if (!r.ok) return;
+        yieldsCurveData = await r.json();
+    } catch (e) {
+        console.warn('Yields fetch failed:', e);
+    }
+}
+
+function renderYieldsAll() {
+    if (!yieldsCurveData || !yieldsCurveData.currencies) return;
+    renderYieldsTable();
+    renderYieldsChart();
+    renderYieldsSpreads();
+    // Update title
+    const t = document.getElementById('yields-chart-title');
+    if (t) t.textContent = `${yieldsCurrentCcy} CURVE — TODAY VS 30D VS 90D`;
+}
+
+function renderYieldsTable() {
+    const tbody = document.getElementById('yields-tbody');
+    if (!tbody) return;
+    const data = yieldsCurveData.currencies[yieldsCurrentCcy];
+    if (!data) {
+        tbody.innerHTML = '<tr><td colspan="4" class="loading">No data available</td></tr>';
+        return;
+    }
+    const tenors = ['3M', '2Y', '5Y', '10Y', '30Y'];
+    tbody.innerHTML = tenors.map(tenor => {
+        const y = data.yields[tenor];
+        if (!y || !y.available || y.current === null) {
+            return `<tr><td class="label">${tenor}</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>`;
+        }
+        const d30Diff = y.d30 !== null ? Math.round((y.current - y.d30) * 100) : null;
+        const d90Diff = y.d90 !== null ? Math.round((y.current - y.d90) * 100) : null;
+        const d30Cls = d30Diff === null ? '' : d30Diff > 0 ? 'chg-up' : d30Diff < 0 ? 'chg-down' : '';
+        const d90Cls = d90Diff === null ? '' : d90Diff > 0 ? 'chg-up' : d90Diff < 0 ? 'chg-down' : '';
+        const d30Str = d30Diff === null ? '—' : (d30Diff > 0 ? '+' : '') + d30Diff;
+        const d90Str = d90Diff === null ? '—' : (d90Diff > 0 ? '+' : '') + d90Diff;
+        return `<tr>
+            <td class="label">${tenor}</td>
+            <td class="num">${y.current.toFixed(2)}%</td>
+            <td class="num ${d30Cls}">${d30Str}</td>
+            <td class="num ${d90Cls}">${d90Str}</td>
+        </tr>`;
+    }).join('');
+}
+
+function renderYieldsChart() {
+    const canvas = document.getElementById('yields-chart');
+    if (!canvas || typeof Chart === 'undefined') return;
+    const data = yieldsCurveData.currencies[yieldsCurrentCcy];
+    if (!data) return;
+
+    const tenors = ['3M', '2Y', '5Y', '10Y', '30Y'];
+    const labels = [];
+    const today = [];
+    const d30 = [];
+    const d90 = [];
+
+    tenors.forEach(t => {
+        const y = data.yields[t];
+        if (y && y.available && y.current !== null) {
+            labels.push(t);
+            today.push(y.current);
+            d30.push(y.d30);
+            d90.push(y.d90);
+        }
+    });
+
+    if (yieldsChartInstance) yieldsChartInstance.destroy();
+
+    yieldsChartInstance = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'TODAY',
+                    data: today,
+                    borderColor: '#ff8c00',
+                    backgroundColor: 'rgba(255,140,0,0.1)',
+                    borderWidth: 2.5,
+                    pointRadius: 5,
+                    pointBackgroundColor: '#ff8c00',
+                    pointBorderColor: '#ff8c00',
+                    fill: false,
+                    tension: 0.2
+                },
+                {
+                    label: '30D AGO',
+                    data: d30,
+                    borderColor: 'rgba(255,140,0,0.5)',
+                    borderWidth: 1.8,
+                    pointRadius: 3,
+                    pointBackgroundColor: 'rgba(255,140,0,0.5)',
+                    fill: false,
+                    tension: 0.2
+                },
+                {
+                    label: '90D AGO',
+                    data: d90,
+                    borderColor: '#555',
+                    borderDash: [3, 3],
+                    borderWidth: 1.5,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#555',
+                    fill: false,
+                    tension: 0.2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { intersect: false, mode: 'index' },
+            plugins: {
+                legend: {
+                    labels: { color: '#888', font: { family: 'monospace', size: 10 } }
+                },
+                tooltip: {
+                    backgroundColor: '#0a0a0a',
+                    borderColor: '#ff8c00',
+                    borderWidth: 1,
+                    titleColor: '#ff8c00',
+                    bodyColor: '#ddd',
+                    callbacks: {
+                        label: c => `${c.dataset.label}: ${c.parsed.y !== null ? c.parsed.y.toFixed(2) + '%' : '—'}`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: '#1a1a1a' },
+                    ticks: { color: '#888', font: { family: 'monospace', size: 10 } }
+                },
+                y: {
+                    grid: { color: '#1a1a1a' },
+                    ticks: {
+                        color: '#888',
+                        font: { family: 'monospace', size: 10 },
+                        callback: v => v.toFixed(2) + '%'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderYieldsSpreads() {
+    const container = document.getElementById('yields-spreads-grid');
+    if (!container) return;
+    const data = yieldsCurveData.currencies[yieldsCurrentCcy];
+    if (!data) return;
+    const sp = data.spreads || {};
+    const shape = data.shape || 'unknown';
+
+    const cards = [];
+
+    if (sp.s2_10 !== undefined) {
+        const bps = Math.round(sp.s2_10 * 100);
+        const cls = bps < -5 ? 'inverted' : bps < 20 ? 'flat' : '';
+        const note = bps < -5 ? '⚠ Inverted curve' : bps < 20 ? 'Flat — fin de cycle' : 'Normal slope';
+        cards.push(`<div class="yields-spread-card">
+            <div class="yields-spread-label">2Y / 10Y SPREAD</div>
+            <div class="yields-spread-value ${cls}">${bps > 0 ? '+' : ''}${bps} bps</div>
+            <div class="yields-spread-note">${note}</div>
+        </div>`);
+    }
+    if (sp.s3m_10 !== undefined) {
+        const bps = Math.round(sp.s3m_10 * 100);
+        const cls = bps < -10 ? 'inverted' : '';
+        const note = bps < -10 ? 'Recession signal' : bps < 30 ? 'Flattening' : 'Normal';
+        cards.push(`<div class="yields-spread-card">
+            <div class="yields-spread-label">3M / 10Y SPREAD</div>
+            <div class="yields-spread-value ${cls}">${bps > 0 ? '+' : ''}${bps} bps</div>
+            <div class="yields-spread-note">${note}</div>
+        </div>`);
+    }
+    if (sp.s5_30 !== undefined) {
+        const bps = Math.round(sp.s5_30 * 100);
+        const note = bps < 0 ? 'Inverted long-end' : bps > 30 ? 'Steepening long-end' : 'Flat long-end';
+        cards.push(`<div class="yields-spread-card">
+            <div class="yields-spread-label">5Y / 30Y SPREAD</div>
+            <div class="yields-spread-value">${bps > 0 ? '+' : ''}${bps} bps</div>
+            <div class="yields-spread-note">${note}</div>
+        </div>`);
+    }
+
+    const shapeLabel = shape.toUpperCase();
+    const shapeCls = shape === 'inverted' ? 'inverted' : shape === 'flat' ? 'flat' : '';
+    const shapeNote = {
+        normal: 'Croissance saine',
+        steep: 'Reflation attendue',
+        flat: 'Fin de cycle',
+        inverted: 'Signal récession',
+        unknown: 'Données partielles'
+    }[shape] || '';
+    cards.push(`<div class="yields-spread-card">
+        <div class="yields-spread-label">CURVE SHAPE</div>
+        <div class="yields-spread-value ${shapeCls}" style="font-size:13px;">${shapeLabel}</div>
+        <div class="yields-spread-note">${shapeNote}</div>
+    </div>`);
+
+    container.innerHTML = cards.join('');
+}
+
+function setupYieldsEvents() {
+    document.querySelectorAll('.yields-ccy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.yields-ccy-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            yieldsCurrentCcy = btn.dataset.ccy;
+            renderYieldsAll();
+        });
+    });
+}
+
+async function renderYieldsAllAsync() {
+    if (!yieldsCurveData || !yieldsCurveData.currencies) await fetchYieldsData();
+    renderYieldsAll();
+}
+
+// ============================================
 // PAGE NAVIGATION (10 pages: home / cb / macro / score / scan / pos / prob / fx / news / cal)
 // HOME = page statique HTML — pas de logique JS associée
 // ============================================
-const PAGES = ['home', 'cb', 'macro', 'score', 'scan', 'pos', 'fx', 'news', 'cal'];
+const PAGES = ['home', 'cb', 'macro', 'yields', 'score', 'scan', 'pos', 'fx', 'news', 'cal'];
 
 function showPage(pageId) {
     if (!PAGES.includes(pageId)) pageId = 'home';
@@ -3317,6 +3653,13 @@ function showPage(pageId) {
     if (pageId === 'cb') {
         setTimeout(() => {
             renderCBAll();
+            renderWirpAll();
+        }, 50);
+    }
+
+    if (pageId === 'yields') {
+        setTimeout(() => {
+            renderYieldsAllAsync();
         }, 50);
     }
 
@@ -3375,6 +3718,7 @@ setupScanEvents();
 setupCBEvents();
 setupPosEvents();
 setupMacroKeyboard();
+setupYieldsEvents();
 
 // ⚡ Démarrage instantané : on charge le cache avant le fetch
 const cachedBanks = loadRatesCache();
