@@ -95,7 +95,7 @@
             <a href="#score" class="nav-link" data-page="score">SCORE</a>
             <a href="#scan" class="nav-link" data-page="scan">SCAN</a>
             <a href="#pos" class="nav-link" data-page="pos">POS</a>
-            <a href="#prob" class="nav-link" data-page="prob">PROB</a>
+            
             <a href="#fx" class="nav-link" data-page="fx">FX</a>
             <a href="#news" class="nav-link" data-page="news">NEWS</a>
             <a href="#cal" class="nav-link" data-page="cal">CAL</a>
@@ -331,127 +331,127 @@
              ============================================ -->
         <div class="page" id="page-cb">
 
-            <section class="module" id="module-rates">
+            <!-- ============================================================
+                 TIER 1 — SNAPSHOT G8 (tableau récap complet)
+                 ============================================================ -->
+            <section class="module" id="module-snapshot">
                 <div class="module-header">
                     <div class="module-title">
                         <span class="module-bullet"></span>
-                        <h2>INTEREST RATES</h2>
-                        <span class="module-sub">G8 CENTRAL BANKS · LIVE</span>
+                        <h2>SNAPSHOT G8 — CENTRAL BANKS OVERVIEW</h2>
+                        <span class="module-sub">RATES · MEETINGS · YIELDS · BIAS</span>
                     </div>
                     <span class="module-source">FRED + Finnhub</span>
                 </div>
-                <table class="rates-table">
+                <table class="snapshot-table">
                     <thead>
                         <tr>
-                            <th>BANK</th><th>CCY</th>
-                            <th class="num">RATE %</th>
-                            <th class="num">LAST CHG</th>
-                            <th class="num">DATE</th>
-                            <th class="num">NEXT MEETING</th>
-                            <th class="num">DAYS</th>
+                            <th>CB</th>
+                            <th>CCY</th>
+                            <th class="num">RATE</th>
+                            <th class="num">Δ LAST</th>
+                            <th class="num">2Y</th>
+                            <th class="num">SPREAD</th>
+                            <th>NEXT MEET</th>
+                            <th class="num">IN</th>
+                            <th class="center">MACRO BIAS</th>
+                            <th class="center">OIS TREND</th>
                         </tr>
                     </thead>
-                    <tbody id="rates-tbody">
-                        <tr><td colspan="7" class="loading">Loading rates from FRED...</td></tr>
+                    <tbody id="snapshot-tbody">
+                        <tr><td colspan="10" class="loading">Loading central bank data...</td></tr>
                     </tbody>
                 </table>
                 <div class="module-footer">
-                    <span id="last-update">last update: --</span>
+                    <span id="snapshot-update">last update: --</span>
                     <span class="source-tag">8 banks tracked</span>
                 </div>
             </section>
 
-            <section class="module" id="module-rate-history">
+            <!-- ============================================================
+                 TIER 2 — RATE PATH PROJECTIONS (8 cartes 4×2)
+                 ============================================================ -->
+            <section class="module" id="module-projections">
                 <div class="module-header">
                     <div class="module-title">
                         <span class="module-bullet"></span>
-                        <h2>RATE HISTORY</h2>
-                        <span class="module-sub">POLICY RATES · G8</span>
+                        <h2>RATE PATH PROJECTIONS — NEXT 12 MONTHS</h2>
+                        <span class="module-sub">FORWARD CURVES</span>
+                    </div>
+                    <div class="proj-toggle-wrap">
+                        <button class="proj-toggle active" data-mode="macro">MACRO</button>
+                        <button class="proj-toggle" data-mode="ois">OIS</button>
+                        <button class="proj-toggle" data-mode="both">BOTH</button>
+                    </div>
+                </div>
+                <div class="proj-info-banner">
+                    💡 <b>MACRO</b> = depuis votre score macro (page MACRO). <b>OIS</b> = depuis les yields FRED (méthode RateProbability). Cliquez sur une carte pour voir le détail des 6 prochains meetings.
+                </div>
+                <div class="proj-grid" id="proj-grid">
+                    <div class="loading">Computing projections...</div>
+                </div>
+            </section>
+
+            <!-- ============================================================
+                 TIER 3 — UPCOMING DECISIONS TIMELINE
+                 ============================================================ -->
+            <section class="module" id="module-timeline">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>UPCOMING DECISIONS — TIMELINE</h2>
+                        <span class="module-sub">CHRONOLOGICAL ORDER</span>
+                    </div>
+                    <span class="module-source">auto from CB data</span>
+                </div>
+                <div class="cb-timeline-wrap" id="cb-timeline-wrap">
+                    <div class="loading">Loading timeline...</div>
+                </div>
+            </section>
+
+            <!-- ============================================================
+                 TIER 4 — HISTORICAL RATE CHARTS (8 charts 4×2)
+                 ============================================================ -->
+            <section class="module" id="module-history-charts">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>HISTORICAL RATES — G8</h2>
+                        <span class="module-sub">FRED MONTHLY HISTORY</span>
                     </div>
                     <div class="period-selector">
                         <button class="period-btn" data-years="1">1Y</button>
                         <button class="period-btn" data-years="3">3Y</button>
                         <button class="period-btn active" data-years="5">5Y</button>
                         <button class="period-btn" data-years="10">10Y</button>
+                        <button class="period-btn" data-years="15">MAX</button>
                     </div>
                 </div>
-                <div class="rate-charts-grid rate-charts-grid-g8">
-                    <div class="rate-chart-cell">
-                        <div class="chart-label">
-                            <span class="chart-bank">FED</span>
-                            <span class="chart-ccy">USD</span>
-                            <span class="chart-current" id="chart-current-FED">—</span>
-                        </div>
-                        <div class="chart-canvas-wrapper"><canvas id="chart-FED"></canvas></div>
-                    </div>
-                    <div class="rate-chart-cell">
-                        <div class="chart-label">
-                            <span class="chart-bank">ECB</span>
-                            <span class="chart-ccy">EUR</span>
-                            <span class="chart-current" id="chart-current-ECB">—</span>
-                        </div>
-                        <div class="chart-canvas-wrapper"><canvas id="chart-ECB"></canvas></div>
-                    </div>
-                    <div class="rate-chart-cell">
-                        <div class="chart-label">
-                            <span class="chart-bank">BOE</span>
-                            <span class="chart-ccy">GBP</span>
-                            <span class="chart-current" id="chart-current-BOE">—</span>
-                        </div>
-                        <div class="chart-canvas-wrapper"><canvas id="chart-BOE"></canvas></div>
-                    </div>
-                    <div class="rate-chart-cell">
-                        <div class="chart-label">
-                            <span class="chart-bank">BOJ</span>
-                            <span class="chart-ccy">JPY</span>
-                            <span class="chart-current" id="chart-current-BOJ">—</span>
-                        </div>
-                        <div class="chart-canvas-wrapper"><canvas id="chart-BOJ"></canvas></div>
-                    </div>
-                    <div class="rate-chart-cell">
-                        <div class="chart-label">
-                            <span class="chart-bank">BOC</span>
-                            <span class="chart-ccy">CAD</span>
-                            <span class="chart-current" id="chart-current-BOC">—</span>
-                        </div>
-                        <div class="chart-canvas-wrapper"><canvas id="chart-BOC"></canvas></div>
-                    </div>
-                    <div class="rate-chart-cell">
-                        <div class="chart-label">
-                            <span class="chart-bank">RBA</span>
-                            <span class="chart-ccy">AUD</span>
-                            <span class="chart-current" id="chart-current-RBA">—</span>
-                        </div>
-                        <div class="chart-canvas-wrapper"><canvas id="chart-RBA"></canvas></div>
-                    </div>
-                    <div class="rate-chart-cell">
-                        <div class="chart-label">
-                            <span class="chart-bank">RBNZ</span>
-                            <span class="chart-ccy">NZD</span>
-                            <span class="chart-current" id="chart-current-RBNZ">—</span>
-                        </div>
-                        <div class="chart-canvas-wrapper"><canvas id="chart-RBNZ"></canvas></div>
-                    </div>
-                    <div class="rate-chart-cell">
-                        <div class="chart-label">
-                            <span class="chart-bank">SNB</span>
-                            <span class="chart-ccy">CHF</span>
-                            <span class="chart-current" id="chart-current-SNB">—</span>
-                        </div>
-                        <div class="chart-canvas-wrapper"><canvas id="chart-SNB"></canvas></div>
-                    </div>
-                </div>
-                <div class="module-footer">
-                    <span>data: FRED via /api/fred-history (Cloudflare Function)</span>
-                    <span class="source-tag" id="cb-fred-status">loading...</span>
+                <div class="rate-charts-grid">
+                    <div class="rate-chart-cell"><div class="rate-chart-head"><span class="rcc-name">FED</span><span class="rcc-rate" id="chart-current-FED">—</span></div><div class="rate-chart-canvas"><canvas id="chart-FED"></canvas></div></div>
+                    <div class="rate-chart-cell"><div class="rate-chart-head"><span class="rcc-name">ECB</span><span class="rcc-rate" id="chart-current-ECB">—</span></div><div class="rate-chart-canvas"><canvas id="chart-ECB"></canvas></div></div>
+                    <div class="rate-chart-cell"><div class="rate-chart-head"><span class="rcc-name">BOE</span><span class="rcc-rate" id="chart-current-BOE">—</span></div><div class="rate-chart-canvas"><canvas id="chart-BOE"></canvas></div></div>
+                    <div class="rate-chart-cell"><div class="rate-chart-head"><span class="rcc-name">BOJ</span><span class="rcc-rate" id="chart-current-BOJ">—</span></div><div class="rate-chart-canvas"><canvas id="chart-BOJ"></canvas></div></div>
+                    <div class="rate-chart-cell"><div class="rate-chart-head"><span class="rcc-name">BOC</span><span class="rcc-rate" id="chart-current-BOC">—</span></div><div class="rate-chart-canvas"><canvas id="chart-BOC"></canvas></div></div>
+                    <div class="rate-chart-cell"><div class="rate-chart-head"><span class="rcc-name">RBA</span><span class="rcc-rate" id="chart-current-RBA">—</span></div><div class="rate-chart-canvas"><canvas id="chart-RBA"></canvas></div></div>
+                    <div class="rate-chart-cell"><div class="rate-chart-head"><span class="rcc-name">RBNZ</span><span class="rcc-rate" id="chart-current-RBNZ">—</span></div><div class="rate-chart-canvas"><canvas id="chart-RBNZ"></canvas></div></div>
+                    <div class="rate-chart-cell"><div class="rate-chart-head"><span class="rcc-name">SNB</span><span class="rcc-rate" id="chart-current-SNB">—</span></div><div class="rate-chart-canvas"><canvas id="chart-SNB"></canvas></div></div>
                 </div>
             </section>
 
+            <!-- Modal détail d'une carte projection -->
+            <div class="modal-overlay" id="proj-detail-modal">
+                <div class="modal-content modal-large">
+                    <div class="modal-header">
+                        <h3 id="proj-detail-title">PROJECTION DETAIL</h3>
+                        <button class="modal-close" id="proj-detail-close">×</button>
+                    </div>
+                    <div class="modal-body" id="proj-detail-body"></div>
+                </div>
+            </div>
+
         </div>
 
-        <!-- ============================================
-             PAGE MACRO — Macro Data + Scoring + Carry
-             ============================================ -->
         <div class="page" id="page-macro">
 
             <section class="module" id="module-macro">
@@ -965,100 +965,6 @@
         <!-- ============================================
              PAGE PROB — Rate Probabilities (Polymarket + iframe RateProbability)
              ============================================ -->
-        <div class="page" id="page-prob">
-
-            <!-- Header avec lien externe -->
-            <section class="module" id="module-prob-header">
-                <div class="prob-header-inner">
-                    <div>
-                        <h1 class="prob-title">RATE PROBABILITIES</h1>
-                        <div class="prob-subtitle">
-                            <span>Market-implied probabilities for upcoming central bank decisions</span>
-                            <span class="scan-sep">·</span>
-                            <span><b id="prob-last-update" class="up">--</b> updated</span>
-                        </div>
-                    </div>
-                    <div class="prob-header-right">
-                        <button class="action-btn" id="prob-refresh">↻ REFRESH</button>
-                        <a href="https://rateprobability.com" target="_blank" rel="noopener" class="action-btn primary">
-                            OPEN RATEPROBABILITY.COM →
-                        </a>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Module 1 : Implied Rate Path (8 banques, calcul interne depuis MACRO scores) -->
-            <section class="module" id="module-prob-implied">
-                <div class="module-header">
-                    <div class="module-title">
-                        <span class="module-bullet"></span>
-                        <h2>IMPLIED RATE PATH — G8 CENTRAL BANKS</h2>
-                        <span class="module-sub">PROJECTED RATES · NEXT 6 MEETINGS</span>
-                    </div>
-                    <span class="module-source">auto from MACRO + meetings</span>
-                </div>
-                <div class="prob-info-banner">
-                    💡 Pour chaque banque centrale, le taux <b>implicite après chaque meeting</b> est calculé depuis votre <b>score macro</b> (page MACRO). Score négatif → biais cut. Score positif → biais hike.
-                </div>
-                <div class="prob-implied-grid" id="prob-implied-grid">
-                    <div class="loading">Loading rate paths...</div>
-                </div>
-            </section>
-
-            <!-- Module 2 : OIS-Implied Rate Path avec courbes (méthode RateProbability) -->
-            <section class="module" id="module-prob-ois">
-                <div class="module-header">
-                    <div class="module-title">
-                        <span class="module-bullet"></span>
-                        <h2>OIS-IMPLIED RATE PATH — MARKET PRICING</h2>
-                        <span class="module-sub">FORWARD CURVES · NEXT 8 MEETINGS</span>
-                    </div>
-                    <span class="module-source">FRED yields · RateProbability methodology</span>
-                </div>
-                <div class="prob-info-banner">
-                    📈 Méthode <b>RateProbability.com</b> : bootstrap des facteurs d'actualisation depuis les yields FRED → forward rates → taux implicite après chaque meeting. Probabilité = |Δᵢ − Δᵢ₋₁| / 25bps.
-                </div>
-                <div class="prob-ois-grid" id="prob-ois-grid">
-                    <div class="loading">Computing forward curves...</div>
-                </div>
-            </section>
-
-            <!-- Module 3 : Schedule G6 next meetings (chronologie) -->
-            <section class="module" id="module-prob-schedule">
-                <div class="module-header">
-                    <div class="module-title">
-                        <span class="module-bullet"></span>
-                        <h2>UPCOMING DECISIONS — G6 CENTRAL BANKS</h2>
-                        <span class="module-sub">CHRONOLOGICAL ORDER</span>
-                    </div>
-                    <span class="module-source">auto from CB data</span>
-                </div>
-                <div class="prob-schedule-list" id="prob-schedule-list">
-                    <div class="loading">Loading meeting schedule...</div>
-                </div>
-            </section>
-
-            <!-- Module CTA RateProbability (iframe supprimée car bloquée par leur sécurité) -->
-            <section class="module" id="module-prob-cta">
-                <div class="prob-cta-banner">
-                    <div class="prob-cta-left">
-                        <div class="prob-cta-icon">⊞</div>
-                        <div>
-                            <div class="prob-cta-title">RATEPROBABILITY.COM — FULL DASHBOARD</div>
-                            <div class="prob-cta-sub">Compare implied policy paths across 6 central banks · Multi-CB view</div>
-                        </div>
-                    </div>
-                    <a href="https://rateprobability.com" target="_blank" rel="noopener" class="action-btn primary prob-cta-btn">
-                        OPEN IN NEW TAB →
-                    </a>
-                </div>
-            </section>
-
-        </div>
-
-        <!-- ============================================
-             PAGE FX — Forex
-             ============================================ -->
         <div class="page" id="page-fx">
 
             <section class="module" id="module-fx">
@@ -1210,7 +1116,7 @@
     </main>
 
     <footer class="terminal-footer">
-        <span>PL Terminal v0.7 — HOME · CB · MACRO · SCORE · SCAN · POS · PROB · FX · NEWS · CAL</span>
+        <span>PL Terminal v0.7 — HOME · CB · MACRO · SCORE · SCAN · POS · FX · NEWS · CAL</span>
         <span>Data: FRED + Finnhub + TradingView + FinancialJuice</span>
     </footer>
 
