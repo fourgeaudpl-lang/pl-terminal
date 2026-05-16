@@ -2529,6 +2529,17 @@ async function openProjDetail(cbCode) {
 
     const body = `
         <div class="proj-detail-section">
+            <div class="proj-detail-section-title">RATE PATH — INTERACTIVE CHART</div>
+            <div class="proj-detail-chart-wrap">
+                <canvas id="proj-detail-chart"></canvas>
+            </div>
+            <div class="proj-detail-chart-legend">
+                <span class="pdcl-item"><span class="pdcl-dot macro"></span>MACRO (your scoring)</span>
+                ${trajOIS ? '<span class="pdcl-item"><span class="pdcl-dot ois"></span>OIS (market pricing)</span>' : ''}
+            </div>
+        </div>
+
+        <div class="proj-detail-section">
             <div class="proj-detail-section-title">CURRENT STATE</div>
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
                 <div><span style="color: var(--text-secondary); font-size: 9px; display: block;">CURRENT RATE</span><span style="font-size: 18px; font-weight: 500;">${rate.toFixed(2)}%</span></div>
@@ -2562,6 +2573,119 @@ async function openProjDetail(cbCode) {
 
     document.getElementById('proj-detail-body').innerHTML = body;
     document.getElementById('proj-detail-modal').classList.add('open');
+
+    // Render le grand chart APRES que le modal soit visible (sinon canvas a width=0)
+    setTimeout(() => {
+        const canvas = document.getElementById('proj-detail-chart');
+        if (!canvas) return;
+
+        // Construire les labels (dates des 6 meetings)
+        const labels = ['Now', ...meetingDates.map(d => {
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = d.toLocaleString('en-US', { month: 'short' });
+            const yy = String(d.getFullYear()).slice(-2);
+            return `${dd} ${mm} ${yy}`;
+        })];
+
+        const datasets = [];
+
+        // Dataset MACRO (toujours présent)
+        if (trajMacro && trajMacro.length > 0) {
+            datasets.push({
+                label: 'MACRO',
+                data: [rate, ...trajMacro.map(p => p.implied)],
+                borderColor: '#ff8c00',
+                backgroundColor: 'rgba(255, 140, 0, 0.08)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                pointBackgroundColor: '#ff8c00',
+                pointBorderColor: '#0a0a0a',
+                pointBorderWidth: 2
+            });
+        }
+
+        // Dataset OIS (si dispo)
+        if (trajOIS && trajOIS.length > 0) {
+            datasets.push({
+                label: 'OIS',
+                data: [rate, ...trajOIS.map(p => p.implied)],
+                borderColor: '#fbbf24',
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                borderDash: [4, 4],
+                fill: false,
+                tension: 0.3,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                pointBackgroundColor: '#fbbf24',
+                pointBorderColor: '#0a0a0a',
+                pointBorderWidth: 2
+            });
+        }
+
+        new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: 'index' },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#0a0a0a',
+                        borderColor: '#ff8c00',
+                        borderWidth: 1,
+                        titleColor: '#ff8c00',
+                        bodyColor: '#fff',
+                        padding: 10,
+                        titleFont: { family: 'monospace', size: 11, weight: 'bold' },
+                        bodyFont: { family: 'monospace', size: 11 },
+                        callbacks: {
+                            label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(2)}%`,
+                            afterBody: (items) => {
+                                if (items.length === 0 || items[0].dataIndex === 0) return '';
+                                const idx = items[0].dataIndex - 1;
+                                const lines = [];
+                                if (trajMacro && trajMacro[idx]) {
+                                    const d = trajMacro[idx].deltaBps;
+                                    const sign = d > 0 ? '+' : '';
+                                    lines.push(`  MACRO Δ: ${sign}${d} bps`);
+                                }
+                                if (trajOIS && trajOIS[idx]) {
+                                    const d = trajOIS[idx].deltaBps;
+                                    const sign = d > 0 ? '+' : '';
+                                    lines.push(`  OIS Δ:   ${sign}${d} bps`);
+                                }
+                                return lines;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: '#1a1a1a', drawBorder: false },
+                        ticks: {
+                            color: '#888',
+                            font: { family: 'monospace', size: 10 },
+                            maxRotation: 0
+                        }
+                    },
+                    y: {
+                        grid: { color: '#1a1a1a', drawBorder: false },
+                        ticks: {
+                            color: '#888',
+                            font: { family: 'monospace', size: 10 },
+                            callback: v => v.toFixed(2) + '%'
+                        }
+                    }
+                }
+            }
+        });
+    }, 50);
 }
 
 function closeProjDetail() {
