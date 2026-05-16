@@ -1,5 +1,6 @@
 // Cloudflare Pages Function — proxy Polymarket Gamma API
 // Route: /api/polymarket-fed
+// Récupère le prochain événement Fed Decision sur Polymarket et renvoie les outcomes triés.
 
 export async function onRequest(context) {
     const polymarketUrl = 'https://gamma-api.polymarket.com/events?closed=false&limit=200&order=endDate&ascending=true';
@@ -15,7 +16,8 @@ export async function onRequest(context) {
 
         if (!res.ok) {
             return new Response(JSON.stringify({
-                error: `Polymarket returned ${res.status}`
+                error: `Polymarket returned ${res.status}`,
+                hint: 'API may be rate-limited or down'
             }), {
                 status: res.status,
                 headers: { 'Content-Type': 'application/json' }
@@ -32,6 +34,7 @@ export async function onRequest(context) {
             });
         }
 
+        // Filtre les events Fed/FOMC
         const fedEvents = events.filter(ev => {
             const slug = (ev.slug || '').toLowerCase();
             const title = (ev.title || '').toLowerCase();
@@ -56,9 +59,11 @@ export async function onRequest(context) {
             });
         }
 
+        // Trie par endDate ascendant
         fedEvents.sort((a, b) => new Date(a.endDate) - new Date(b.endDate));
         const nextFed = fedEvents[0];
 
+        // Parse markets : extrait questions + probabilités
         const outcomes = (nextFed.markets || []).map(m => {
             let prices = [];
             try {
