@@ -4599,3 +4599,35 @@ body:has(.modal-overlay.open) {
     outline: 2px solid #ff8c00;
     outline-offset: -2px;
 }
+
+/* ====================================================================
+   SCAN — Labels source CNN / Manual / Offline + timestamp
+   ==================================================================== */
+.src-live {
+    color: #4ade80;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+.src-manual {
+    color: #fbbf24;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+.src-error {
+    color: #f87171;
+    font-style: italic;
+}
+.scan-update-stamp {
+    color: var(--text-tertiary);
+    font-size: 10.5px;
+}
+.scan-update-stamp b {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* Animation refresh button quand fetching */
+#scan-refresh:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
