@@ -857,7 +857,7 @@ body {
     border-bottom: 1px solid #141414;
     text-align: right;
     font-variant-numeric: tabular-nums;
-    color: #4ade80;
+    color: #ff8c00;
 }
 
 .macro-table td:first-child {
@@ -873,6 +873,7 @@ body {
 .macro-table td.editable-macro {
     cursor: pointer;
     transition: all 0.1s;
+    color: #ff8c00;
 }
 
 .macro-table td.editable-macro:hover {
@@ -885,6 +886,14 @@ body {
     color: #444;
 }
 
+/* Cellule focus pour navigation clavier */
+.macro-table td.editable-macro.focused {
+    background: rgba(255, 140, 0, 0.15);
+    outline: 2px solid #ff8c00;
+    outline-offset: -2px;
+    color: #ff8c00;
+}
+
 .macro-table tr.computed-row {
     background: #0f0f0f;
 }
@@ -894,7 +903,7 @@ body {
 }
 
 .macro-table td.computed-cell {
-    color: #888;
+    color: rgba(255, 140, 0, 0.55);
     font-style: italic;
 }
 
@@ -4577,4 +4586,16 @@ body:has(.modal-overlay.open) {
     background: var(--accent);
     color: #000;
     border-color: var(--accent);
+}
+
+/* Override l'outline natif du navigateur sur les cellules focusables */
+.macro-table td.editable-macro:focus {
+    outline: 2px solid #ff8c00;
+    outline-offset: -2px;
+    background: rgba(255, 140, 0, 0.15);
+}
+
+.macro-table td.editable-macro:focus-visible {
+    outline: 2px solid #ff8c00;
+    outline-offset: -2px;
 }
