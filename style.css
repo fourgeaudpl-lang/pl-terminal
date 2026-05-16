@@ -3212,15 +3212,15 @@ body {
     flex-direction: column;
 }
 
-/* Couleurs CB spécifiques (matchent ton chart TradingView) */
-.prib-card[data-cb="FED"]  { border-top: 3px solid #f87171; }  /* Rouge */
-.prib-card[data-cb="BOC"]  { border-top: 3px solid #ff8c00; }  /* Orange */
-.prib-card[data-cb="ECB"]  { border-top: 3px solid #3884ff; }  /* Bleu */
-.prib-card[data-cb="BOE"]  { border-top: 3px solid #a855f7; }  /* Violet */
-.prib-card[data-cb="SNB"]  { border-top: 3px solid #ec4899; }  /* Rose */
-.prib-card[data-cb="BOJ"]  { border-top: 3px solid #fbbf24; }  /* Jaune */
-.prib-card[data-cb="RBA"]  { border-top: 3px solid #4ade80; }  /* Vert */
-.prib-card[data-cb="RBNZ"] { border-top: 3px solid #22d3ee; }  /* Turquoise */
+/* Bordure top orange uniforme (D.A. du terminal) */
+.prib-card[data-cb="FED"],
+.prib-card[data-cb="BOC"],
+.prib-card[data-cb="ECB"],
+.prib-card[data-cb="BOE"],
+.prib-card[data-cb="SNB"],
+.prib-card[data-cb="BOJ"],
+.prib-card[data-cb="RBA"],
+.prib-card[data-cb="RBNZ"] { border-top: 3px solid #ff8c00; }
 
 /* Header de la carte */
 .prib-head {
@@ -3243,14 +3243,14 @@ body {
     letter-spacing: 1px;
 }
 
-.prib-card[data-cb="FED"]  .prib-cb { color: #f87171; }
-.prib-card[data-cb="BOC"]  .prib-cb { color: #ff8c00; }
-.prib-card[data-cb="ECB"]  .prib-cb { color: #3884ff; }
-.prib-card[data-cb="BOE"]  .prib-cb { color: #a855f7; }
-.prib-card[data-cb="SNB"]  .prib-cb { color: #ec4899; }
-.prib-card[data-cb="BOJ"]  .prib-cb { color: #fbbf24; }
-.prib-card[data-cb="RBA"]  .prib-cb { color: #4ade80; }
-.prib-card[data-cb="RBNZ"] .prib-cb { color: #22d3ee; }
+.prib-card[data-cb="FED"]  .prib-cb,
+.prib-card[data-cb="BOC"]  .prib-cb,
+.prib-card[data-cb="ECB"]  .prib-cb,
+.prib-card[data-cb="BOE"]  .prib-cb,
+.prib-card[data-cb="SNB"]  .prib-cb,
+.prib-card[data-cb="BOJ"]  .prib-cb,
+.prib-card[data-cb="RBA"]  .prib-cb,
+.prib-card[data-cb="RBNZ"] .prib-cb { color: #ff8c00; }
 
 .prib-ccy {
     color: var(--text-secondary);
