@@ -337,6 +337,11 @@ function renderMacroTable() {
     const tbody = document.getElementById('macro-tbody');
     if (!tbody) return;
 
+    // On garde la cellule actuellement focusée pour restaurer après render
+    const prevFocused = tbody.querySelector('.editable-macro.focused');
+    const prevInd = prevFocused ? prevFocused.dataset.ind : null;
+    const prevCcy = prevFocused ? prevFocused.dataset.ccy : null;
+
     let html = '';
     MACRO_INDICATORS.forEach(ind => {
         const isComputed = ind.computed === true;
@@ -348,7 +353,9 @@ function renderMacroTable() {
             const cellCls = isComputed ? 'computed-cell' : 'editable-macro';
             const display = fmtMacroValue(v, ind.decimals, isSpread);
             const emptyCls = (v === null) ? 'empty' : '';
-            row += `<td class="num ${cellCls} ${emptyCls}" data-ind="${ind.id}" data-ccy="${ccy}">${display}</td>`;
+            // tabindex="0" rend la cellule focusable au clavier
+            const tabAttr = isComputed ? '' : 'tabindex="0"';
+            row += `<td class="num ${cellCls} ${emptyCls}" data-ind="${ind.id}" data-ccy="${ccy}" ${tabAttr}>${display}</td>`;
         });
         row += '</tr>';
         html += row;
@@ -357,11 +364,110 @@ function renderMacroTable() {
 
     tbody.querySelectorAll('.editable-macro').forEach(cell => {
         cell.addEventListener('click', () => editMacroCell(cell));
+        cell.addEventListener('focus', () => {
+            tbody.querySelectorAll('.editable-macro.focused').forEach(c => c.classList.remove('focused'));
+            cell.classList.add('focused');
+        });
     });
+
+    // Restaure le focus si on était sur une cellule
+    if (prevInd && prevCcy) {
+        const restored = tbody.querySelector(`.editable-macro[data-ind="${prevInd}"][data-ccy="${prevCcy}"]`);
+        if (restored) restored.focus();
+    }
 
     const count = Object.keys(macroState).length;
     const e = document.getElementById('macro-saved');
     if (e) e.textContent = count > 0 ? `${count} values saved` : 'no data yet';
+}
+
+// ============================================
+// Navigation clavier dans la table MACRO
+// ============================================
+function setupMacroKeyboard() {
+    const tbody = document.getElementById('macro-tbody');
+    if (!tbody) return;
+
+    tbody.addEventListener('keydown', e => {
+        const cell = e.target;
+        if (!cell.classList || !cell.classList.contains('editable-macro')) return;
+
+        const ind = cell.dataset.ind;
+        const ccy = cell.dataset.ccy;
+        if (!ind || !ccy) return;
+
+        // Liste de tous les indicateurs non-computed (ceux qu'on peut éditer)
+        const editableIndIds = MACRO_INDICATORS.filter(i => !i.computed).map(i => i.id);
+        const currentIndIdx = editableIndIds.indexOf(ind);
+        const currentCcyIdx = CCYS.indexOf(ccy);
+
+        if (currentIndIdx < 0 || currentCcyIdx < 0) return;
+
+        let newIndIdx = currentIndIdx;
+        let newCcyIdx = currentCcyIdx;
+        let handled = false;
+
+        switch (e.key) {
+            case 'ArrowUp':
+                newIndIdx = Math.max(0, currentIndIdx - 1);
+                handled = true;
+                break;
+            case 'ArrowDown':
+                newIndIdx = Math.min(editableIndIds.length - 1, currentIndIdx + 1);
+                handled = true;
+                break;
+            case 'ArrowLeft':
+                newCcyIdx = Math.max(0, currentCcyIdx - 1);
+                handled = true;
+                break;
+            case 'ArrowRight':
+            case 'Tab':
+                if (e.key === 'Tab' && e.shiftKey) {
+                    // Shift+Tab → précédent
+                    newCcyIdx = currentCcyIdx - 1;
+                    if (newCcyIdx < 0) {
+                        newCcyIdx = CCYS.length - 1;
+                        newIndIdx = Math.max(0, currentIndIdx - 1);
+                    }
+                } else {
+                    // Tab/Right → suivant
+                    newCcyIdx = currentCcyIdx + 1;
+                    if (newCcyIdx >= CCYS.length) {
+                        newCcyIdx = 0;
+                        newIndIdx = Math.min(editableIndIds.length - 1, currentIndIdx + 1);
+                    }
+                }
+                handled = true;
+                break;
+            case 'Enter':
+            case ' ':
+                // Enter ou Espace = éditer la cellule
+                e.preventDefault();
+                editMacroCell(cell);
+                return;
+            case 'Delete':
+            case 'Backspace':
+                // Supprime la valeur de la cellule
+                e.preventDefault();
+                setMacroValue(ind, ccy, null);
+                renderMacroTable();
+                renderMacroCharts();
+                renderScoring();
+                renderCarryMatrix();
+                renderRanking();
+                if (typeof renderScanAll === 'function') renderScanAll();
+                if (typeof renderPosTable === 'function') renderPosTable();
+                return;
+        }
+
+        if (handled) {
+            e.preventDefault();
+            const newInd = editableIndIds[newIndIdx];
+            const newCcy = CCYS[newCcyIdx];
+            const target = tbody.querySelector(`.editable-macro[data-ind="${newInd}"][data-ccy="${newCcy}"]`);
+            if (target) target.focus();
+        }
+    });
 }
 
 function editMacroCell(cell) {
@@ -3147,6 +3253,7 @@ setupScoreEvents();
 setupScanEvents();
 setupCBEvents();
 setupPosEvents();
+setupMacroKeyboard();
 
 // ⚡ Démarrage instantané : on charge le cache avant le fetch
 const cachedBanks = loadRatesCache();
