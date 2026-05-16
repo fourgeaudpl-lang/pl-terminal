@@ -1991,186 +1991,237 @@ function initPosRepaint() {
 }
 
 // ============================================
-// MODULE PROB — Rate Probabilities
-// 1) Polymarket Fed odds via Gamma API (CORS-friendly, sans clé)
-// 2) Schedule G6 des prochains meetings central banks
+// MODULE PROB — Implied Rate Path (G8 Central Banks)
+// Calcule pour chaque banque le taux implicite après chaque meeting futur
+// basé sur :
+//   - Taux actuel (depuis ratesData.banks)
+//   - Liste des meetings (depuis /api/meetings)
+//   - Biais directionnel calculé depuis le score MACRO de chaque devise
 // ============================================
 
-const PROB_POLY_API = 'https://gamma-api.polymarket.com/events';
-let probPolyCache = null;
-let probPolyCacheTime = 0;
-const PROB_POLY_CACHE_MS = 60 * 1000; // 1 min de cache
+// Taux "neutre" (objectif long terme) par banque, en %
+// Utilisé pour la convergence en cas de score neutre
+const PROB_NEUTRAL_RATES = {
+    FED: 3.00, ECB: 2.00, BOE: 3.50, BOJ: 0.50,
+    BOC: 2.75, RBA: 3.50, RBNZ: 3.50, SNB: 1.25
+};
 
-// Trouve l'événement Fed le plus proche dans Polymarket
-async function fetchPolymarketFed() {
-    // Cache pour ne pas saturer
-    if (probPolyCache && (Date.now() - probPolyCacheTime) < PROB_POLY_CACHE_MS) {
-        return probPolyCache;
-    }
+// Step de cut/hike supposé (25bps standard, sauf BOJ qui bouge plus rarement)
+const PROB_STEP_BPS = {
+    FED: 25, ECB: 25, BOE: 25, BOJ: 10,
+    BOC: 25, RBA: 25, RBNZ: 25, SNB: 25
+};
 
+// Délai entre meetings consécutifs (jours)
+const PROB_MEETING_INTERVAL = {
+    FED: 45, ECB: 45, BOE: 42, BOJ: 50,
+    BOC: 45, RBA: 35, RBNZ: 55, SNB: 90
+};
+
+let probMeetingsCache = null;
+
+// Récupère les meetings (utilisable depuis cache)
+async function probFetchMeetings() {
+    if (probMeetingsCache) return probMeetingsCache;
     try {
-        // Recherche par slug : Polymarket nomme ses events Fed avec des slugs explicites
-        // Ex: "fed-decision-in-december-2025", "fomc-decision-january-2026"
-        // On cherche les events actifs taggés "Fed" ou "FOMC"
-        const url = `${PROB_POLY_API}?closed=false&limit=200&order=endDate&ascending=true`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`Polymarket returned ${res.status}`);
-        const events = await res.json();
-        if (!Array.isArray(events)) throw new Error('Unexpected Polymarket response');
-
-        // Filtre : on cherche les events Fed/FOMC avec une fin proche
-        const fedEvents = events.filter(ev => {
-            const slug = (ev.slug || '').toLowerCase();
-            const title = (ev.title || '').toLowerCase();
-            return (
-                slug.includes('fed-decision') ||
-                slug.includes('fomc-decision') ||
-                slug.includes('fomc-meeting') ||
-                title.includes('fed decision') ||
-                title.includes('fomc')
-            ) && ev.markets && ev.markets.length > 0;
-        });
-
-        if (fedEvents.length === 0) {
-            probPolyCache = { error: 'no-fed-event', events: [] };
-            probPolyCacheTime = Date.now();
-            return probPolyCache;
-        }
-
-        // Trie par endDate ascendant et garde le plus proche
-        fedEvents.sort((a, b) => new Date(a.endDate) - new Date(b.endDate));
-        const nextFed = fedEvents[0];
-
-        // Parse les markets de l'event en outcomes triés par prix
-        const outcomes = nextFed.markets.map(m => {
-            // Polymarket renvoie outcomePrices comme string JSON "[0.97, 0.03]"
-            let prices = [];
-            try {
-                prices = typeof m.outcomePrices === 'string'
-                    ? JSON.parse(m.outcomePrices)
-                    : (m.outcomePrices || []);
-            } catch(e) { prices = []; }
-
-            let labels = [];
-            try {
-                labels = typeof m.outcomes === 'string'
-                    ? JSON.parse(m.outcomes)
-                    : (m.outcomes || []);
-            } catch(e) { labels = []; }
-
-            // On veut la proba du "Yes" (outcome 0, prix entre 0 et 1)
-            const yesPrice = prices.length > 0 ? parseFloat(prices[0]) : 0;
-            return {
-                question: m.question || m.groupItemTitle || 'Unknown',
-                groupItemTitle: m.groupItemTitle || '',
-                pct: Math.round(yesPrice * 100),
-                rawPrice: yesPrice
-            };
-        }).filter(o => !isNaN(o.pct));
-
-        // Trie par % décroissant
-        outcomes.sort((a, b) => b.pct - a.pct);
-
-        probPolyCache = {
-            event: nextFed,
-            outcomes,
-            endDate: nextFed.endDate,
-            title: nextFed.title,
-            slug: nextFed.slug
-        };
-        probPolyCacheTime = Date.now();
-        return probPolyCache;
+        const r = await fetch('/api/meetings');
+        if (!r.ok) return {};
+        probMeetingsCache = await r.json();
+        return probMeetingsCache;
     } catch (e) {
-        console.warn('Polymarket fetch failed:', e);
-        return { error: e.message };
+        return {};
     }
 }
 
-// Classify outcome label to color (cut → green, hold → orange, hike → red)
-function probOutcomeColor(label) {
-    const l = (label || '').toLowerCase();
-    if (l.includes('cut') || l.includes('decrease') || l.includes('lower') || l.includes('-')) return 'cut';
-    if (l.includes('hike') || l.includes('increase') || l.includes('higher') || l.includes('raise')) return 'hike';
-    if (l.includes('no change') || l.includes('hold') || l.includes('unchanged') || l.includes('keep')) return 'hold';
-    return 'hold';
+// Calcul du biais directionnel pour une devise depuis sa page MACRO
+// Renvoie un nombre entre -1 (très bearish, cut probable) et +1 (très bullish, hike probable)
+function probBiasForCcy(ccy) {
+    // On utilise le score pondéré calculé par scanGetWeightedScore (déjà existant)
+    if (typeof scanGetWeightedScore !== 'function') return 0;
+    const score = scanGetWeightedScore(ccy);
+    // Score pondéré va typiquement de -17 à +17
+    // On normalise à [-1, +1]
+    return Math.max(-1, Math.min(1, score / 12));
 }
 
-// Render Polymarket Fed odds
-async function renderProbPolymarket() {
-    const wrap = document.getElementById('prob-poly-content');
-    const meetingLabel = document.getElementById('prob-poly-meeting-label');
-    if (!wrap) return;
+// Génère les dates des N prochains meetings à partir du premier meeting connu
+function probGenerateMeetingDates(firstMeeting, cbCode, count) {
+    const dates = [];
+    if (!firstMeeting) return dates;
+    const interval = PROB_MEETING_INTERVAL[cbCode] || 45;
+    let current = new Date(firstMeeting);
+    for (let i = 0; i < count; i++) {
+        dates.push(new Date(current));
+        current = new Date(current.getTime() + interval * 24 * 60 * 60 * 1000);
+    }
+    return dates;
+}
 
-    wrap.innerHTML = '<div class="loading">Fetching Polymarket data...</div>';
+// Calcule le taux implicite après le Nème meeting
+// Modèle simple : on accumule des fractions de cut/hike par meeting
+// La probabilité par meeting dépend du biais et croît avec l'éloignement
+function probImpliedRate(currentRate, bias, neutralRate, stepBps, meetingIndex) {
+    // meetingIndex = 0 pour le 1er meeting à venir, 1 pour le suivant, etc.
+    const step = stepBps / 100; // bps → percentage points
+    // Convergence vers le taux neutre (poids exponentiel décroissant)
+    const convergenceWeight = 1 - Math.exp(-(meetingIndex + 1) / 8);
+    const neutralPull = (neutralRate - currentRate) * convergenceWeight * 0.3;
+    // Biais directionnel : accumule des fractions de step
+    // Au meeting 0 : effet 0.3 * bias (probabilité modeste)
+    // Au meeting 5 : effet 0.8 * bias (probabilité accrue)
+    const biasIntensity = 0.3 + (meetingIndex * 0.1);
+    const biasMove = bias * step * biasIntensity * (meetingIndex + 1) * 0.5;
+    return currentRate + neutralPull + biasMove;
+}
 
-    const data = await fetchPolymarketFed();
+// Détermine le label de biais (CUT/HOLD/HIKE)
+function probBiasLabel(bias) {
+    if (bias <= -0.4) return { label: 'CUT', cls: 'cut' };
+    if (bias >= 0.4)  return { label: 'HIKE', cls: 'hike' };
+    return { label: 'HOLD', cls: 'neutral' };
+}
 
-    if (data.error) {
-        wrap.innerHTML = `<div class="prob-poly-error">
-            ⚠ Polymarket fetch failed: ${data.error}<br>
-            <a href="https://polymarket.com/event/fed-decision" target="_blank" rel="noopener">Open Polymarket Fed Markets →</a>
-        </div>`;
+// Liste des 8 banques avec couleurs (ordre matching ton chart TradingView)
+const PROB_G8_ORDER = [
+    { code: 'FED',  ccy: 'USD' },
+    { code: 'BOC',  ccy: 'CAD' },
+    { code: 'ECB',  ccy: 'EUR' },
+    { code: 'BOE',  ccy: 'GBP' },
+    { code: 'SNB',  ccy: 'CHF' },
+    { code: 'BOJ',  ccy: 'JPY' },
+    { code: 'RBA',  ccy: 'AUD' },
+    { code: 'RBNZ', ccy: 'NZD' }
+];
+
+async function renderProbImpliedPath() {
+    const grid = document.getElementById('prob-implied-grid');
+    if (!grid) return;
+
+    // On attend que ratesData soit dispo
+    if (!ratesData || !ratesData.banks || ratesData.banks.length === 0) {
+        grid.innerHTML = '<div class="loading">Waiting for CB data...</div>';
         return;
     }
 
-    if (!data.outcomes || data.outcomes.length === 0) {
-        wrap.innerHTML = `<div class="prob-poly-error">
-            No active Fed decision market on Polymarket right now.<br>
-            <a href="https://polymarket.com" target="_blank" rel="noopener">Browse Polymarket →</a>
-        </div>`;
-        return;
-    }
+    const banksById = {};
+    ratesData.banks.forEach(b => banksById[b.id] = b);
 
-    if (meetingLabel) {
-        const endDate = new Date(data.endDate);
-        const dateStr = endDate.toLocaleDateString('en-GB', {
-            day: '2-digit', month: 'short', year: 'numeric'
-        });
-        meetingLabel.textContent = `${data.title} · resolves ${dateStr}`;
-    }
+    const meetings = await probFetchMeetings();
 
-    const maxPct = Math.max(...data.outcomes.map(o => o.pct), 1);
+    const cardsHtml = PROB_G8_ORDER.map(bank => {
+        const bankData = banksById[bank.code];
+        const currentRate = bankData && bankData.rate !== null ? bankData.rate : null;
 
-    const outcomesHtml = data.outcomes.map((o, i) => {
-        const color = probOutcomeColor(o.question + ' ' + o.groupItemTitle);
-        const width = (o.pct / maxPct) * 100;
-        const isLeading = i === 0;
-        const label = o.groupItemTitle || o.question;
-        return `
-            <div class="prob-poly-outcome ${isLeading ? 'leading' : ''}">
-                <div class="ppo-label">${label}</div>
-                <div class="ppo-bar-wrap">
-                    <div class="ppo-bar-fill ${color}" style="width: ${width}%;">
-                        ${o.pct >= 8 ? o.pct + '%' : ''}
+        if (currentRate === null) {
+            return `
+                <div class="prib-card" data-cb="${bank.code}">
+                    <div class="prib-head">
+                        <div class="prib-top">
+                            <span class="prib-cb">${bank.code}</span>
+                            <span class="prib-ccy">${bank.ccy}</span>
+                        </div>
+                        <div class="prib-current">—</div>
+                        <div class="prib-current-label">Current rate</div>
+                    </div>
+                    <div class="prib-meetings" style="padding:14px; text-align:center; color:var(--text-secondary); font-size:11px; font-style:italic;">
+                        No data
                     </div>
                 </div>
-                <div class="ppo-pct ${isLeading ? 'high' : ''}">${o.pct}%</div>
+            `;
+        }
+
+        // Bias depuis MACRO
+        const bias = probBiasForCcy(bank.ccy);
+        const biasLabel = probBiasLabel(bias);
+        const step = PROB_STEP_BPS[bank.code] || 25;
+        const neutral = PROB_NEUTRAL_RATES[bank.code] || currentRate;
+
+        // Génère les 6 prochains meetings
+        const firstMeeting = meetings[bank.code];
+        const meetingDates = probGenerateMeetingDates(firstMeeting, bank.code, 6);
+
+        if (meetingDates.length === 0) {
+            return `
+                <div class="prib-card" data-cb="${bank.code}">
+                    <div class="prib-head">
+                        <div class="prib-top">
+                            <span class="prib-cb">${bank.code}</span>
+                            <span class="prib-ccy">${bank.ccy}</span>
+                        </div>
+                        <div class="prib-current">${currentRate.toFixed(2)}%</div>
+                        <div class="prib-current-label">Current rate</div>
+                        <span class="prib-bias-tag ${biasLabel.cls}">${biasLabel.label}</span>
+                    </div>
+                    <div class="prib-meetings" style="padding:14px; text-align:center; color:var(--text-secondary); font-size:11px; font-style:italic;">
+                        No upcoming meeting data
+                    </div>
+                </div>
+            `;
+        }
+
+        // Pour chaque meeting, calcule le taux implicite + delta vs current
+        // Le max delta absolu pour le scaling des barres
+        const projections = meetingDates.map((date, i) => {
+            const implied = probImpliedRate(currentRate, bias, neutral, step, i);
+            const deltaBps = Math.round((implied - currentRate) * 100);
+            return { date, implied, deltaBps };
+        });
+
+        const maxAbsDelta = Math.max(...projections.map(p => Math.abs(p.deltaBps)), 50);
+
+        const rowsHtml = projections.map(p => {
+            const dd = String(p.date.getDate()).padStart(2, '0');
+            const mm = p.date.toLocaleString('en-US', { month: 'short' });
+            const dateStr = `${dd} ${mm}`;
+
+            const deltaCls = p.deltaBps < -5 ? 'cut' : p.deltaBps > 5 ? 'hike' : 'flat';
+            const deltaSign = p.deltaBps > 0 ? '+' : '';
+            const barPct = Math.min(50, (Math.abs(p.deltaBps) / maxAbsDelta) * 50);
+
+            let barFillHtml = '<div class="prib-mbar-center"></div>';
+            if (p.deltaBps < -5) {
+                barFillHtml += `<div class="prib-mbar-fill cut" style="width:${barPct}%; right:50%;"></div>`;
+            } else if (p.deltaBps > 5) {
+                barFillHtml += `<div class="prib-mbar-fill hike" style="width:${barPct}%; left:50%;"></div>`;
+            }
+
+            return `
+                <div class="prib-meeting-row">
+                    <span class="prib-mdate">${dateStr}</span>
+                    <div class="prib-mbar-wrap">${barFillHtml}</div>
+                    <span class="prib-mrate">${p.implied.toFixed(2)}%</span>
+                    <span class="prib-mdelta ${deltaCls}">${deltaSign}${p.deltaBps}</span>
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="prib-card" data-cb="${bank.code}">
+                <div class="prib-head">
+                    <div class="prib-top">
+                        <span class="prib-cb">${bank.code}</span>
+                        <span class="prib-ccy">${bank.ccy}</span>
+                    </div>
+                    <div class="prib-current">${currentRate.toFixed(2)}%</div>
+                    <div class="prib-current-label">Current rate</div>
+                    <span class="prib-bias-tag ${biasLabel.cls}">${biasLabel.label}</span>
+                </div>
+                <div class="prib-meetings">${rowsHtml}</div>
+                <div class="prib-foot">
+                    <span>bias: ${bias > 0 ? '+' : ''}${bias.toFixed(2)}</span>
+                    <span>neutral: ${neutral.toFixed(2)}%</span>
+                </div>
             </div>
         `;
     }).join('');
 
-    const polyUrl = `https://polymarket.com/event/${data.slug}`;
-    const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-
-    wrap.innerHTML = `
-        <div class="prob-poly-outcomes">${outcomesHtml}</div>
-        <div class="prob-poly-meta">
-            <span>Total outcomes: ${data.outcomes.length} · Cached 60s</span>
-            <span>Last update: ${now} · <a href="${polyUrl}" target="_blank" rel="noopener">View on Polymarket →</a></span>
-        </div>
-    `;
-
-    // Update header timestamp
-    const updateEl = document.getElementById('prob-last-update');
-    if (updateEl) updateEl.textContent = now;
+    grid.innerHTML = cardsHtml;
 }
 
 // ============================================
-// SCHEDULE G6 — Prochains meetings centraux
+// SCHEDULE G6 — Prochains meetings centraux (conservé)
 // ============================================
 
-// Schedule des meetings — on prend les données dispo dans ratesData + une fallback hardcodée
-// pour les banques que /api/meetings ne couvre pas
 const PROB_G6_BANKS = [
     { code: 'FED',  ccy: 'USD', name: 'Federal Reserve' },
     { code: 'ECB',  ccy: 'EUR', name: 'European Central Bank' },
@@ -2184,8 +2235,6 @@ function renderProbSchedule() {
     const list = document.getElementById('prob-schedule-list');
     if (!list) return;
 
-    // On lit les meetings depuis ratesData (chargé par fetchAllData)
-    // Si pas dispo, on affiche le loading
     if (!ratesData || !ratesData.banks) {
         list.innerHTML = '<div class="loading">Waiting for CB data...</div>';
         return;
@@ -2194,8 +2243,6 @@ function renderProbSchedule() {
     const banksById = {};
     ratesData.banks.forEach(b => banksById[b.id] = b);
 
-    // On a aussi besoin des meetings — récupérés via /api/meetings, stockés dans une variable globale
-    // Comme ils ne sont pas stockés, on fait un nouveau fetch dédié
     fetch('/api/meetings')
         .then(r => r.ok ? r.json() : {})
         .then(meetings => {
@@ -2210,24 +2257,18 @@ function renderProbSchedule() {
 
                 if (days === null) {
                     countdownText = 'date unknown';
-                    countdownClass = 'far';
                 } else if (days === 0) {
                     countdownText = '— TODAY —';
                     countdownClass = 'today';
                     cardClass = 'today';
                 } else if (days < 0) {
                     countdownText = 'past';
-                    countdownClass = 'far';
                 } else if (days <= 7) {
                     countdownText = `in ${days} day${days > 1 ? 's' : ''}`;
                     countdownClass = 'imminent';
                     cardClass = 'imminent';
-                } else if (days <= 30) {
-                    countdownText = `in ${days} days`;
-                    countdownClass = 'far';
                 } else {
                     countdownText = `in ${days} days`;
-                    countdownClass = 'far';
                 }
 
                 const dateStr = meet ? new Date(meet).toLocaleDateString('en-GB', {
@@ -2238,12 +2279,9 @@ function renderProbSchedule() {
                     ? `${Number(data.rate).toFixed(2)}%`
                     : '—';
 
-                return {
-                    bank, meet, days, dateStr, rateStr, countdownText, countdownClass, cardClass
-                };
+                return { bank, meet, days, dateStr, rateStr, countdownText, countdownClass, cardClass };
             });
 
-            // Trie par jours croissants (les plus proches en premier)
             cards.sort((a, b) => {
                 if (a.days === null) return 1;
                 if (b.days === null) return -1;
@@ -2273,51 +2311,18 @@ function renderProbSchedule() {
 }
 
 // ============================================
-// IFRAME RateProbability handling
-// ============================================
-function initProbIframe() {
-    const iframe = document.getElementById('prob-iframe');
-    const fallback = document.getElementById('prob-iframe-fallback');
-    if (!iframe || !fallback) return;
-
-    // Si l'iframe charge avec succès → on cache le fallback
-    // X-Frame-Options bloque silencieusement, on ne peut pas savoir
-    // sauf si on essaie d'accéder à contentDocument et qu'on échoue
-    iframe.addEventListener('load', () => {
-        try {
-            // Si on peut accéder à contentDocument c'est cross-origin OK (impossible mais en cas où)
-            // ou pas. De toute façon on cache le fallback.
-            // Si l'iframe a vraiment été bloquée par X-Frame-Options, le load se déclenche quand même
-            // mais avec une page vide. Difficile à détecter de façon fiable.
-            fallback.style.display = 'none';
-        } catch (e) {
-            // cross-origin attendu — on cache quand même le fallback
-            fallback.style.display = 'none';
-        }
-    });
-
-    // En cas d'erreur de chargement
-    iframe.addEventListener('error', () => {
-        fallback.style.display = 'flex';
-    });
-}
-
-// ============================================
 // RENDER PROB ALL
 // ============================================
 function renderProbAll() {
-    renderProbPolymarket();
+    renderProbImpliedPath();
     renderProbSchedule();
-    initProbIframe();
 }
 
 function setupProbEvents() {
     const refreshBtn = document.getElementById('prob-refresh');
     if (refreshBtn) {
         refreshBtn.addEventListener('click', () => {
-            // Invalide le cache et re-render
-            probPolyCache = null;
-            probPolyCacheTime = 0;
+            probMeetingsCache = null;
             renderProbAll();
         });
     }
