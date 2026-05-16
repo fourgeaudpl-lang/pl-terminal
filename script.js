@@ -951,9 +951,11 @@ async function fetchAllData() {
         saveRatesCache(mergedBanks);
 
         // 3) Render
-        renderRatesTable(ratesData, meetings);
+        renderSnapshotTable();
         rateHistoryState.banks = mergedBanks;
         renderAllRateCharts();
+        renderProjectionCards();
+        renderCBTimeline();
 
         renderMacroTable();
         renderMacroCharts();
@@ -961,8 +963,6 @@ async function fetchAllData() {
         renderCarryMatrix();
         renderRanking();
         if (typeof renderScanAll === 'function') renderScanAll();
-        // Re-render PROB si on est sur cette page (ou même si on n'y est pas — c'est cheap)
-        if (typeof renderProbAll === 'function') renderProbAll();
         setStatus('live', 'live');
     } catch (e) {
         console.error('Fetch error:', e);
@@ -2036,64 +2036,84 @@ function initPosRepaint() {
 }
 
 // ============================================
-// MODULE PROB — Implied Rate Path (G8 Central Banks)
-// Calcule pour chaque banque le taux implicite après chaque meeting futur
-// basé sur :
-//   - Taux actuel (depuis ratesData.banks)
-//   - Liste des meetings (depuis /api/meetings)
-//   - Biais directionnel calculé depuis le score MACRO de chaque devise
+// MODULE CENTRAL BANKS UNIFIED — 4 TIERS
+// 1) Snapshot table G8
+// 2) Rate path projections (toggle MACRO/OIS/BOTH)
+// 3) Timeline meetings
+// 4) Historical charts (existant)
 // ============================================
 
-// Taux "neutre" (objectif long terme) par banque, en %
-// Utilisé pour la convergence en cas de score neutre
-const PROB_NEUTRAL_RATES = {
+// Ordre fixe pour l'affichage
+const CB_ORDER = [
+    { code: 'FED',  ccy: 'USD' },
+    { code: 'ECB',  ccy: 'EUR' },
+    { code: 'BOE',  ccy: 'GBP' },
+    { code: 'BOJ',  ccy: 'JPY' },
+    { code: 'BOC',  ccy: 'CAD' },
+    { code: 'RBA',  ccy: 'AUD' },
+    { code: 'RBNZ', ccy: 'NZD' },
+    { code: 'SNB',  ccy: 'CHF' }
+];
+
+// Taux neutres (objectif long terme) par banque
+const CB_NEUTRAL_RATES = {
     FED: 3.00, ECB: 2.00, BOE: 3.50, BOJ: 0.50,
     BOC: 2.75, RBA: 3.50, RBNZ: 3.50, SNB: 1.25
 };
 
-// Step de cut/hike supposé (25bps standard, sauf BOJ qui bouge plus rarement)
-const PROB_STEP_BPS = {
+const CB_STEP_BPS = {
     FED: 25, ECB: 25, BOE: 25, BOJ: 10,
     BOC: 25, RBA: 25, RBNZ: 25, SNB: 25
 };
 
-// Délai entre meetings consécutifs (jours)
-const PROB_MEETING_INTERVAL = {
+const CB_MEETING_INTERVAL = {
     FED: 45, ECB: 45, BOE: 42, BOJ: 50,
     BOC: 45, RBA: 35, RBNZ: 55, SNB: 90
 };
 
-let probMeetingsCache = null;
+let cbMeetingsCache = null;
+let cbYieldCurveData = null;
+let cbProjMode = 'macro';  // 'macro' | 'ois' | 'both'
+let cbProjChartInstances = {};
 
-// Récupère les meetings (utilisable depuis cache)
-async function probFetchMeetings() {
-    if (probMeetingsCache) return probMeetingsCache;
+// --- Helpers ---
+async function cbFetchMeetings() {
+    if (cbMeetingsCache) return cbMeetingsCache;
     try {
         const r = await fetch('/api/meetings');
         if (!r.ok) return {};
-        probMeetingsCache = await r.json();
-        return probMeetingsCache;
-    } catch (e) {
-        return {};
-    }
+        cbMeetingsCache = await r.json();
+        return cbMeetingsCache;
+    } catch (e) { return {}; }
 }
 
-// Calcul du biais directionnel pour une devise depuis sa page MACRO
-// Renvoie un nombre entre -1 (très bearish, cut probable) et +1 (très bullish, hike probable)
-function probBiasForCcy(ccy) {
-    // On utilise le score pondéré calculé par scanGetWeightedScore (déjà existant)
+async function cbFetchYieldCurve() {
+    if (cbYieldCurveData) return cbYieldCurveData;
+    try {
+        const r = await fetch('/api/yield-curve');
+        if (!r.ok) return null;
+        const data = await r.json();
+        cbYieldCurveData = data.yields || null;
+        return cbYieldCurveData;
+    } catch (e) { return null; }
+}
+
+function cbBiasForCcy(ccy) {
     if (typeof scanGetWeightedScore !== 'function') return 0;
     const score = scanGetWeightedScore(ccy);
-    // Score pondéré va typiquement de -17 à +17
-    // On normalise à [-1, +1]
     return Math.max(-1, Math.min(1, score / 12));
 }
 
-// Génère les dates des N prochains meetings à partir du premier meeting connu
-function probGenerateMeetingDates(firstMeeting, cbCode, count) {
+function cbBiasLabel(bias) {
+    if (bias <= -0.4) return { label: '▼ CUT',  cls: 'cut' };
+    if (bias >= 0.4)  return { label: '▲ HIKE', cls: 'hike' };
+    return { label: '─ HOLD', cls: 'hold' };
+}
+
+function cbGenerateMeetingDates(firstMeeting, cbCode, count) {
     const dates = [];
     if (!firstMeeting) return dates;
-    const interval = PROB_MEETING_INTERVAL[cbCode] || 45;
+    const interval = CB_MEETING_INTERVAL[cbCode] || 45;
     let current = new Date(firstMeeting);
     for (let i = 0; i < count; i++) {
         dates.push(new Date(current));
@@ -2102,442 +2122,289 @@ function probGenerateMeetingDates(firstMeeting, cbCode, count) {
     return dates;
 }
 
-// Calcule le taux implicite après le Nème meeting
-// Modèle simple : on accumule des fractions de cut/hike par meeting
-// La probabilité par meeting dépend du biais et croît avec l'éloignement
-function probImpliedRate(currentRate, bias, neutralRate, stepBps, meetingIndex) {
-    // meetingIndex = 0 pour le 1er meeting à venir, 1 pour le suivant, etc.
-    const step = stepBps / 100; // bps → percentage points
-    // Convergence vers le taux neutre (poids exponentiel décroissant)
+// --- MACRO model : taux implicite après le Nème meeting ---
+function cbMacroImpliedRate(currentRate, bias, neutralRate, stepBps, meetingIndex) {
+    const step = stepBps / 100;
     const convergenceWeight = 1 - Math.exp(-(meetingIndex + 1) / 8);
     const neutralPull = (neutralRate - currentRate) * convergenceWeight * 0.3;
-    // Biais directionnel : accumule des fractions de step
-    // Au meeting 0 : effet 0.3 * bias (probabilité modeste)
-    // Au meeting 5 : effet 0.8 * bias (probabilité accrue)
     const biasIntensity = 0.3 + (meetingIndex * 0.1);
     const biasMove = bias * step * biasIntensity * (meetingIndex + 1) * 0.5;
     return currentRate + neutralPull + biasMove;
 }
 
-// Détermine le label de biais (CUT/HOLD/HIKE)
-function probBiasLabel(bias) {
-    if (bias <= -0.4) return { label: 'CUT', cls: 'cut' };
-    if (bias >= 0.4)  return { label: 'HIKE', cls: 'hike' };
-    return { label: 'HOLD', cls: 'neutral' };
-}
-
-// Liste des 8 banques avec couleurs (ordre matching ton chart TradingView)
-const PROB_G8_ORDER = [
-    { code: 'FED',  ccy: 'USD' },
-    { code: 'BOC',  ccy: 'CAD' },
-    { code: 'ECB',  ccy: 'EUR' },
-    { code: 'BOE',  ccy: 'GBP' },
-    { code: 'SNB',  ccy: 'CHF' },
-    { code: 'BOJ',  ccy: 'JPY' },
-    { code: 'RBA',  ccy: 'AUD' },
-    { code: 'RBNZ', ccy: 'NZD' }
-];
-
-async function renderProbImpliedPath() {
-    const grid = document.getElementById('prob-implied-grid');
-    if (!grid) return;
-
-    // On attend que ratesData soit dispo
-    if (!ratesData || !ratesData.banks || ratesData.banks.length === 0) {
-        grid.innerHTML = '<div class="loading">Fetching rates from FRED... (~3s)</div>';
-        return;
-    }
-
-    const banksById = {};
-    ratesData.banks.forEach(b => banksById[b.id] = b);
-
-    const meetings = await probFetchMeetings();
-
-    const cardsHtml = PROB_G8_ORDER.map(bank => {
-        const bankData = banksById[bank.code];
-        const currentRate = bankData && bankData.rate !== null ? bankData.rate : null;
-
-        if (currentRate === null) {
-            return `
-                <div class="prib-card" data-cb="${bank.code}">
-                    <div class="prib-head">
-                        <div class="prib-top">
-                            <span class="prib-cb">${bank.code}</span>
-                            <span class="prib-ccy">${bank.ccy}</span>
-                        </div>
-                        <div class="prib-current">—</div>
-                        <div class="prib-current-label">Current rate</div>
-                    </div>
-                    <div class="prib-meetings" style="padding:14px; text-align:center; color:var(--text-secondary); font-size:11px; font-style:italic;">
-                        No data
-                    </div>
-                </div>
-            `;
-        }
-
-        // Bias depuis MACRO
-        const bias = probBiasForCcy(bank.ccy);
-        const biasLabel = probBiasLabel(bias);
-        const step = PROB_STEP_BPS[bank.code] || 25;
-        const neutral = PROB_NEUTRAL_RATES[bank.code] || currentRate;
-
-        // Génère les 6 prochains meetings
-        const firstMeeting = meetings[bank.code];
-        const meetingDates = probGenerateMeetingDates(firstMeeting, bank.code, 6);
-
-        if (meetingDates.length === 0) {
-            return `
-                <div class="prib-card" data-cb="${bank.code}">
-                    <div class="prib-head">
-                        <div class="prib-top">
-                            <span class="prib-cb">${bank.code}</span>
-                            <span class="prib-ccy">${bank.ccy}</span>
-                        </div>
-                        <div class="prib-current">${currentRate.toFixed(2)}%</div>
-                        <div class="prib-current-label">Current rate</div>
-                        <span class="prib-bias-tag ${biasLabel.cls}">${biasLabel.label}</span>
-                    </div>
-                    <div class="prib-meetings" style="padding:14px; text-align:center; color:var(--text-secondary); font-size:11px; font-style:italic;">
-                        No upcoming meeting data
-                    </div>
-                </div>
-            `;
-        }
-
-        // Pour chaque meeting, calcule le taux implicite + delta vs current
-        // Le max delta absolu pour le scaling des barres
-        const projections = meetingDates.map((date, i) => {
-            const implied = probImpliedRate(currentRate, bias, neutral, step, i);
-            const deltaBps = Math.round((implied - currentRate) * 100);
-            return { date, implied, deltaBps };
-        });
-
-        const maxAbsDelta = Math.max(...projections.map(p => Math.abs(p.deltaBps)), 50);
-
-        const rowsHtml = projections.map(p => {
-            const dd = String(p.date.getDate()).padStart(2, '0');
-            const mm = p.date.toLocaleString('en-US', { month: 'short' });
-            const dateStr = `${dd} ${mm}`;
-
-            const deltaCls = p.deltaBps < -5 ? 'cut' : p.deltaBps > 5 ? 'hike' : 'flat';
-            const deltaSign = p.deltaBps > 0 ? '+' : '';
-            const barPct = Math.min(50, (Math.abs(p.deltaBps) / maxAbsDelta) * 50);
-
-            let barFillHtml = '<div class="prib-mbar-center"></div>';
-            if (p.deltaBps < -5) {
-                barFillHtml += `<div class="prib-mbar-fill cut" style="width:${barPct}%; right:50%;"></div>`;
-            } else if (p.deltaBps > 5) {
-                barFillHtml += `<div class="prib-mbar-fill hike" style="width:${barPct}%; left:50%;"></div>`;
-            }
-
-            return `
-                <div class="prib-meeting-row">
-                    <span class="prib-mdate">${dateStr}</span>
-                    <div class="prib-mbar-wrap">${barFillHtml}</div>
-                    <span class="prib-mrate">${p.implied.toFixed(2)}%</span>
-                    <span class="prib-mdelta ${deltaCls}">${deltaSign}${p.deltaBps}</span>
-                </div>
-            `;
-        }).join('');
-
-        return `
-            <div class="prib-card" data-cb="${bank.code}">
-                <div class="prib-head">
-                    <div class="prib-top">
-                        <span class="prib-cb">${bank.code}</span>
-                        <span class="prib-ccy">${bank.ccy}</span>
-                    </div>
-                    <div class="prib-current">${currentRate.toFixed(2)}%</div>
-                    <div class="prib-current-label">Current rate</div>
-                    <span class="prib-bias-tag ${biasLabel.cls}">${biasLabel.label}</span>
-                </div>
-                <div class="prib-meetings">${rowsHtml}</div>
-                <div class="prib-foot">
-                    <span>bias: ${bias > 0 ? '+' : ''}${bias.toFixed(2)}</span>
-                    <span>neutral: ${neutral.toFixed(2)}%</span>
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    grid.innerHTML = cardsHtml;
-}
-
-// ============================================
-// MODULE PROB v2 — OIS-IMPLIED RATE PATH (méthode RateProbability)
-// ============================================
-// Pour chaque banque on calcule une trajectoire de taux implicite à partir
-// de la courbe des yields courts FRED, en suivant la méthodologie RateProbability :
-//
-// 1) Bootstrap des facteurs d'actualisation à partir des yields
-// 2) Calcul des forward rates entre les dates de meetings
-// 3) Conversion en taux directeur implicite après chaque meeting
-// 4) Δ vs taux actuel + probabilité simplifiée
-//
-// On a 2 ancrages par devise :
-//   - Taux directeur actuel (overnight, depuis CB)
-//   - Yield 2Y (depuis /api/yield-curve)
-// On interpole la courbe entre les deux par un modèle exponentiel simple :
-//   Yield(T) = current_rate + (yield_2Y - current_rate) * (1 - exp(-T/τ))
-// où τ contrôle la vitesse de convergence (calibré à 1.5 ans pour matcher la pente)
-// ============================================
-
-let yieldCurveData = null;
-let oisChartInstances = {};
-
-async function fetchYieldCurve() {
-    try {
-        const r = await fetch('/api/yield-curve');
-        if (!r.ok) return null;
-        const data = await r.json();
-        return data.yields || null;
-    } catch (e) {
-        console.warn('Yield curve fetch failed:', e);
-        return null;
-    }
-}
-
-// Bootstrap : facteur d'actualisation au temps T (en années)
-// Formule continue : DF(T) = exp(-r * T)
-function oisDiscountFactor(rate_pct, t_years) {
-    const r = rate_pct / 100;
-    return Math.exp(-r * t_years);
-}
-
-// Yield zéro coupon interpolé à l'échéance T (années)
-// Modèle Nelson-Siegel simplifié à 2 points : current_rate (t=0) et yield_2Y (t=2)
-function oisYieldAtT(currentRate, yield2Y, t_years) {
-    if (yield2Y === null || yield2Y === undefined) {
-        // Fallback : courbe plate au taux directeur
-        return currentRate;
-    }
+// --- OIS model (méthode RateProbability) ---
+function cbYieldAtT(currentRate, yield2Y, t_years) {
+    if (yield2Y === null || yield2Y === undefined) return currentRate;
     if (t_years <= 0) return currentRate;
-    // Modèle de convergence exponentielle
-    const tau = 1.5; // demi-vie de convergence ~1.5 an
+    const tau = 1.5;
     const weight = 1 - Math.exp(-t_years / tau);
-    // À t=0 : weight=0 → currentRate
-    // À t=2 : weight ≈ 0.74 → mix vers yield2Y
-    // Calibrage pour que yield(2) ≈ yield2Y
-    const calibrationAt2Y = 1 - Math.exp(-2 / tau); // = 0.7364
-    const adjustedWeight = weight / calibrationAt2Y;
-    return currentRate + (yield2Y - currentRate) * Math.min(1, adjustedWeight);
+    const calibrationAt2Y = 1 - Math.exp(-2 / tau);
+    return currentRate + (yield2Y - currentRate) * Math.min(1, weight / calibrationAt2Y);
 }
 
-// Forward rate entre t1 et t2 (années depuis aujourd'hui)
-// Forward(t1,t2) = (DF(t1)/DF(t2) - 1) / (t2-t1)
-function oisForwardRate(currentRate, yield2Y, t1_years, t2_years) {
-    if (t2_years <= t1_years) return currentRate;
-    const y1 = oisYieldAtT(currentRate, yield2Y, t1_years);
-    const y2 = oisYieldAtT(currentRate, yield2Y, t2_years);
-    const df1 = oisDiscountFactor(y1, t1_years);
-    const df2 = oisDiscountFactor(y2, t2_years);
-    const tau = t2_years - t1_years;
-    const fwd = ((df1 / df2) - 1) / tau;
-    return fwd * 100; // back to %
+function cbOISImpliedRate(currentRate, yield2Y, t_years_at_meeting) {
+    // Pour chaque meeting t, on retourne le forward rate entre 0 et t
+    // (approximation : moyenne attendue du taux directeur sur la fenêtre)
+    if (yield2Y === null || currentRate === null) return currentRate;
+    return cbYieldAtT(currentRate, yield2Y, t_years_at_meeting);
 }
 
-// Convertit une date en fraction d'année depuis aujourd'hui
 function yearsFromNow(date) {
     return (date.getTime() - Date.now()) / (365.25 * 24 * 60 * 60 * 1000);
 }
 
-// Pour une banque, calcule la trajectoire OIS-implied sur N meetings
-function oisComputeTrajectory(currentRate, yield2Y, meetingDates) {
-    if (currentRate === null || yield2Y === null) return [];
+// --- Calcul trajectoire d'une banque (renvoie un array de projections) ---
+function cbComputeTrajectory(bank, mode, currentRate, yield2Y, meetingDates) {
+    const bias = cbBiasForCcy(bank.ccy);
+    const step = CB_STEP_BPS[bank.code] || 25;
+    const neutral = CB_NEUTRAL_RATES[bank.code] || currentRate;
 
-    const trajectory = [];
-    let prevT = 0;
-
-    for (let i = 0; i < meetingDates.length; i++) {
-        const t = yearsFromNow(meetingDates[i]);
-        if (t <= 0) continue;
-
-        // Forward rate sur la fenêtre [prev meeting, this meeting]
-        // C'est le "overnight moyen attendu sur la période" → après cette réunion
-        const implied = oisForwardRate(currentRate, yield2Y, prevT, t);
+    return meetingDates.map((date, i) => {
+        let implied;
+        if (mode === 'ois') {
+            const t = yearsFromNow(date);
+            implied = cbOISImpliedRate(currentRate, yield2Y, t);
+        } else {
+            // macro
+            implied = cbMacroImpliedRate(currentRate, bias, neutral, step, i);
+        }
         const deltaBps = Math.round((implied - currentRate) * 100);
-
-        trajectory.push({
-            date: meetingDates[i],
-            implied,
-            deltaBps,
-            tYears: t
-        });
-
-        prevT = t;
-    }
-
-    return trajectory;
-}
-
-// Probabilité simplifiée selon méthode RateProbability :
-// proba = min(100%, |Δᵢ − Δᵢ₋₁| / step)
-function oisProbabilityOfMove(trajectory, step_bps) {
-    return trajectory.map((p, i) => {
-        const prevDelta = i === 0 ? 0 : trajectory[i - 1].deltaBps;
-        const incrementBps = p.deltaBps - prevDelta;
-        const proba = Math.min(100, Math.abs(incrementBps) / step_bps * 100);
-        return {
-            ...p,
-            incrementBps,
-            proba: Math.round(proba),
-            direction: incrementBps < -2 ? 'cut' : incrementBps > 2 ? 'hike' : 'hold'
-        };
+        return { date, implied, deltaBps };
     });
 }
 
-// Render principal du module OIS
-async function renderProbOISCurves() {
-    const grid = document.getElementById('prob-ois-grid');
-    if (!grid) return;
+// ============================================
+// TIER 1 — Snapshot Table
+// ============================================
+async function renderSnapshotTable() {
+    const tbody = document.getElementById('snapshot-tbody');
+    if (!tbody) return;
 
     if (!ratesData || !ratesData.banks || ratesData.banks.length === 0) {
-        grid.innerHTML = '<div class="loading">Fetching rates...</div>';
+        tbody.innerHTML = '<tr><td colspan="10" class="loading">Fetching CB data...</td></tr>';
         return;
-    }
-
-    if (!yieldCurveData) {
-        grid.innerHTML = '<div class="loading">Fetching yield curve from FRED... (~3s)</div>';
-        yieldCurveData = await fetchYieldCurve();
-        if (!yieldCurveData) {
-            grid.innerHTML = '<div class="loading" style="color:var(--red);">Failed to fetch yield curve. Check /api/yield-curve.</div>';
-            return;
-        }
     }
 
     const banksById = {};
     ratesData.banks.forEach(b => banksById[b.id] = b);
 
-    const meetings = await probFetchMeetings();
+    const meetings = await cbFetchMeetings();
+    const yields = await cbFetchYieldCurve() || {};
 
-    // Construire les 8 cartes OIS
-    const cardsHtml = PROB_G8_ORDER.map(bank => {
-        const bankData = banksById[bank.code];
-        const currentRate = bankData && bankData.rate !== null ? bankData.rate : null;
-        const yieldEntry = yieldCurveData[bank.ccy];
-        const yield2Y = yieldEntry ? yieldEntry.rate : null;
-        const step = PROB_STEP_BPS[bank.code] || 25;
+    let html = '';
+    CB_ORDER.forEach(bank => {
+        const data = banksById[bank.code] || {};
+        const rate = (data.rate !== null && data.rate !== undefined) ? data.rate : null;
+        const lastChg = data.lastChange;
+        const yEntry = yields[bank.ccy];
+        const y2 = yEntry ? yEntry.rate : null;
+        const spread = (rate !== null && y2 !== null) ? Math.round((y2 - rate) * 100) : null;
+
+        const meet = meetings[bank.code];
+        const days = daysUntil(meet);
+
+        // Format date court
+        let dateStr = '—';
+        if (meet) {
+            const md = new Date(meet);
+            const dd = String(md.getDate()).padStart(2, '0');
+            const mm = md.toLocaleString('en-US', { month: 'short' });
+            dateStr = `${dd} ${mm}`;
+        }
+
+        let daysCls = 'snap-days-far';
+        let daysText = '—';
+        if (days !== null) {
+            if (days < 0) { daysText = 'past'; daysCls = 'snap-days-far'; }
+            else if (days === 0) { daysText = 'TODAY'; daysCls = 'snap-days-imminent'; }
+            else if (days <= 7) { daysText = `${days}d`; daysCls = 'snap-days-imminent'; }
+            else if (days <= 30) { daysText = `${days}d`; daysCls = 'snap-days-soon'; }
+            else { daysText = `${days}d`; daysCls = 'snap-days-far'; }
+        }
+
+        // Macro bias
+        const bias = cbBiasForCcy(bank.ccy);
+        const biasLabel = cbBiasLabel(bias);
+
+        // OIS trend
+        let trendCls = 'stable', trendLabel = 'STABLE';
+        if (rate !== null && y2 !== null) {
+            const trendDelta = y2 - rate;
+            if (trendDelta <= -0.10) { trendCls = 'easing'; trendLabel = 'EASING'; }
+            else if (trendDelta >= 0.10) { trendCls = 'tightening'; trendLabel = 'TIGHTENING'; }
+        }
+
+        const chBp = fmtChangeBp(lastChg);
+        const spreadBp = fmtChangeBp(spread);
+
+        html += `
+            <tr>
+                <td class="snap-cb">${bank.code}</td>
+                <td class="snap-ccy">${bank.ccy}</td>
+                <td class="num">${rate !== null ? rate.toFixed(2) + '%' : '—'}</td>
+                <td class="num ${chBp.cls}">${chBp.text}</td>
+                <td class="num">${y2 !== null ? y2.toFixed(2) + '%' : '—'}</td>
+                <td class="num ${spreadBp.cls}">${spreadBp.text}</td>
+                <td>${dateStr}</td>
+                <td class="num ${daysCls}">${daysText}</td>
+                <td class="center"><span class="snap-tag ${biasLabel.cls}">${biasLabel.label}</span></td>
+                <td class="center"><span class="snap-tag ${trendCls}">${trendLabel}</span></td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+
+    const updEl = document.getElementById('snapshot-update');
+    if (updEl) {
+        const now = new Date();
+        const hh = String(now.getUTCHours()).padStart(2, '0');
+        const mm = String(now.getUTCMinutes()).padStart(2, '0');
+        updEl.textContent = `last update: ${hh}:${mm} GMT`;
+    }
+}
+
+// ============================================
+// TIER 2 — Projection Cards (8 cartes avec mini-courbe)
+// ============================================
+async function renderProjectionCards() {
+    const grid = document.getElementById('proj-grid');
+    if (!grid) return;
+
+    if (!ratesData || !ratesData.banks || ratesData.banks.length === 0) {
+        grid.innerHTML = '<div class="loading">Fetching data...</div>';
+        return;
+    }
+
+    const banksById = {};
+    ratesData.banks.forEach(b => banksById[b.id] = b);
+
+    const meetings = await cbFetchMeetings();
+    const yields = (cbProjMode === 'ois' || cbProjMode === 'both') ? (await cbFetchYieldCurve() || {}) : {};
+
+    // 1) Construit le HTML des cartes
+    const cardsHtml = CB_ORDER.map(bank => {
+        const data = banksById[bank.code] || {};
+        const rate = (data.rate !== null && data.rate !== undefined) ? data.rate : null;
+
+        if (rate === null) {
+            return `<div class="proj-card" data-cb="${bank.code}">
+                <div class="proj-card-head"><span class="proj-card-cb">${bank.code}</span><span class="proj-card-ccy">${bank.ccy}</span></div>
+                <div class="proj-card-empty">No data</div>
+            </div>`;
+        }
 
         const firstMeeting = meetings[bank.code];
-        const meetingDates = probGenerateMeetingDates(firstMeeting, bank.code, 8);
+        const meetingDates = cbGenerateMeetingDates(firstMeeting, bank.code, 8);
 
-        if (currentRate === null || yield2Y === null || meetingDates.length === 0) {
-            return `
-                <div class="ois-card" data-cb="${bank.code}">
-                    <div class="ois-head">
-                        <span class="ois-cb">${bank.code}</span>
-                        <span class="ois-ccy">${bank.ccy}</span>
-                    </div>
-                    <div class="ois-body-empty">
-                        ${currentRate === null ? 'No CB rate' : yield2Y === null ? 'No yield 2Y' : 'No meetings'}
-                    </div>
-                </div>
-            `;
+        if (meetingDates.length === 0) {
+            return `<div class="proj-card" data-cb="${bank.code}">
+                <div class="proj-card-head"><span class="proj-card-cb">${bank.code}</span><span class="proj-card-ccy">${bank.ccy}</span></div>
+                <div class="proj-card-rate">${rate.toFixed(2)}%</div>
+                <div class="proj-card-empty">No meetings</div>
+            </div>`;
         }
 
-        const trajectory = oisComputeTrajectory(currentRate, yield2Y, meetingDates);
-        const enriched = oisProbabilityOfMove(trajectory, step);
-
-        if (enriched.length === 0) {
-            return `<div class="ois-card" data-cb="${bank.code}"><div class="ois-body-empty">No projection</div></div>`;
+        // Trajectoires selon le mode
+        let trajMacro = null, trajOIS = null;
+        if (cbProjMode === 'macro' || cbProjMode === 'both') {
+            trajMacro = cbComputeTrajectory(bank, 'macro', rate, null, meetingDates);
+        }
+        if (cbProjMode === 'ois' || cbProjMode === 'both') {
+            const yEntry = yields[bank.ccy];
+            const y2 = yEntry ? yEntry.rate : null;
+            if (y2 !== null) {
+                trajOIS = cbComputeTrajectory(bank, 'ois', rate, y2, meetingDates);
+            }
         }
 
-        // Détermine la tendance globale pour le bias tag
-        const finalDelta = enriched[enriched.length - 1].deltaBps;
-        let trendCls = 'hold', trendLabel = 'STABLE';
-        if (finalDelta <= -15) { trendCls = 'cut'; trendLabel = 'EASING'; }
-        else if (finalDelta >= 15) { trendCls = 'hike'; trendLabel = 'TIGHTENING'; }
-
-        // Mini-table des 4 prochains meetings
-        const rows = enriched.slice(0, 4).map(p => {
-            const dd = String(p.date.getDate()).padStart(2, '0');
-            const mm = p.date.toLocaleString('en-US', { month: 'short' });
-            const deltaSign = p.deltaBps > 0 ? '+' : '';
-            const deltaCls = p.deltaBps < -5 ? 'cut' : p.deltaBps > 5 ? 'hike' : 'flat';
-            const dirIcon = p.direction === 'cut' ? '▼' : p.direction === 'hike' ? '▲' : '─';
-            const dirCls = p.direction;
-            return `
-                <div class="ois-row">
-                    <span class="ois-date">${dd} ${mm}</span>
-                    <span class="ois-rate">${p.implied.toFixed(2)}%</span>
-                    <span class="ois-delta ${deltaCls}">${deltaSign}${p.deltaBps}</span>
-                    <span class="ois-proba ${dirCls}">${dirIcon} ${p.proba}%</span>
-                </div>
-            `;
-        }).join('');
+        // Delta 12 mois (dernier point)
+        const primaryTraj = trajOIS || trajMacro;
+        const finalDelta = primaryTraj && primaryTraj.length > 0 ? primaryTraj[primaryTraj.length - 1].deltaBps : 0;
+        const deltaCls = finalDelta < -10 ? 'cut' : finalDelta > 10 ? 'hike' : 'flat';
+        const deltaSign = finalDelta > 0 ? '+' : '';
 
         return `
-            <div class="ois-card" data-cb="${bank.code}">
-                <div class="ois-head">
-                    <div class="ois-head-left">
-                        <span class="ois-cb">${bank.code}</span>
-                        <span class="ois-ccy">${bank.ccy}</span>
-                    </div>
-                    <span class="ois-trend ${trendCls}">${trendLabel}</span>
+            <div class="proj-card" data-cb="${bank.code}">
+                <div class="proj-card-head">
+                    <span class="proj-card-cb">${bank.code}</span>
+                    <span class="proj-card-ccy">${bank.ccy}</span>
                 </div>
-                <div class="ois-current">
-                    <span class="ois-current-label">Now</span>
-                    <span class="ois-current-value">${currentRate.toFixed(2)}%</span>
-                    <span class="ois-2y-label">2Y</span>
-                    <span class="ois-2y-value">${yield2Y.toFixed(2)}%</span>
+                <div class="proj-card-rate">${rate.toFixed(2)}%</div>
+                <div class="proj-card-chart"><canvas id="proj-chart-${bank.code}"></canvas></div>
+                <div class="proj-card-footer">
+                    <span class="proj-card-delta ${deltaCls}">${deltaSign}${finalDelta} bps</span>
+                    <span class="proj-card-horizon">12mo</span>
                 </div>
-                <div class="ois-chart-wrap">
-                    <canvas id="ois-chart-${bank.code}"></canvas>
-                </div>
-                <div class="ois-rows">${rows}</div>
             </div>
         `;
     }).join('');
 
     grid.innerHTML = cardsHtml;
 
-    // Maintenant, dessiner les 8 charts
-    PROB_G8_ORDER.forEach(bank => {
-        const bankData = banksById[bank.code];
-        const currentRate = bankData && bankData.rate !== null ? bankData.rate : null;
-        const yieldEntry = yieldCurveData[bank.ccy];
-        const yield2Y = yieldEntry ? yieldEntry.rate : null;
+    // 2) Dessine les charts dans chaque canvas
+    CB_ORDER.forEach(bank => {
+        const data = banksById[bank.code] || {};
+        const rate = (data.rate !== null && data.rate !== undefined) ? data.rate : null;
+        if (rate === null) return;
+
         const firstMeeting = meetings[bank.code];
-        const meetingDates = probGenerateMeetingDates(firstMeeting, bank.code, 8);
+        const meetingDates = cbGenerateMeetingDates(firstMeeting, bank.code, 8);
+        if (meetingDates.length === 0) return;
 
-        if (currentRate === null || yield2Y === null || meetingDates.length === 0) return;
-
-        const trajectory = oisComputeTrajectory(currentRate, yield2Y, meetingDates);
-        if (trajectory.length === 0) return;
-
-        const canvas = document.getElementById(`ois-chart-${bank.code}`);
+        const canvas = document.getElementById(`proj-chart-${bank.code}`);
         if (!canvas) return;
 
-        // Destroy old chart if exists
-        if (oisChartInstances[bank.code]) {
-            oisChartInstances[bank.code].destroy();
+        if (cbProjChartInstances[bank.code]) {
+            cbProjChartInstances[bank.code].destroy();
         }
 
-        // Points : on commence par "Now" (taux actuel) + trajectoire
-        const labels = ['Now', ...trajectory.map(p => {
-            const dd = String(p.date.getDate()).padStart(2, '0');
-            const mm = p.date.toLocaleString('en-US', { month: 'short' });
-            return `${dd} ${mm}`;
+        const labels = ['Now', ...meetingDates.map(d => {
+            return `${String(d.getDate()).padStart(2, '0')} ${d.toLocaleString('en-US', { month: 'short' })}`;
         })];
-        const values = [currentRate, ...trajectory.map(p => p.implied)];
 
-        oisChartInstances[bank.code] = new Chart(canvas.getContext('2d'), {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [{
-                    data: values,
-                    borderColor: '#ff8c00',
-                    backgroundColor: 'rgba(255, 140, 0, 0.08)',
-                    borderWidth: 1.5,
-                    fill: true,
+        const datasets = [];
+
+        if (cbProjMode === 'macro' || cbProjMode === 'both') {
+            const traj = cbComputeTrajectory(bank, 'macro', rate, null, meetingDates);
+            datasets.push({
+                label: 'Macro',
+                data: [rate, ...traj.map(p => p.implied)],
+                borderColor: cbProjMode === 'both' ? '#ff8c00' : '#ff8c00',
+                backgroundColor: 'rgba(255, 140, 0, 0.1)',
+                borderWidth: 1.4,
+                fill: cbProjMode !== 'both',
+                tension: 0.25,
+                pointRadius: 0,
+                pointHoverRadius: 3
+            });
+        }
+
+        if (cbProjMode === 'ois' || cbProjMode === 'both') {
+            const yEntry = yields[bank.ccy];
+            const y2 = yEntry ? yEntry.rate : null;
+            if (y2 !== null) {
+                const traj = cbComputeTrajectory(bank, 'ois', rate, y2, meetingDates);
+                datasets.push({
+                    label: 'OIS',
+                    data: [rate, ...traj.map(p => p.implied)],
+                    borderColor: cbProjMode === 'both' ? '#fbbf24' : '#ff8c00',
+                    backgroundColor: cbProjMode === 'both' ? 'transparent' : 'rgba(255, 140, 0, 0.1)',
+                    borderWidth: 1.4,
+                    borderDash: cbProjMode === 'both' ? [3, 3] : [],
+                    fill: cbProjMode !== 'both',
                     tension: 0.25,
-                    pointRadius: 2,
-                    pointHoverRadius: 4,
-                    pointBackgroundColor: '#ff8c00',
-                    pointBorderColor: '#ff8c00'
-                }]
-            },
+                    pointRadius: 0,
+                    pointHoverRadius: 3
+                });
+            }
+        }
+
+        if (datasets.length === 0) return;
+
+        cbProjChartInstances[bank.code] = new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: { labels, datasets },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -2550,153 +2417,262 @@ async function renderProbOISCurves() {
                         titleColor: '#ff8c00',
                         bodyColor: '#ddd',
                         padding: 6,
-                        callbacks: {
-                            label: c => `${c.parsed.y.toFixed(2)}%`
-                        }
+                        callbacks: { label: c => `${c.dataset.label || ''}: ${c.parsed.y.toFixed(2)}%` }
                     }
                 },
                 scales: {
-                    x: {
-                        grid: { color: '#141414', drawBorder: false },
-                        ticks: {
-                            color: '#666',
-                            font: { family: 'monospace', size: 8 },
-                            maxRotation: 0,
-                            autoSkip: true,
-                            maxTicksLimit: 5
-                        }
-                    },
-                    y: {
-                        grid: { color: '#141414', drawBorder: false },
-                        ticks: {
-                            color: '#666',
-                            font: { family: 'monospace', size: 8 },
-                            callback: v => v.toFixed(1) + '%'
-                        }
-                    }
+                    x: { display: false },
+                    y: { display: false }
                 }
             }
         });
     });
+
+    // 3) Branche le click → modal
+    grid.querySelectorAll('.proj-card').forEach(card => {
+        card.addEventListener('click', () => openProjDetail(card.dataset.cb));
+    });
 }
 
 // ============================================
-// SCHEDULE G6 — Prochains meetings centraux (conservé)
+// MODAL — Détail d'une projection
 // ============================================
-
-const PROB_G6_BANKS = [
-    { code: 'FED',  ccy: 'USD', name: 'Federal Reserve' },
-    { code: 'ECB',  ccy: 'EUR', name: 'European Central Bank' },
-    { code: 'BOE',  ccy: 'GBP', name: 'Bank of England' },
-    { code: 'BOJ',  ccy: 'JPY', name: 'Bank of Japan' },
-    { code: 'BOC',  ccy: 'CAD', name: 'Bank of Canada' },
-    { code: 'RBA',  ccy: 'AUD', name: 'Reserve Bank Australia' }
-];
-
-function renderProbSchedule() {
-    const list = document.getElementById('prob-schedule-list');
-    if (!list) return;
-
-    if (!ratesData || !ratesData.banks) {
-        list.innerHTML = '<div class="loading">Fetching meetings... (~2s)</div>';
-        return;
-    }
+async function openProjDetail(cbCode) {
+    const bank = CB_ORDER.find(b => b.code === cbCode);
+    if (!bank) return;
 
     const banksById = {};
     ratesData.banks.forEach(b => banksById[b.id] = b);
+    const data = banksById[bank.code] || {};
+    const rate = (data.rate !== null && data.rate !== undefined) ? data.rate : null;
+    if (rate === null) return;
 
-    fetch('/api/meetings')
-        .then(r => r.ok ? r.json() : {})
-        .then(meetings => {
-            const cards = PROB_G6_BANKS.map(bank => {
-                const data = banksById[bank.code] || {};
-                const meet = meetings[bank.code];
-                const days = daysUntil(meet);
+    const meetings = await cbFetchMeetings();
+    const yields = await cbFetchYieldCurve() || {};
+    const firstMeeting = meetings[bank.code];
+    const meetingDates = cbGenerateMeetingDates(firstMeeting, bank.code, 6);
 
-                let countdownText = '—';
-                let countdownClass = 'far';
-                let cardClass = '';
+    const yEntry = yields[bank.ccy];
+    const y2 = yEntry ? yEntry.rate : null;
 
-                if (days === null) {
-                    countdownText = 'date unknown';
-                } else if (days === 0) {
-                    countdownText = '— TODAY —';
-                    countdownClass = 'today';
-                    cardClass = 'today';
-                } else if (days < 0) {
-                    countdownText = 'past';
-                } else if (days <= 7) {
-                    countdownText = `in ${days} day${days > 1 ? 's' : ''}`;
-                    countdownClass = 'imminent';
-                    cardClass = 'imminent';
-                } else {
-                    countdownText = `in ${days} days`;
-                }
+    const trajMacro = cbComputeTrajectory(bank, 'macro', rate, null, meetingDates);
+    const trajOIS = (y2 !== null) ? cbComputeTrajectory(bank, 'ois', rate, y2, meetingDates) : null;
 
-                const dateStr = meet ? new Date(meet).toLocaleDateString('en-GB', {
-                    day: '2-digit', month: 'short', year: 'numeric'
-                }) : '—';
+    document.getElementById('proj-detail-title').textContent = `${bank.code} (${bank.ccy}) — PROJECTION DETAIL`;
 
-                const rateStr = (data.rate !== null && data.rate !== undefined)
-                    ? `${Number(data.rate).toFixed(2)}%`
-                    : '—';
+    const step = CB_STEP_BPS[bank.code] || 25;
 
-                return { bank, meet, days, dateStr, rateStr, countdownText, countdownClass, cardClass };
-            });
+    function probaForRow(traj, i) {
+        if (!traj || !traj[i]) return null;
+        const prevDelta = i === 0 ? 0 : traj[i - 1].deltaBps;
+        const inc = traj[i].deltaBps - prevDelta;
+        return Math.min(100, Math.abs(inc) / step * 100);
+    }
 
-            cards.sort((a, b) => {
-                if (a.days === null) return 1;
-                if (b.days === null) return -1;
-                if (a.days < 0 && b.days >= 0) return 1;
-                if (b.days < 0 && a.days >= 0) return -1;
-                return a.days - b.days;
-            });
+    let macroRows = '';
+    let oisRows = '';
 
-            list.innerHTML = cards.map(c => `
-                <div class="prob-sched-card ${c.cardClass}">
-                    <div class="psc-head">
-                        <span class="psc-bank">${c.bank.code}</span>
-                        <span class="psc-ccy">${c.bank.ccy}</span>
-                    </div>
-                    <div class="psc-date">${c.dateStr}</div>
-                    <div class="psc-countdown ${c.countdownClass}">${c.countdownText}</div>
-                    <div class="psc-rate">
-                        <span>Current rate</span>
-                        <b>${c.rateStr}</b>
-                    </div>
-                </div>
-            `).join('');
-        })
-        .catch(e => {
-            list.innerHTML = '<div class="loading">Failed to load meetings.</div>';
+    if (trajMacro && trajMacro.length > 0) {
+        const maxAbs = Math.max(...trajMacro.map(p => Math.abs(p.deltaBps)), 50);
+        macroRows = trajMacro.map((p, i) => {
+            const dd = String(p.date.getDate()).padStart(2, '0');
+            const mm = p.date.toLocaleString('en-US', { month: 'short' });
+            const dy = p.date.getFullYear();
+            const deltaCls = p.deltaBps < -5 ? 'cut' : p.deltaBps > 5 ? 'hike' : 'flat';
+            const deltaSign = p.deltaBps > 0 ? '+' : '';
+            const barPct = Math.min(50, Math.abs(p.deltaBps) / maxAbs * 50);
+            let barHtml = '<div class="pdr-bar-center"></div>';
+            if (p.deltaBps < -5) barHtml += `<div class="pdr-bar-fill cut" style="width:${barPct}%;"></div>`;
+            else if (p.deltaBps > 5) barHtml += `<div class="pdr-bar-fill hike" style="width:${barPct}%;"></div>`;
+            const proba = Math.round(probaForRow(trajMacro, i));
+            const probaCls = p.deltaBps < -5 ? 'cut' : p.deltaBps > 5 ? 'hike' : 'hold';
+            return `<div class="proj-detail-row">
+                <span class="pdr-date">${dd} ${mm} ${dy}</span>
+                <div class="pdr-bar">${barHtml}</div>
+                <span class="pdr-rate">${p.implied.toFixed(2)}%</span>
+                <span class="pdr-delta ${deltaCls}">${deltaSign}${p.deltaBps}</span>
+                <span class="pdr-proba ${probaCls}">${proba}%</span>
+            </div>`;
+        }).join('');
+    }
+
+    if (trajOIS && trajOIS.length > 0) {
+        const maxAbs = Math.max(...trajOIS.map(p => Math.abs(p.deltaBps)), 50);
+        oisRows = trajOIS.map((p, i) => {
+            const dd = String(p.date.getDate()).padStart(2, '0');
+            const mm = p.date.toLocaleString('en-US', { month: 'short' });
+            const dy = p.date.getFullYear();
+            const deltaCls = p.deltaBps < -5 ? 'cut' : p.deltaBps > 5 ? 'hike' : 'flat';
+            const deltaSign = p.deltaBps > 0 ? '+' : '';
+            const barPct = Math.min(50, Math.abs(p.deltaBps) / maxAbs * 50);
+            let barHtml = '<div class="pdr-bar-center"></div>';
+            if (p.deltaBps < -5) barHtml += `<div class="pdr-bar-fill cut" style="width:${barPct}%;"></div>`;
+            else if (p.deltaBps > 5) barHtml += `<div class="pdr-bar-fill hike" style="width:${barPct}%;"></div>`;
+            const proba = Math.round(probaForRow(trajOIS, i));
+            const probaCls = p.deltaBps < -5 ? 'cut' : p.deltaBps > 5 ? 'hike' : 'hold';
+            return `<div class="proj-detail-row">
+                <span class="pdr-date">${dd} ${mm} ${dy}</span>
+                <div class="pdr-bar">${barHtml}</div>
+                <span class="pdr-rate">${p.implied.toFixed(2)}%</span>
+                <span class="pdr-delta ${deltaCls}">${deltaSign}${p.deltaBps}</span>
+                <span class="pdr-proba ${probaCls}">${proba}%</span>
+            </div>`;
+        }).join('');
+    }
+
+    const bias = cbBiasForCcy(bank.ccy);
+    const biasLabel = cbBiasLabel(bias);
+
+    const header = `<div class="proj-detail-row proj-detail-header">
+        <span>DATE</span><span>VISUAL</span><span style="text-align:right;">RATE</span><span style="text-align:right;">Δ BPS</span><span style="text-align:right;">PROBA</span>
+    </div>`;
+
+    const body = `
+        <div class="proj-detail-section">
+            <div class="proj-detail-section-title">CURRENT STATE</div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+                <div><span style="color: var(--text-secondary); font-size: 9px; display: block;">CURRENT RATE</span><span style="font-size: 18px; font-weight: 500;">${rate.toFixed(2)}%</span></div>
+                <div><span style="color: var(--text-secondary); font-size: 9px; display: block;">YIELD 2Y</span><span style="font-size: 18px; font-weight: 500;">${y2 !== null ? y2.toFixed(2) + '%' : '—'}</span></div>
+                <div><span style="color: var(--text-secondary); font-size: 9px; display: block;">NEUTRAL TARGET</span><span style="font-size: 18px; font-weight: 500;">${(CB_NEUTRAL_RATES[bank.code] || 0).toFixed(2)}%</span></div>
+                <div><span style="color: var(--text-secondary); font-size: 9px; display: block;">MACRO BIAS</span><span class="snap-tag ${biasLabel.cls}" style="font-size: 11px;">${biasLabel.label}</span></div>
+            </div>
+        </div>
+
+        <div class="proj-detail-section">
+            <div class="proj-detail-section-title">MACRO-IMPLIED PATH (your scoring)</div>
+            ${header}
+            ${macroRows || '<div style="padding: 20px; text-align: center; color: var(--text-secondary); font-size: 11px;">No macro data</div>'}
+        </div>
+
+        <div class="proj-detail-section">
+            <div class="proj-detail-section-title">OIS-IMPLIED PATH (market pricing)</div>
+            ${oisRows ? header + oisRows : '<div style="padding: 20px; text-align: center; color: var(--text-secondary); font-size: 11px;">No yield 2Y data for ' + bank.ccy + '</div>'}
+        </div>
+
+        <div class="proj-detail-section">
+            <div class="proj-detail-section-title">METHODOLOGY</div>
+            <p style="color: var(--text-secondary); font-size: 10.5px; line-height: 1.7; margin: 0;">
+                <b style="color: var(--accent);">MACRO</b>: taux implicite = taux actuel + biais directionnel × intensité croissante × step (${step}bps).
+                Le biais vient de votre score pondéré MACRO normalisé entre -1 et +1.<br><br>
+                <b style="color: var(--accent);">OIS</b>: méthode RateProbability — bootstrap de la courbe yields (2Y proxy FRED) → forward rates entre meetings.
+                Probabilité simplifiée = |Δᵢ − Δᵢ₋₁| / ${step}bps.
+            </p>
+        </div>
+    `;
+
+    document.getElementById('proj-detail-body').innerHTML = body;
+    document.getElementById('proj-detail-modal').classList.add('open');
+}
+
+function closeProjDetail() {
+    document.getElementById('proj-detail-modal').classList.remove('open');
+}
+
+// ============================================
+// TIER 3 — Timeline horizontale des meetings
+// ============================================
+async function renderCBTimeline() {
+    const wrap = document.getElementById('cb-timeline-wrap');
+    if (!wrap) return;
+
+    const meetings = await cbFetchMeetings();
+    const banksById = {};
+    if (ratesData && ratesData.banks) ratesData.banks.forEach(b => banksById[b.id] = b);
+
+    // Collecte tous les meetings avec leur date + days
+    const points = CB_ORDER.map(bank => {
+        const meet = meetings[bank.code];
+        const days = daysUntil(meet);
+        if (!meet || days === null || days < 0) return null;
+        const md = new Date(meet);
+        const dd = String(md.getDate()).padStart(2, '0');
+        const mm = md.toLocaleString('en-US', { month: 'short' });
+        return {
+            code: bank.code,
+            ccy: bank.ccy,
+            date: meet,
+            days,
+            dateStr: `${dd} ${mm}`
+        };
+    }).filter(p => p !== null);
+
+    if (points.length === 0) {
+        wrap.innerHTML = '<div class="loading">No upcoming meetings.</div>';
+        return;
+    }
+
+    points.sort((a, b) => a.days - b.days);
+
+    // Position relative : on étale entre 5% et 95% basée sur le nombre de jours
+    const maxDays = Math.max(...points.map(p => p.days), 60);
+
+    const pointsHtml = points.map(p => {
+        const left = 5 + (p.days / maxDays) * 90;
+        let cls = 'far';
+        if (p.days <= 7) cls = 'imminent';
+        else if (p.days <= 30) cls = 'soon';
+        return `
+            <div class="cb-timeline-point" style="left: ${left}%;">
+                <div class="cb-tp-dot ${cls}"></div>
+                <div class="cb-tp-label ${cls}">${p.code}</div>
+                <div class="cb-tp-date">${p.dateStr} · ${p.days}d</div>
+            </div>
+        `;
+    }).join('');
+
+    wrap.innerHTML = `
+        <div class="cb-timeline">
+            <div class="cb-timeline-axis"></div>
+            ${pointsHtml}
+        </div>
+    `;
+}
+
+// ============================================
+// SETUP EVENTS CB UNIFIED
+// ============================================
+function setupCBEvents() {
+    // Toggle MACRO / OIS / BOTH
+    document.querySelectorAll('.proj-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.proj-toggle').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            cbProjMode = btn.dataset.mode;
+            renderProjectionCards();
         });
-}
+    });
 
-// ============================================
-// RENDER PROB ALL
-// ============================================
-function renderProbAll() {
-    renderProbImpliedPath();
-    renderProbOISCurves();
-    renderProbSchedule();
-}
-
-function setupProbEvents() {
-    const refreshBtn = document.getElementById('prob-refresh');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', () => {
-            probMeetingsCache = null;
-            yieldCurveData = null;
-            renderProbAll();
+    // Modal close
+    const closeBtn = document.getElementById('proj-detail-close');
+    const modal = document.getElementById('proj-detail-modal');
+    if (closeBtn) closeBtn.addEventListener('click', closeProjDetail);
+    if (modal) {
+        modal.addEventListener('click', e => {
+            if (e.target.id === 'proj-detail-modal') closeProjDetail();
         });
     }
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            const m = document.getElementById('proj-detail-modal');
+            if (m && m.classList.contains('open')) closeProjDetail();
+        }
+    });
+}
+
+// Render all CB tiers
+function renderCBAll() {
+    renderSnapshotTable();
+    renderProjectionCards();
+    renderCBTimeline();
+    renderAllRateCharts();
 }
 
 // ============================================
 // PAGE NAVIGATION (10 pages: home / cb / macro / score / scan / pos / prob / fx / news / cal)
 // HOME = page statique HTML — pas de logique JS associée
 // ============================================
-const PAGES = ['home', 'cb', 'macro', 'score', 'scan', 'pos', 'prob', 'fx', 'news', 'cal'];
+const PAGES = ['home', 'cb', 'macro', 'score', 'scan', 'pos', 'fx', 'news', 'cal'];
 
 function showPage(pageId) {
     if (!PAGES.includes(pageId)) pageId = 'home';
@@ -2721,7 +2697,7 @@ function showPage(pageId) {
 
     if (pageId === 'cb') {
         setTimeout(() => {
-            renderAllRateCharts();
+            renderCBAll();
         }, 50);
     }
 
@@ -2741,12 +2717,6 @@ function showPage(pageId) {
         setTimeout(() => {
             initPosRepaint();
         }, 100);
-    }
-
-    if (pageId === 'prob') {
-        setTimeout(() => {
-            renderProbAll();
-        }, 50);
     }
 
     if (window.location.hash !== '#' + pageId) {
@@ -2783,7 +2753,7 @@ setupCSVButtons();
 setupEditableText();
 setupScoreEvents();
 setupScanEvents();
-setupProbEvents();
+setupCBEvents();
 
 // ⚡ Démarrage instantané : on charge le cache avant le fetch
 const cachedBanks = loadRatesCache();
@@ -2791,10 +2761,11 @@ if (cachedBanks && cachedBanks.length > 0) {
     ratesData = { banks: cachedBanks };
     rateHistoryState.banks = cachedBanks;
     // Render immédiat sans attendre le fetch FRED
-    renderRatesTable(ratesData, {});
+    renderSnapshotTable();
     renderAllRateCharts();
+    renderProjectionCards();
+    renderCBTimeline();
     if (typeof renderScanAll === 'function') renderScanAll();
-    if (typeof renderProbAll === 'function') renderProbAll();
 }
 
 renderScoreAll();
