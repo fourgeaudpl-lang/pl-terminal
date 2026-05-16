@@ -963,6 +963,7 @@ async function fetchAllData() {
         renderCarryMatrix();
         renderRanking();
         if (typeof renderScanAll === 'function') renderScanAll();
+        if (typeof renderHomeAll === 'function') renderHomeAll();
         setStatus('live', 'live');
     } catch (e) {
         console.error('Fetch error:', e);
@@ -2793,6 +2794,280 @@ function renderCBAll() {
 }
 
 // ============================================
+// MODULE HOME — Dashboard d'accueil dynamique
+// Connecte les données en temps réel depuis les autres pages
+// ============================================
+
+const HOME_PAIRS = [
+    'EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF', 'AUD/USD', 'NZD/USD', 'USD/CAD',
+    'EUR/GBP', 'EUR/JPY', 'GBP/JPY', 'AUD/JPY', 'CHF/JPY',
+    'EUR/CHF', 'EUR/AUD', 'EUR/NZD', 'EUR/CAD',
+    'GBP/CHF', 'GBP/AUD', 'GBP/NZD', 'GBP/CAD',
+    'AUD/CHF', 'AUD/NZD', 'AUD/CAD',
+    'NZD/CHF', 'NZD/CAD', 'CAD/CHF', 'CAD/JPY', 'NZD/JPY'
+];
+
+// Cache des prix FX (alimenté par /api/rates si dispo)
+let homeFxPrices = {};
+
+// --- HOME · G10 PRICES (28 paires) ---
+function renderHomePrices() {
+    const grid = document.getElementById('home-prices-grid');
+    if (!grid) return;
+
+    // On essaie d'utiliser le ticker live s'il existe
+    // Si pas de prix → on affiche un placeholder
+    const hasData = Object.keys(homeFxPrices).length > 0;
+
+    if (!hasData) {
+        grid.innerHTML = '<div class="home-prices-loading">Waiting for live FX prices...</div>';
+        return;
+    }
+
+    grid.innerHTML = HOME_PAIRS.map(pair => {
+        const p = homeFxPrices[pair];
+        if (!p) {
+            return `<div class="home-price-row">
+                <span class="hp-pair">${pair}</span>
+                <span class="hp-val">—</span>
+                <span class="hp-chg flat">—</span>
+            </div>`;
+        }
+        const chgCls = p.changePct > 0 ? 'up' : p.changePct < 0 ? 'down' : 'flat';
+        const sign = p.changePct > 0 ? '+' : '';
+        return `<div class="home-price-row">
+            <span class="hp-pair">${pair}</span>
+            <span class="hp-val">${p.price}</span>
+            <span class="hp-chg ${chgCls}">${sign}${p.changePct.toFixed(2)}%</span>
+        </div>`;
+    }).join('');
+}
+
+// Récupère les prix FX depuis le ticker (la fonction tickerData est globale)
+async function homeFetchFxPrices() {
+    try {
+        // Essai 1 : si l'app a déjà un cache de ticker (variable globale tickerCache)
+        if (typeof tickerCache !== 'undefined' && tickerCache && Array.isArray(tickerCache)) {
+            tickerCache.forEach(t => {
+                if (t.pair && t.price !== undefined) {
+                    homeFxPrices[t.pair] = {
+                        price: typeof t.price === 'string' ? t.price : t.price.toFixed(t.pair.includes('JPY') ? 2 : 4),
+                        changePct: typeof t.changePct === 'number' ? t.changePct : 0
+                    };
+                }
+            });
+            return;
+        }
+
+        // Essai 2 : fetch direct /api/rates pour obtenir les prix FX
+        // Note: /api/rates contient les taux directeurs, pas les prix FX
+        // On va plutôt utiliser /api/yields ou inférer depuis ticker DOM
+        const tickerEl = document.querySelector('.ticker-content, .ticker-track');
+        if (tickerEl) {
+            const items = tickerEl.querySelectorAll('.ticker-item, .ticker-pair');
+            items.forEach(item => {
+                const txt = item.textContent || '';
+                // Format type: "EUR/USD 1.0942 +0.47%"
+                const m = txt.match(/([A-Z]{3}\/[A-Z]{3})\s*[•\-]?\s*([\d.]+)\s*([+\-]?[\d.]+)%/);
+                if (m) {
+                    homeFxPrices[m[1]] = {
+                        price: m[2],
+                        changePct: parseFloat(m[3])
+                    };
+                }
+            });
+        }
+    } catch (e) {
+        console.warn('Home FX fetch failed:', e);
+    }
+}
+
+// --- HOME · CCY STRENGTH (depuis SCORE pondéré MACRO) ---
+function renderHomeStrength() {
+    const list = document.getElementById('home-strength-list');
+    if (!list) return;
+
+    if (typeof scanGetWeightedScore !== 'function') {
+        list.innerHTML = '<div class="home-strength-loading">Macro score unavailable</div>';
+        return;
+    }
+
+    const scores = CCYS.map(ccy => ({
+        ccy,
+        score: scanGetWeightedScore(ccy)
+    })).sort((a, b) => b.score - a.score);
+
+    // Trouver l'amplitude max pour normaliser les barres
+    const maxAbs = Math.max(...scores.map(s => Math.abs(s.score)), 1);
+
+    list.innerHTML = scores.map(s => {
+        const cls = s.score > 1 ? 'up' : s.score < -1 ? 'down' : 'flat';
+        const barColor = s.score > 1 ? '#4ade80' : s.score < -1 ? '#f87171' : '#6b6b6b';
+        const widthPct = Math.min(100, (Math.abs(s.score) / maxAbs) * 100);
+        const sign = s.score > 0 ? '+' : '';
+        return `<div class="home-strength-row">
+            <span class="hs-ccy">${s.ccy}</span>
+            <div class="hs-bar-bg"><div class="hs-bar-fill" style="width:${widthPct}%;background:${barColor};"></div></div>
+            <span class="hs-score ${cls}">${sign}${s.score.toFixed(1)}</span>
+        </div>`;
+    }).join('');
+}
+
+// --- HOME · CENTRAL BANKS (depuis ratesData + meetings) ---
+async function renderHomeCB() {
+    const tbody = document.getElementById('home-cb-tbody');
+    if (!tbody) return;
+
+    if (!ratesData || !ratesData.banks || ratesData.banks.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="home-cb-loading">Fetching CB data...</td></tr>';
+        return;
+    }
+
+    const banksById = {};
+    ratesData.banks.forEach(b => banksById[b.id] = b);
+
+    const meetings = await cbFetchMeetings();
+
+    tbody.innerHTML = CB_ORDER.map(bank => {
+        const data = banksById[bank.code] || {};
+        const rate = (data.rate !== null && data.rate !== undefined) ? data.rate : null;
+        const meet = meetings[bank.code];
+
+        let dateStr = '—';
+        let dateCls = 'hcb-date';
+        if (meet) {
+            const md = new Date(meet);
+            const dd = String(md.getDate()).padStart(2, '0');
+            const mm = md.toLocaleString('en-US', { month: 'short' }).toLowerCase();
+            dateStr = `${dd} ${mm}`;
+            const days = daysUntil(meet);
+            if (days !== null) {
+                if (days <= 7) dateCls = 'hcb-date imminent';
+                else if (days <= 30) dateCls = 'hcb-date soon';
+            }
+        }
+
+        return `<tr>
+            <td class="hcb-bank">${bank.code}</td>
+            <td class="hcb-rate">${rate !== null ? rate.toFixed(2) + '%' : '—'}</td>
+            <td class="${dateCls}">${dateStr}</td>
+        </tr>`;
+    }).join('');
+}
+
+// --- HOME · TOP EVENTS (depuis /api/calendar) ---
+async function renderHomeEvents() {
+    const list = document.getElementById('home-events-list');
+    if (!list) return;
+
+    try {
+        const r = await fetch('/api/calendar');
+        if (!r.ok) {
+            list.innerHTML = '<div class="home-events-loading">Calendar unavailable</div>';
+            return;
+        }
+        const data = await r.json();
+        const events = Array.isArray(data) ? data : (data.events || data.calendar || []);
+
+        if (events.length === 0) {
+            list.innerHTML = '<div class="home-events-loading">No events today</div>';
+            return;
+        }
+
+        // On garde les 5 prochains (en filtrant ceux passés)
+        const now = new Date();
+        const todayEvents = events
+            .filter(ev => {
+                const dt = new Date(ev.time || ev.date || ev.datetime);
+                if (isNaN(dt)) return false;
+                return dt > now;
+            })
+            .slice(0, 5);
+
+        if (todayEvents.length === 0) {
+            // Fallback : les 5 premiers tout court
+            todayEvents.push(...events.slice(0, 5));
+        }
+
+        list.innerHTML = todayEvents.map(ev => {
+            const dt = new Date(ev.time || ev.date || ev.datetime);
+            let timeStr = '--:--';
+            if (!isNaN(dt)) {
+                const hh = String(dt.getUTCHours()).padStart(2, '0');
+                const mm = String(dt.getUTCMinutes()).padStart(2, '0');
+                timeStr = `${hh}:${mm}`;
+            }
+            const impact = (ev.impact || ev.importance || 'medium').toLowerCase();
+            let impCls = 'warn', impLabel = '● MED';
+            if (impact.includes('high') || impact === '3') { impCls = 'down'; impLabel = '● HIGH'; }
+            else if (impact.includes('low') || impact === '1') { impCls = 'flat'; impLabel = '● LOW'; }
+
+            const ccy = ev.currency || ev.country || '';
+            const name = ev.event || ev.name || ev.title || 'Event';
+
+            return `<div class="home-event-row">
+                <div class="hev-meta">
+                    <span class="hev-imp ${impCls}">${impLabel}</span>
+                    <span class="hev-time">${timeStr}</span>
+                </div>
+                <div class="hev-name">${ccy ? ccy + ' · ' : ''}${name}</div>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        list.innerHTML = '<div class="home-events-loading">Failed to load events</div>';
+    }
+}
+
+// --- HOME · NEWS HEADLINES (depuis /api/roro qui agrège FinancialJuice) ---
+async function renderHomeNews() {
+    const list = document.getElementById('home-news-list');
+    if (!list) return;
+
+    try {
+        const r = await fetch('/api/roro');
+        if (!r.ok) {
+            list.innerHTML = '<div class="home-news-loading">News unavailable</div>';
+            return;
+        }
+        const data = await r.json();
+        const news = data.news || data.headlines || data.items || (Array.isArray(data) ? data : []);
+
+        if (news.length === 0) {
+            list.innerHTML = '<div class="home-news-loading">No headlines</div>';
+            return;
+        }
+
+        const items = news.slice(0, 8);
+        list.innerHTML = items.map(n => {
+            const dt = new Date(n.time || n.date || n.published || n.publishedAt || n.timestamp);
+            let timeStr = '--:--';
+            if (!isNaN(dt)) {
+                const hh = String(dt.getUTCHours()).padStart(2, '0');
+                const mm = String(dt.getUTCMinutes()).padStart(2, '0');
+                timeStr = `${hh}:${mm}`;
+            }
+            const text = n.title || n.headline || n.text || n.body || '';
+            return `<div class="home-news-row">
+                <span class="hn-time">${timeStr}</span>
+                <span class="hn-text">${text}</span>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        list.innerHTML = '<div class="home-news-loading">Failed to load news</div>';
+    }
+}
+
+// Render tout
+async function renderHomeAll() {
+    await homeFetchFxPrices();
+    renderHomePrices();
+    renderHomeStrength();
+    await renderHomeCB();
+    renderHomeEvents();
+    renderHomeNews();
+}
+
+// ============================================
 // PAGE NAVIGATION (10 pages: home / cb / macro / score / scan / pos / prob / fx / news / cal)
 // HOME = page statique HTML — pas de logique JS associée
 // ============================================
@@ -2811,6 +3086,12 @@ function showPage(pageId) {
         link.classList.remove('active');
         if (link.dataset.page === pageId) link.classList.add('active');
     });
+
+    if (pageId === 'home') {
+        setTimeout(() => {
+            renderHomeAll();
+        }, 50);
+    }
 
     if (pageId === 'macro') {
         setTimeout(() => {
