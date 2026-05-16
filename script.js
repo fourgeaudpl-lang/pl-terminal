@@ -391,6 +391,7 @@ function editMacroCell(cell) {
     renderCarryMatrix();
     renderRanking();
     if (typeof renderScanAll === 'function') renderScanAll();
+    if (typeof renderPosTable === 'function') renderPosTable();
 }
 
 function setupEditableText() {
@@ -466,6 +467,7 @@ function importMacroCSV(file) {
         renderCarryMatrix();
         renderRanking();
         if (typeof renderScanAll === 'function') renderScanAll();
+    if (typeof renderPosTable === 'function') renderPosTable();
         alert(`Imported ${imported} values from CSV`);
     };
     reader.readAsText(file);
@@ -963,6 +965,7 @@ async function fetchAllData() {
         renderCarryMatrix();
         renderRanking();
         if (typeof renderScanAll === 'function') renderScanAll();
+    if (typeof renderPosTable === 'function') renderPosTable();
         if (typeof renderHomeAll === 'function') renderHomeAll();
         setStatus('live', 'live');
     } catch (e) {
@@ -1831,312 +1834,135 @@ function setupScanEvents() {
 }
 
 // ============================================
-// MODULE POS — Retail Positioning (Myfxbook Community Outlook)
-// Le widget Myfxbook injecte son HTML de manière asynchrone.
-// On observe le DOM et on repeint les couleurs natives (orange/bleu)
-// vers notre palette vert/rouge cohérente avec le reste du terminal.
+// MODULE POS — Macro-based Contrarian Positioning
+// Calcule un positionnement retail théorique basé sur les scores macro
+// Principe : retail traders se trompent souvent → contrarian de la macro
 // ============================================
 
-const POS_GREEN = '#4ade80';
-const POS_RED   = '#f87171';
-const POS_YELLOW = '#fbbf24';
-const POS_FG    = '#0a0a0a'; // texte sur fond coloré (notre fond noir)
-const POS_BG_GREEN_ALPHA = 'rgba(74, 222, 128, 0.85)';
-const POS_BG_RED_ALPHA   = 'rgba(248, 113, 113, 0.85)';
+const POS_PAIRS = [
+    { base: 'EUR', quote: 'USD' },
+    { base: 'GBP', quote: 'USD' },
+    { base: 'USD', quote: 'JPY' },
+    { base: 'USD', quote: 'CHF' },
+    { base: 'AUD', quote: 'USD' },
+    { base: 'NZD', quote: 'USD' },
+    { base: 'USD', quote: 'CAD' },
+    { base: 'EUR', quote: 'GBP' },
+    { base: 'EUR', quote: 'JPY' },
+    { base: 'EUR', quote: 'CHF' },
+    { base: 'EUR', quote: 'AUD' },
+    { base: 'EUR', quote: 'CAD' },
+    { base: 'GBP', quote: 'JPY' },
+    { base: 'GBP', quote: 'CHF' },
+    { base: 'GBP', quote: 'AUD' },
+    { base: 'AUD', quote: 'JPY' },
+    { base: 'AUD', quote: 'CHF' },
+    { base: 'AUD', quote: 'NZD' },
+    { base: 'NZD', quote: 'JPY' },
+    { base: 'CAD', quote: 'JPY' },
+    { base: 'CAD', quote: 'CHF' },
+    { base: 'CHF', quote: 'JPY' }
+];
 
-let posRepaintObserver = null;
-let posRepaintAttempts = 0;
-
-// Détecte si une couleur CSS est "orange-ish" (utilisé par Myfxbook pour SHORT/baissier)
-// Myfxbook utilise typiquement du #FF9900, #F90 ou similaires pour SHORT
-function posIsOrangish(color) {
-    if (!color) return false;
-    const c = color.toLowerCase();
-    // Hex orange
-    if (/^#(ff9[0-9a-f]{1,3}|f90|fa[0-9a-f]{0,3}|f[78][0-9a-f])/.test(c)) return true;
-    // rgb orange
-    const m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-    if (m) {
-        const r = +m[1], g = +m[2], b = +m[3];
-        if (r > 200 && g > 100 && g < 200 && b < 80) return true;
+// Calcule le positionnement long/short pour une paire
+// Spread macro de -34 à +34 → mappé à 20-80% retail short/long
+function posComputePair(pair) {
+    if (typeof scanGetWeightedScore !== 'function') {
+        return { pair: pair.base + '/' + pair.quote, longPct: 50, shortPct: 50, spread: 0, status: 'na' };
     }
-    return false;
+
+    const baseScore = scanGetWeightedScore(pair.base);
+    const quoteScore = scanGetWeightedScore(pair.quote);
+    const spread = baseScore - quoteScore;
+
+    // Spread macro normalisé : on amplifie pour avoir des % significatifs
+    // Spread de 0 = 50/50 retail
+    // Spread de +30 (très bullish) = ~25% LONG, ~75% SHORT (contrarian extrême)
+    // Spread de -30 = inverse
+    const factor = 0.85; // intensité du déséquilibre
+    const skew = Math.max(-30, Math.min(30, spread * factor));
+    // skew positif → retail SHORT majoritaire (contre la tendance haussière)
+    // skew négatif → retail LONG majoritaire (contre la baisse)
+    const shortPct = Math.round(50 + skew);
+    const longPct = 100 - shortPct;
+
+    let status = 'balanced';
+    if (longPct >= 70) status = 'long-extreme';
+    else if (shortPct >= 70) status = 'short-extreme';
+    else if (longPct >= 60) status = 'long-bias';
+    else if (shortPct >= 60) status = 'short-bias';
+
+    return {
+        pair: pair.base + '/' + pair.quote,
+        base: pair.base,
+        quote: pair.quote,
+        baseScore,
+        quoteScore,
+        spread,
+        longPct,
+        shortPct,
+        status
+    };
 }
 
-// Détecte si une couleur est "blue-ish" (utilisé par Myfxbook pour LONG/haussier)
-function posIsBluish(color) {
-    if (!color) return false;
-    const c = color.toLowerCase();
-    if (/^#(0[0-9a-f]{2}|[0-3][0-9a-f]{2}[0-9a-f]{2})/.test(c)) {
-        // Plage du bleu : R bas, B haut
-        const m = c.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/);
-        if (m) {
-            const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
-            return b > 150 && r < 100;
-        }
-    }
-    const m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-    if (m) {
-        const r = +m[1], g = +m[2], b = +m[3];
-        if (b > 150 && r < 100) return true;
-    }
-    return false;
-}
+function renderPosTable() {
+    const tbody = document.getElementById('pos-table-tbody');
+    if (!tbody) return;
 
-// Heuristique pour identifier les barres LONG vs SHORT dans le widget Myfxbook
-// On parcourt le DOM en repaint mode
-function posRepaintColors() {
-    const container = document.getElementById('pos-myfxbook-container');
-    if (!container) return;
-
-    // 1) Repaint des éléments avec attribut bgcolor (vieille technique HTML)
-    container.querySelectorAll('[bgcolor]').forEach(el => {
-        const bg = (el.getAttribute('bgcolor') || '').toLowerCase();
-        if (posIsBluish(bg)) {
-            el.setAttribute('bgcolor', POS_GREEN);
-            el.style.backgroundColor = POS_GREEN;
-            el.style.color = POS_FG;
-        } else if (posIsOrangish(bg)) {
-            el.setAttribute('bgcolor', POS_RED);
-            el.style.backgroundColor = POS_RED;
-            el.style.color = POS_FG;
-        }
-    });
-
-    // 2) Repaint des éléments avec style inline background-color
-    container.querySelectorAll('[style*="background"]').forEach(el => {
-        const inlineStyle = el.getAttribute('style') || '';
-        // Capture toutes les déclarations background-color: XXX et background: XXX
-        let newStyle = inlineStyle;
-        let touched = false;
-
-        newStyle = newStyle.replace(
-            /background(-color)?\s*:\s*([^;]+)/gi,
-            (match, _g1, color) => {
-                const cleanColor = color.trim();
-                if (posIsBluish(cleanColor)) {
-                    touched = true;
-                    return `background-color: ${POS_GREEN}`;
-                }
-                if (posIsOrangish(cleanColor)) {
-                    touched = true;
-                    return `background-color: ${POS_RED}`;
-                }
-                return match;
-            }
-        );
-
-        if (touched) {
-            el.setAttribute('style', newStyle);
-            el.style.color = POS_FG;
-            el.style.fontWeight = '600';
-            el.style.fontFamily = "'SF Mono', Monaco, Consolas, monospace";
-        }
-    });
-
-    // 3) Repaint des couleurs de texte (chiffres %): leurs % LONG en bleu → vert,
-    //    leurs % SHORT en orange → rouge.
-    container.querySelectorAll('*').forEach(el => {
-        // On ne touche pas aux conteneurs avec enfants (sinon on casse les enfants)
-        if (el.children.length > 0) return;
-        const computedColor = el.style.color || '';
-        if (posIsBluish(computedColor)) {
-            el.style.color = POS_GREEN;
-            el.style.fontWeight = '500';
-        } else if (posIsOrangish(computedColor)) {
-            el.style.color = POS_RED;
-            el.style.fontWeight = '500';
-        }
-    });
-
-    // 4) Heuristique sémantique : si une cellule TD contient "%" et qu'elle est
-    //    dans une colonne "long" → vert. C'est plus fiable que d'attaquer les
-    //    couleurs car le texte est explicite.
-    //    On regarde les en-têtes du tableau pour mapper colonne → type.
-    const tables = container.querySelectorAll('table');
-    tables.forEach(table => {
-        const headerCells = table.querySelectorAll('tr:first-child th, tr:first-child td');
-        const colMap = []; // index colonne -> 'long' | 'short' | null
-        headerCells.forEach((th, i) => {
-            const txt = (th.textContent || '').toLowerCase();
-            if (txt.includes('long')) colMap[i] = 'long';
-            else if (txt.includes('short')) colMap[i] = 'short';
-            else colMap[i] = null;
-        });
-
-        // Si on a identifié au moins une colonne long/short, on peut colorier
-        if (colMap.some(c => c !== null)) {
-            const rows = table.querySelectorAll('tr');
-            rows.forEach((row, rowIdx) => {
-                if (rowIdx === 0) return; // skip header
-                const cells = row.querySelectorAll('td');
-                cells.forEach((cell, i) => {
-                    if (colMap[i] === 'long') {
-                        // Si la cellule contient % → vert, sinon laisse tel quel
-                        if (/\d+(\.\d+)?\s*%/.test(cell.textContent)) {
-                            cell.style.color = POS_GREEN;
-                            cell.style.fontWeight = '500';
-                        }
-                    } else if (colMap[i] === 'short') {
-                        if (/\d+(\.\d+)?\s*%/.test(cell.textContent)) {
-                            cell.style.color = POS_RED;
-                            cell.style.fontWeight = '500';
-                        }
-                    }
-                });
-            });
-        }
-    });
-}
-
-// Initialise l'observateur DOM pour repeindre dès que Myfxbook injecte
-function initPosRepaint() {
-    const container = document.getElementById('pos-myfxbook-container');
-    if (!container) return;
-
-    // Déconnecte un observer précédent éventuel
-    if (posRepaintObserver) {
-        posRepaintObserver.disconnect();
-        posRepaintObserver = null;
+    if (typeof scanGetWeightedScore !== 'function') {
+        tbody.innerHTML = '<tr><td colspan="6" class="pos-empty">Macro scores not available</td></tr>';
+        return;
     }
 
-    posRepaintAttempts = 0;
+    const results = POS_PAIRS.map(posComputePair);
 
-    // SOLUTION : on isole le widget Myfxbook dans un iframe srcdoc.
-    // Le widget utilise document.write() qui ne marche QUE pendant le chargement initial
-    // d'une page. Donc on charge la page dans un iframe → tout s'exécute proprement.
-
-    // Vide le conteneur
-    container.innerHTML = '';
-
-    // Crée un iframe sandbox
-    const iframe = document.createElement('iframe');
-    iframe.id = 'pos-myfxbook-iframe';
-    iframe.style.width = '100%';
-    iframe.style.height = '900px';
-    iframe.style.border = 'none';
-    iframe.style.background = 'transparent';
-    iframe.setAttribute('scrolling', 'no');
-
-    // HTML interne de l'iframe : page minimaliste qui charge le widget Myfxbook
-    // On y inclut aussi du CSS pour repeindre les couleurs (orange/bleu → vert/rouge)
-    const innerHtml = `<!DOCTYPE html>
-<html><head>
-<meta charset="UTF-8">
-<style>
-  body {
-    margin: 0; padding: 12px;
-    background: #0a0a0a;
-    color: #e5e5e5;
-    font-family: 'SF Mono', Monaco, Consolas, monospace;
-    font-size: 12px;
-  }
-  a { color: #ff8c00; text-decoration: none; }
-  table { width: 100%; border-collapse: collapse; }
-  table tr { border-bottom: 1px solid #1a1a1a; }
-  table td, table th { padding: 6px 8px; font-size: 11px; }
-
-  /* Repaint des couleurs natives Myfxbook : bleu (long) → vert, orange (short) → rouge */
-  [bgcolor="#7cb5ec"], [bgcolor="#3b87cd"], [bgcolor*="#0"][bgcolor*="ff"], [bgcolor*="blue"],
-  [style*="background: #7cb5ec"], [style*="background:#7cb5ec"],
-  [style*="background-color: #7cb5ec"], [style*="background-color:#7cb5ec"],
-  [style*="background: rgb(124"], [style*="background-color: rgb(124"] {
-    background-color: #4ade80 !important;
-    color: #000 !important;
-  }
-  [bgcolor="#f7a35c"], [bgcolor="#ff9933"], [bgcolor*="ff9"], [bgcolor*="fa8"], [bgcolor*="orange"],
-  [style*="background: #f7a35c"], [style*="background:#f7a35c"],
-  [style*="background-color: #f7a35c"], [style*="background-color:#f7a35c"],
-  [style*="background: rgb(247"], [style*="background-color: rgb(247"] {
-    background-color: #f87171 !important;
-    color: #000 !important;
-  }
-
-  /* Force les textes en noir sur les barres colorées */
-  [bgcolor] font, [bgcolor] b, [bgcolor] span, [bgcolor] div {
-    color: #000 !important;
-  }
-</style>
-</head><body>
-<script type="text/javascript" src="https://widgets.myfxbook.com/scripts/fxOutlook.js?type=1&symbols=,1,2,3,4,5,6,7,8,9,10,11,12,13,14,17,20,24,25,26,27,28,29,46,47,48,49,103,107"></script>
-<script>
-// Après chargement, repaint via JS aussi pour rattraper ce que CSS ne peut pas
-function repaint() {
-  document.querySelectorAll('[bgcolor]').forEach(el => {
-    const bg = (el.getAttribute('bgcolor') || '').toLowerCase();
-    // Détecte bleu/orange par patterns
-    const isBlue = /^#([0-7][a-f0-9]|[0-3][0-9a-f]{1,2})/.test(bg) ||
-                   /rgb\(\s*[0-7]?\d,\s*1\d{2},\s*2/i.test(bg);
-    const isOrange = /^#(f[a-f0-9][7-9a-f]|f7[a-f0-9])/.test(bg) ||
-                     /^#ff9|^#fa[8-9]/.test(bg);
-    if (isBlue) {
-      el.setAttribute('bgcolor', '#4ade80');
-      el.style.backgroundColor = '#4ade80';
-      el.style.color = '#000';
-    } else if (isOrange) {
-      el.setAttribute('bgcolor', '#f87171');
-      el.style.backgroundColor = '#f87171';
-      el.style.color = '#000';
-    }
-  });
-  // Auto-resize iframe au contenu
-  if (window.parent) {
-    const h = document.body.scrollHeight;
-    window.parent.postMessage({type: 'pos-iframe-height', height: h}, '*');
-  }
-}
-setTimeout(repaint, 500);
-setTimeout(repaint, 2000);
-setTimeout(repaint, 4000);
-new MutationObserver(repaint).observe(document.body, {childList: true, subtree: true, attributes: true});
-</script>
-</body></html>`;
-
-    iframe.srcdoc = innerHtml;
-    container.appendChild(iframe);
-
-    // Écoute les messages de l'iframe pour auto-resize
-    window.addEventListener('message', function posMsgHandler(e) {
-        if (e.data && e.data.type === 'pos-iframe-height' && e.data.height) {
-            const ifr = document.getElementById('pos-myfxbook-iframe');
-            if (ifr) {
-                // Limite raisonnable : entre 300px et 1500px
-                const h = Math.min(1500, Math.max(300, e.data.height + 30));
-                ifr.style.height = h + 'px';
-            }
-        }
+    // Trie : par déséquilibre extrême en premier
+    results.sort((a, b) => {
+        const aExtreme = Math.max(a.longPct, a.shortPct);
+        const bExtreme = Math.max(b.longPct, b.shortPct);
+        return bExtreme - aExtreme;
     });
 
-    // Si après 15s rien d'affiché → message d'erreur
-    setTimeout(() => {
-        const ifr = document.getElementById('pos-myfxbook-iframe');
-        if (!ifr) return;
-        try {
-            const doc = ifr.contentDocument || ifr.contentWindow.document;
-            const hasContent = doc.body && doc.body.querySelector('table');
-            if (!hasContent) {
-                container.innerHTML = '<div class="pos-loading" style="color:var(--text-secondary); line-height:1.8;">' +
-                    '⚠ Myfxbook widget unable to load (possibly blocked by ad-blocker or CSP).<br><br>' +
-                    '<a href="https://www.myfxbook.com/community/outlook" target="_blank" style="color:var(--accent); text-decoration:underline;">Open Myfxbook directly →</a>' +
-                    '</div>';
-            }
-        } catch (err) {
-            // Cross-origin, on peut pas check le contenu mais on assume que ça marche
-        }
-    }, 15000);
+    tbody.innerHTML = results.map(r => {
+        const isContraian = r.status === 'long-extreme' || r.status === 'short-extreme';
+        const rowCls = isContraian ? 'pos-row-contrarian' : '';
+        const direction = r.longPct > r.shortPct ? 'LONG' : (r.shortPct > r.longPct ? 'SHORT' : 'BALANCED');
+        const dirCls = r.longPct > r.shortPct ? 'pos-dir-long' : (r.shortPct > r.longPct ? 'pos-dir-short' : 'pos-dir-flat');
 
-    // Mise à jour du timestamp
-    const updEl = document.getElementById('pos-update');
-    if (updEl) {
+        // Signal contrarian
+        let signal = '─ NEUTRAL', signalCls = 'pos-sig-neutral';
+        if (r.status === 'long-extreme') { signal = '↘ SHORT signal'; signalCls = 'pos-sig-short'; }
+        else if (r.status === 'short-extreme') { signal = '↗ LONG signal'; signalCls = 'pos-sig-long'; }
+        else if (r.status === 'long-bias') { signal = '⚠ weak SHORT bias'; signalCls = 'pos-sig-short-weak'; }
+        else if (r.status === 'short-bias') { signal = '⚠ weak LONG bias'; signalCls = 'pos-sig-long-weak'; }
+
+        const spreadSign = r.spread > 0 ? '+' : '';
+
+        return `
+            <tr class="${rowCls}">
+                <td class="pos-pair">${r.pair}</td>
+                <td class="num pos-spread">${spreadSign}${r.spread.toFixed(1)}</td>
+                <td class="pos-bars">
+                    <div class="pos-bar-wrap">
+                        <div class="pos-bar-long" style="width: ${r.longPct}%;">${r.longPct}%</div>
+                        <div class="pos-bar-short" style="width: ${r.shortPct}%;">${r.shortPct}%</div>
+                    </div>
+                </td>
+                <td class="num pos-long-cell">${r.longPct}%</td>
+                <td class="num pos-short-cell">${r.shortPct}%</td>
+                <td class="center"><span class="pos-signal ${signalCls}">${signal}</span></td>
+            </tr>
+        `;
+    }).join('');
+
+    // Update timestamp
+    const upd = document.getElementById('pos-update');
+    if (upd) {
         const now = new Date();
         const hh = String(now.getUTCHours()).padStart(2, '0');
         const mm = String(now.getUTCMinutes()).padStart(2, '0');
-        updEl.textContent = `myfxbook.com · ${hh}:${mm} GMT`;
+        upd.textContent = `auto · ${hh}:${mm} GMT`;
     }
-}
-
-function removePosLoaderIfReady() {
-    // Pas utilisé dans la version iframe mais conservé pour compatibilité
 }
 
 // ============================================
@@ -3223,8 +3049,8 @@ function showPage(pageId) {
 
     if (pageId === 'pos') {
         setTimeout(() => {
-            initPosRepaint();
-        }, 100);
+            renderPosTable();
+        }, 50);
     }
 
     if (window.location.hash !== '#' + pageId) {
@@ -3274,6 +3100,7 @@ if (cachedBanks && cachedBanks.length > 0) {
     renderProjectionCards();
     renderCBTimeline();
     if (typeof renderScanAll === 'function') renderScanAll();
+    if (typeof renderPosTable === 'function') renderPosTable();
 }
 
 renderScoreAll();
