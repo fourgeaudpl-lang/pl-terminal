@@ -987,21 +987,21 @@
                 </div>
             </section>
 
-            <!-- Module 1 : Polymarket Fed Decision Tracker -->
-            <section class="module" id="module-prob-polymarket">
+            <!-- Module 1 : Implied Rate Path (8 banques, calcul interne depuis MACRO scores) -->
+            <section class="module" id="module-prob-implied">
                 <div class="module-header">
                     <div class="module-title">
                         <span class="module-bullet"></span>
-                        <h2>FED NEXT MEETING — POLYMARKET ODDS</h2>
-                        <span class="module-sub" id="prob-poly-meeting-label">FOMC · LIVE</span>
+                        <h2>IMPLIED RATE PATH — G8 CENTRAL BANKS</h2>
+                        <span class="module-sub">PROJECTED RATES · NEXT 6 MEETINGS</span>
                     </div>
-                    <span class="module-source">polymarket.com</span>
+                    <span class="module-source">auto from MACRO + meetings</span>
                 </div>
                 <div class="prob-info-banner">
-                    💡 Real-time probabilities from <b>Polymarket prediction markets</b>. Updated continuously as traders bet on the next FOMC decision. The higher the % the more market believes that outcome.
+                    💡 Pour chaque banque centrale, le taux <b>implicite après chaque meeting</b> est calculé depuis votre <b>score macro</b> (page MACRO). Score négatif → biais cut. Score positif → biais hike.
                 </div>
-                <div class="prob-poly-content" id="prob-poly-content">
-                    <div class="loading">Loading Polymarket data...</div>
+                <div class="prob-implied-grid" id="prob-implied-grid">
+                    <div class="loading">Loading rate paths...</div>
                 </div>
             </section>
 
@@ -1020,36 +1020,19 @@
                 </div>
             </section>
 
-            <!-- Module 3 : Iframe RateProbability (essai d'embed) -->
-            <section class="module" id="module-prob-iframe">
-                <div class="module-header">
-                    <div class="module-title">
-                        <span class="module-bullet"></span>
-                        <h2>RATEPROBABILITY.COM — EMBEDDED VIEW</h2>
-                        <span class="module-sub">FULL DASHBOARD · MULTI-CB COMPARISON</span>
-                    </div>
-                    <span class="module-source">rateprobability.com</span>
-                </div>
-                <div class="prob-iframe-wrap">
-                    <div class="prob-iframe-fallback" id="prob-iframe-fallback">
-                        <div class="prob-fallback-icon">⊞</div>
-                        <div class="prob-fallback-title">External embedding may be blocked</div>
-                        <div class="prob-fallback-text">
-                            If you see a blank area below, RateProbability.com prevents being shown inside other websites for security reasons.<br>
-                            Use the button above to open the site in a new tab.
+            <!-- Module CTA RateProbability (iframe supprimée car bloquée par leur sécurité) -->
+            <section class="module" id="module-prob-cta">
+                <div class="prob-cta-banner">
+                    <div class="prob-cta-left">
+                        <div class="prob-cta-icon">⊞</div>
+                        <div>
+                            <div class="prob-cta-title">RATEPROBABILITY.COM — FULL DASHBOARD</div>
+                            <div class="prob-cta-sub">Compare implied policy paths across 6 central banks · Multi-CB view</div>
                         </div>
-                        <a href="https://rateprobability.com" target="_blank" rel="noopener" class="action-btn primary" style="margin-top: 14px; display: inline-block;">
-                            OPEN IN NEW TAB →
-                        </a>
                     </div>
-                    <iframe
-                        id="prob-iframe"
-                        src="https://rateprobability.com"
-                        title="RateProbability.com"
-                        loading="lazy"
-                        sandbox="allow-scripts allow-same-origin allow-popups"
-                        referrerpolicy="no-referrer">
-                    </iframe>
+                    <a href="https://rateprobability.com" target="_blank" rel="noopener" class="action-btn primary prob-cta-btn">
+                        OPEN IN NEW TAB →
+                    </a>
                 </div>
             </section>
 
