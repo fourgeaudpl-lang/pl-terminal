@@ -1839,6 +1839,8 @@ function setupScanEvents() {
 // Principe : retail traders se trompent souvent → contrarian de la macro
 // ============================================
 
+let posSearchFilter = '';
+
 const POS_PAIRS = [
     { base: 'EUR', quote: 'USD' },
     { base: 'GBP', quote: 'USD' },
@@ -1914,7 +1916,7 @@ function renderPosTable() {
         return;
     }
 
-    const results = POS_PAIRS.map(posComputePair);
+    let results = POS_PAIRS.map(posComputePair);
 
     // Trie : par déséquilibre extrême en premier
     results.sort((a, b) => {
@@ -1922,6 +1924,30 @@ function renderPosTable() {
         const bExtreme = Math.max(b.longPct, b.shortPct);
         return bExtreme - aExtreme;
     });
+
+    // Filtre recherche
+    const q = posSearchFilter.trim().toLowerCase().replace(/[\/\s]/g, '');
+    if (q) {
+        results = results.filter(r => {
+            const pairClean = r.pair.toLowerCase().replace('/', '');
+            return pairClean.includes(q) ||
+                   r.base.toLowerCase().includes(q) ||
+                   r.quote.toLowerCase().includes(q);
+        });
+    }
+
+    // Update du compteur
+    const countEl = document.getElementById('pos-search-count');
+    if (countEl) {
+        countEl.textContent = q
+            ? `${results.length} / ${POS_PAIRS.length} pair${results.length > 1 ? 's' : ''}`
+            : `${POS_PAIRS.length} pairs`;
+    }
+
+    if (results.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="pos-empty">No pair matches "${posSearchFilter}".</td></tr>`;
+        return;
+    }
 
     tbody.innerHTML = results.map(r => {
         const isContraian = r.status === 'long-extreme' || r.status === 'short-extreme';
@@ -1962,6 +1988,38 @@ function renderPosTable() {
         const hh = String(now.getUTCHours()).padStart(2, '0');
         const mm = String(now.getUTCMinutes()).padStart(2, '0');
         upd.textContent = `auto · ${hh}:${mm} GMT`;
+    }
+}
+
+// Setup événements POS (search bar)
+function setupPosEvents() {
+    const input = document.getElementById('pos-search-input');
+    const clearBtn = document.getElementById('pos-search-clear');
+
+    if (input) {
+        input.addEventListener('input', e => {
+            posSearchFilter = e.target.value;
+            renderPosTable();
+        });
+
+        // ESC = clear
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                input.value = '';
+                posSearchFilter = '';
+                renderPosTable();
+                input.blur();
+            }
+        });
+    }
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            if (input) input.value = '';
+            posSearchFilter = '';
+            renderPosTable();
+            if (input) input.focus();
+        });
     }
 }
 
@@ -3088,6 +3146,7 @@ setupEditableText();
 setupScoreEvents();
 setupScanEvents();
 setupCBEvents();
+setupPosEvents();
 
 // ⚡ Démarrage instantané : on charge le cache avant le fetch
 const cachedBanks = loadRatesCache();
