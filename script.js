@@ -792,21 +792,9 @@ async function fetchFredSeries(seriesId) {
             console.warn(`FRED proxy returned non-array for ${seriesId}:`, data);
             return null;
         }
-        // Dédoublonner : ne garder que les changements de taux
-        const compact = [];
-        let prev = null;
-        data.forEach(d => {
-            if (prev === null || d.value !== prev) {
-                compact.push(d);
-                prev = d.value;
-            }
-        });
-        // Toujours garder le dernier point pour avoir la date courante
-        if (data.length > 0 && compact.length > 0 &&
-            compact[compact.length - 1].date !== data[data.length - 1].date) {
-            compact.push(data[data.length - 1]);
-        }
-        return compact;
+        // Renvoie tous les points (séries FRED déjà à fréquence mensuelle/quotidienne)
+        // Le dédoublonnage est inutile et casse le rendu pour les séries stables
+        return data;
     } catch (e) {
         console.warn(`FRED fetch failed for ${seriesId}:`, e);
         return null;
