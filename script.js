@@ -1039,12 +1039,13 @@ function loadRatesCache() {
 async function fetchAllData() {
     setStatus('connecting', 'fetching data...');
     try {
-        // 1) Fetch en parallèle : ton backend + meetings + yields + FRED history (proxy public)
-        const [apiRatesRes, meetingsRes, yieldsRes, fredBanks] = await Promise.all([
+        // 1) Fetch en parallèle : ton backend + meetings + yields + FRED history (proxy public) + CNN F&G
+        const [apiRatesRes, meetingsRes, yieldsRes, fredBanks, _cnnDone] = await Promise.all([
             fetch('/api/rates').catch(() => null),
             fetch('/api/meetings').catch(() => null),
             fetch('/api/yields').catch(() => null),
-            fetchAllBanksHistoryFromFred()
+            fetchAllBanksHistoryFromFred(),
+            scanFetchCNN()
         ]);
 
         const apiRates = (apiRatesRes && apiRatesRes.ok) ? await apiRatesRes.json() : null;
@@ -1073,6 +1074,12 @@ async function fetchAllData() {
         if (typeof renderScanAll === 'function') renderScanAll();
     if (typeof renderPosTable === 'function') renderPosTable();
         if (typeof renderHomeAll === 'function') renderHomeAll();
+
+        // Timestamp global mis à jour
+        localStorage.setItem(SCAN_LAST_UPDATE_KEY, new Date().toISOString());
+        scanRefreshTimestamp();
+        scanRefreshSourceLabel();
+
         setStatus('live', 'live');
     } catch (e) {
         console.error('Fetch error:', e);
@@ -1465,7 +1472,12 @@ function setupScoreEvents() {
 //        ± modificateur Risk Sentiment selon devise (refuge / risk-on)
 // ============================================
 
-const SCAN_RS_KEY = 'pl_scan_risk_sentiment'; // 0-100, saisi par l'utilisateur
+const SCAN_RS_KEY = 'pl_scan_risk_sentiment'; // 0-100, saisi par l'utilisateur (override manuel)
+const SCAN_RS_MANUAL_KEY = 'pl_scan_rs_manual'; // flag : true = override manuel actif, ignore CNN
+const SCAN_LAST_UPDATE_KEY = 'pl_scan_last_update'; // timestamp ISO de la dernière maj
+
+// État global CNN F&G fetch (mis à jour par scanFetchCNN)
+let scanCnnData = { score: null, label: null, delta: null, fetchedAt: null, error: false };
 
 // Métadonnées CB par devise (drapeau + abréviation)
 const SCAN_CCY_META = {
@@ -1551,10 +1563,24 @@ function scanGetWeightedScore(ccy) {
     return p;
 }
 
-// ---- Risk Sentiment (0-100, persisté localStorage) ----
+// ---- Risk Sentiment (0-100, auto depuis CNN F&G ou override manuel) ----
 function scanGetRiskSentiment() {
+    // 1) Override manuel actif → on prend la valeur saisie
+    const isManual = localStorage.getItem(SCAN_RS_MANUAL_KEY) === '1';
+    if (isManual) {
+        const raw = localStorage.getItem(SCAN_RS_KEY);
+        if (raw !== null) {
+            const n = parseInt(raw, 10);
+            return isNaN(n) ? 50 : Math.max(0, Math.min(100, n));
+        }
+    }
+    // 2) Sinon, on prend la valeur fetched CNN
+    if (scanCnnData.score !== null && !scanCnnData.error) {
+        return scanCnnData.score;
+    }
+    // 3) Fallback : valeur saisie manuellement, ou 50
     const raw = localStorage.getItem(SCAN_RS_KEY);
-    if (raw === null) return 50; // neutre par défaut
+    if (raw === null) return 50;
     const n = parseInt(raw, 10);
     return isNaN(n) ? 50 : Math.max(0, Math.min(100, n));
 }
@@ -1563,6 +1589,76 @@ function scanSetRiskSentiment(val) {
     const v = Math.max(0, Math.min(100, parseInt(val, 10)));
     if (isNaN(v)) return;
     localStorage.setItem(SCAN_RS_KEY, String(v));
+    // Active le mode "override manuel" → on ne suit plus CNN
+    localStorage.setItem(SCAN_RS_MANUAL_KEY, '1');
+}
+
+function scanClearManualOverride() {
+    localStorage.removeItem(SCAN_RS_MANUAL_KEY);
+}
+
+function scanIsManualMode() {
+    return localStorage.getItem(SCAN_RS_MANUAL_KEY) === '1';
+}
+
+// ---- Fetch CNN Fear & Greed via notre Cloudflare Function ----
+async function scanFetchCNN() {
+    try {
+        const r = await fetch('/api/fear-greed');
+        if (!r.ok) {
+            scanCnnData = { score: null, label: null, delta: null, fetchedAt: null, error: true };
+            return;
+        }
+        const data = await r.json();
+        if (data.error || data.score === null) {
+            scanCnnData = { score: null, label: null, delta: null, fetchedAt: null, error: true };
+            return;
+        }
+        scanCnnData = {
+            score: data.score,
+            label: data.label,
+            delta: data.delta,
+            previousScore: data.previousScore,
+            fetchedAt: data.fetchedAt || new Date().toISOString(),
+            error: false
+        };
+        // Update du timestamp
+        localStorage.setItem(SCAN_LAST_UPDATE_KEY, new Date().toISOString());
+    } catch (e) {
+        scanCnnData = { score: null, label: null, delta: null, fetchedAt: null, error: true };
+    }
+}
+
+// ---- Update du timestamp Last Update affiché ----
+function scanRefreshTimestamp() {
+    const el = document.getElementById('scan-last-update');
+    if (!el) return;
+    const iso = localStorage.getItem(SCAN_LAST_UPDATE_KEY);
+    if (!iso) { el.textContent = '—'; return; }
+    const dt = new Date(iso);
+    if (isNaN(dt)) { el.textContent = '—'; return; }
+    const hh = String(dt.getUTCHours()).padStart(2, '0');
+    const mm = String(dt.getUTCMinutes()).padStart(2, '0');
+    el.textContent = `${hh}:${mm} GMT`;
+}
+
+// ---- Update label source (CNN F&G live / manual / CNN F&G stale) ----
+function scanRefreshSourceLabel() {
+    const el = document.getElementById('scan-rs-source');
+    if (!el) return;
+    if (scanIsManualMode()) {
+        el.innerHTML = '<span class="src-manual">MANUAL OVERRIDE</span>';
+    } else if (scanCnnData.error || scanCnnData.score === null) {
+        el.innerHTML = '<span class="src-error">CNN F&amp;G (offline)</span>';
+    } else {
+        let deltaStr = '';
+        if (scanCnnData.delta !== null && scanCnnData.delta !== undefined) {
+            const sign = scanCnnData.delta > 0 ? '+' : '';
+            const cls = scanCnnData.delta > 0 ? 'up' : scanCnnData.delta < 0 ? 'down' : 'flat';
+            deltaStr = ` <span class="${cls}">(${sign}${scanCnnData.delta}d)</span>`;
+        }
+        el.innerHTML = `<span class="src-live">● CNN F&amp;G live</span>${deltaStr}`;
+    }
 }
 
 function scanRSLabel(rs) {
@@ -1793,6 +1889,8 @@ function renderScanCard(r) {
 // ---- Render tout ----
 function renderScanAll() {
     renderScanHeader();
+    scanRefreshTimestamp();
+    scanRefreshSourceLabel();
     const results = SCAN_PAIRS.map(scanComputePair);
     renderScanEdge(results);
     renderScanGrid(results);
@@ -1900,14 +1998,21 @@ function setupScanEvents() {
         });
     }
 
-    // Risk Sentiment input
+    // Risk Sentiment input — SAVE active l'override manuel
     const rsInput = document.getElementById('scan-rs-input');
     const rsSave = document.getElementById('scan-rs-save');
     if (rsInput && rsSave) {
         rsSave.addEventListener('click', () => {
             const v = rsInput.value.trim();
-            if (v === '') return;
-            scanSetRiskSentiment(v);
+            if (v === '') {
+                // Champ vide → on retire l'override manuel et on revient sur CNN
+                scanClearManualOverride();
+            } else {
+                scanSetRiskSentiment(v); // active manuel
+            }
+            localStorage.setItem(SCAN_LAST_UPDATE_KEY, new Date().toISOString());
+            scanRefreshTimestamp();
+            scanRefreshSourceLabel();
             renderScanAll();
         });
         rsInput.addEventListener('keydown', e => {
@@ -1917,9 +2022,25 @@ function setupScanEvents() {
         });
     }
 
-    // Refresh
+    // Refresh — refetch CNN F&G et recalcule TOUT
     const refresh = document.getElementById('scan-refresh');
-    if (refresh) refresh.addEventListener('click', renderScanAll);
+    if (refresh) {
+        refresh.addEventListener('click', async () => {
+            refresh.disabled = true;
+            const originalText = refresh.textContent;
+            refresh.textContent = '↻ FETCHING...';
+            try {
+                await scanFetchCNN();
+                localStorage.setItem(SCAN_LAST_UPDATE_KEY, new Date().toISOString());
+                scanRefreshTimestamp();
+                scanRefreshSourceLabel();
+                renderScanAll();
+            } finally {
+                refresh.textContent = originalText;
+                refresh.disabled = false;
+            }
+        });
+    }
 
     // Modal close
     const closeBtn = document.getElementById('scan-detail-close');
