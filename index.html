@@ -114,67 +114,20 @@
              ============================================ -->
         <div class="page active" id="page-home">
 
-            <!-- ===== ROW 1 : TradingView Chart (2/3) + G10 Prices (1/3) ===== -->
-            <div class="home-row home-row-main">
-
-                <section class="module home-card home-card-chart">
-                    <div class="module-header">
-                        <div class="module-title">
-                            <span class="module-bullet"></span>
-                            <h2>EUR/USD</h2>
-                            <span class="module-sub">TRADINGVIEW · 1H</span>
-                        </div>
-                        <span class="module-source">REAL-TIME</span>
+            <!-- ===== ROW 1 : G10 Prices full width ===== -->
+            <section class="module home-card home-card-prices home-prices-full">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>G10 PRICES</h2>
+                        <span class="module-sub">28 PAIRS</span>
                     </div>
-                    <div class="home-chart-wrap">
-                        <iframe class="home-tv-iframe"
-                                src="https://s.tradingview.com/widgetembed/?frameElementId=tv_home&symbol=FX%3AEURUSD&interval=60&theme=dark&style=1&toolbarbg=0a0a0a&hidesidetoolbar=1&hideideas=1&withdateranges=1&studies=%5B%5D&timezone=Etc%2FUTC&locale=en"
-                                allowtransparency="true" scrolling="no"></iframe>
-                    </div>
-                </section>
-
-                <section class="module home-card home-card-prices">
-                    <div class="module-header">
-                        <div class="module-title">
-                            <span class="module-bullet"></span>
-                            <h2>G10 PRICES</h2>
-                            <span class="module-sub">28 PAIRS</span>
-                        </div>
-                        <span class="module-source">LIVE</span>
-                    </div>
-                    <div class="home-prices-list">
-                        <div class="home-price-row"><span class="hp-pair">EUR/USD</span><span class="hp-val">1.0942</span><span class="hp-chg up">+0.47%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">GBP/USD</span><span class="hp-val">1.2718</span><span class="hp-chg up">+0.31%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">USD/JPY</span><span class="hp-val">154.82</span><span class="hp-chg down">-0.22%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">USD/CHF</span><span class="hp-val">0.8841</span><span class="hp-chg down">-0.18%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">AUD/USD</span><span class="hp-val">0.6587</span><span class="hp-chg up">+0.62%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">NZD/USD</span><span class="hp-val">0.5984</span><span class="hp-chg up">+0.54%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">USD/CAD</span><span class="hp-val">1.3812</span><span class="hp-chg down">-0.29%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">EUR/GBP</span><span class="hp-val">0.8602</span><span class="hp-chg up">+0.16%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">EUR/JPY</span><span class="hp-val">169.41</span><span class="hp-chg up">+0.24%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">GBP/JPY</span><span class="hp-val">196.92</span><span class="hp-chg up">+0.09%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">AUD/JPY</span><span class="hp-val">101.98</span><span class="hp-chg up">+0.38%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">CHF/JPY</span><span class="hp-val">175.13</span><span class="hp-chg down">-0.04%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">EUR/CHF</span><span class="hp-val">0.9674</span><span class="hp-chg up">+0.28%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">EUR/AUD</span><span class="hp-val">1.6612</span><span class="hp-chg down">-0.15%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">EUR/NZD</span><span class="hp-val">1.8285</span><span class="hp-chg down">-0.07%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">EUR/CAD</span><span class="hp-val">1.5108</span><span class="hp-chg up">+0.18%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">GBP/CHF</span><span class="hp-val">1.1243</span><span class="hp-chg up">+0.13%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">GBP/AUD</span><span class="hp-val">1.9308</span><span class="hp-chg down">-0.31%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">GBP/NZD</span><span class="hp-val">2.1252</span><span class="hp-chg down">-0.23%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">GBP/CAD</span><span class="hp-val">1.7565</span><span class="hp-chg up">+0.02%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">AUD/CHF</span><span class="hp-val">0.5824</span><span class="hp-chg up">+0.44%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">AUD/NZD</span><span class="hp-val">1.1009</span><span class="hp-chg up">+0.08%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">AUD/CAD</span><span class="hp-val">0.9098</span><span class="hp-chg up">+0.33%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">NZD/CHF</span><span class="hp-val">0.5290</span><span class="hp-chg up">+0.36%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">NZD/CAD</span><span class="hp-val">0.8265</span><span class="hp-chg up">+0.25%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">CAD/CHF</span><span class="hp-val">0.6401</span><span class="hp-chg up">+0.11%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">CAD/JPY</span><span class="hp-val">112.08</span><span class="hp-chg up">+0.07%</span></div>
-                        <div class="home-price-row"><span class="hp-pair">NZD/JPY</span><span class="hp-val">92.65</span><span class="hp-chg up">+0.92%</span></div>
-                    </div>
-                </section>
-
-            </div>
+                    <span class="module-source live-tag">● LIVE</span>
+                </div>
+                <div class="home-prices-grid" id="home-prices-grid">
+                    <div class="home-prices-loading">Loading G10 prices from /api/rates...</div>
+                </div>
+            </section>
 
             <!-- ===== ROW 2 : Strength + Central Banks + Top Events ===== -->
             <div class="home-row home-row-three">
@@ -184,51 +137,12 @@
                         <div class="module-title">
                             <span class="module-bullet"></span>
                             <h2>CCY STRENGTH</h2>
-                            <span class="module-sub">AUTO</span>
+                            <span class="module-sub">FROM MACRO SCORE</span>
                         </div>
-                        <span class="module-source">SCORE</span>
+                        <span class="module-source">AUTO</span>
                     </div>
-                    <div class="home-strength-list">
-                        <div class="home-strength-row">
-                            <span class="hs-ccy">USD</span>
-                            <div class="hs-bar-bg"><div class="hs-bar-fill" style="width:78%;background:#4ade80;"></div></div>
-                            <span class="hs-score up">+2.1</span>
-                        </div>
-                        <div class="home-strength-row">
-                            <span class="hs-ccy">AUD</span>
-                            <div class="hs-bar-bg"><div class="hs-bar-fill" style="width:62%;background:#4ade80;"></div></div>
-                            <span class="hs-score up">+1.4</span>
-                        </div>
-                        <div class="home-strength-row">
-                            <span class="hs-ccy">EUR</span>
-                            <div class="hs-bar-bg"><div class="hs-bar-fill" style="width:48%;background:#4ade80;"></div></div>
-                            <span class="hs-score up">+0.6</span>
-                        </div>
-                        <div class="home-strength-row">
-                            <span class="hs-ccy">GBP</span>
-                            <div class="hs-bar-bg"><div class="hs-bar-fill" style="width:42%;background:#6b6b6b;"></div></div>
-                            <span class="hs-score flat">+0.2</span>
-                        </div>
-                        <div class="home-strength-row">
-                            <span class="hs-ccy">NZD</span>
-                            <div class="hs-bar-bg"><div class="hs-bar-fill" style="width:38%;background:#6b6b6b;"></div></div>
-                            <span class="hs-score flat">-0.1</span>
-                        </div>
-                        <div class="home-strength-row">
-                            <span class="hs-ccy">CAD</span>
-                            <div class="hs-bar-bg"><div class="hs-bar-fill" style="width:32%;background:#f87171;"></div></div>
-                            <span class="hs-score down">-0.8</span>
-                        </div>
-                        <div class="home-strength-row">
-                            <span class="hs-ccy">CHF</span>
-                            <div class="hs-bar-bg"><div class="hs-bar-fill" style="width:24%;background:#f87171;"></div></div>
-                            <span class="hs-score down">-1.6</span>
-                        </div>
-                        <div class="home-strength-row">
-                            <span class="hs-ccy">JPY</span>
-                            <div class="hs-bar-bg"><div class="hs-bar-fill" style="width:18%;background:#f87171;"></div></div>
-                            <span class="hs-score down">-1.8</span>
-                        </div>
+                    <div class="home-strength-list" id="home-strength-list">
+                        <div class="home-strength-loading">Computing scores...</div>
                     </div>
                 </section>
 
@@ -237,20 +151,13 @@
                         <div class="module-title">
                             <span class="module-bullet"></span>
                             <h2>CENTRAL BANKS</h2>
-                            <span class="module-sub">G8</span>
+                            <span class="module-sub">G8 · NEXT MEETINGS</span>
                         </div>
                         <span class="module-source">FRED + Finnhub</span>
                     </div>
                     <table class="home-cb-table">
-                        <tbody>
-                            <tr><td class="hcb-bank">FED</td><td class="hcb-rate">4.50%</td><td class="hcb-date">17 jun</td></tr>
-                            <tr><td class="hcb-bank">ECB</td><td class="hcb-rate">2.25%</td><td class="hcb-date">05 jun</td></tr>
-                            <tr><td class="hcb-bank">BOE</td><td class="hcb-rate">4.25%</td><td class="hcb-date">19 jun</td></tr>
-                            <tr><td class="hcb-bank">BOJ</td><td class="hcb-rate">0.50%</td><td class="hcb-date">17 jun</td></tr>
-                            <tr><td class="hcb-bank">BOC</td><td class="hcb-rate">2.75%</td><td class="hcb-date">04 jun</td></tr>
-                            <tr><td class="hcb-bank">RBA</td><td class="hcb-rate">3.85%</td><td class="hcb-date">08 jul</td></tr>
-                            <tr><td class="hcb-bank">RBNZ</td><td class="hcb-rate">3.50%</td><td class="hcb-date">28 may</td></tr>
-                            <tr><td class="hcb-bank">SNB</td><td class="hcb-rate">0.25%</td><td class="hcb-date">19 jun</td></tr>
+                        <tbody id="home-cb-tbody">
+                            <tr><td colspan="3" class="home-cb-loading">Loading CB data...</td></tr>
                         </tbody>
                     </table>
                 </section>
@@ -264,27 +171,8 @@
                         </div>
                         <span class="module-source">G10</span>
                     </div>
-                    <div class="home-events-list">
-                        <div class="home-event-row">
-                            <div class="hev-meta"><span class="hev-imp down">● HIGH</span><span class="hev-time">14:30</span></div>
-                            <div class="hev-name">USD · CPI YoY</div>
-                        </div>
-                        <div class="home-event-row">
-                            <div class="hev-meta"><span class="hev-imp down">● HIGH</span><span class="hev-time">14:30</span></div>
-                            <div class="hev-name">USD · Core CPI MoM</div>
-                        </div>
-                        <div class="home-event-row">
-                            <div class="hev-meta"><span class="hev-imp warn">● MED</span><span class="hev-time">16:00</span></div>
-                            <div class="hev-name">GBP · Bailey speech</div>
-                        </div>
-                        <div class="home-event-row">
-                            <div class="hev-meta"><span class="hev-imp warn">● MED</span><span class="hev-time">18:00</span></div>
-                            <div class="hev-name">EUR · Lagarde speech</div>
-                        </div>
-                        <div class="home-event-row">
-                            <div class="hev-meta"><span class="hev-imp down">● HIGH</span><span class="hev-time">22:45</span></div>
-                            <div class="hev-name">NZD · Inflation expect.</div>
-                        </div>
+                    <div class="home-events-list" id="home-events-list">
+                        <div class="home-events-loading">Loading calendar...</div>
                     </div>
                 </section>
 
@@ -300,27 +188,8 @@
                     </div>
                     <span class="module-source live-tag">● LIVE</span>
                 </div>
-                <div class="home-news-list">
-                    <div class="home-news-row">
-                        <span class="hn-time">14:31</span>
-                        <span class="hn-text">Fed's Powell: inflation progress slowed, patience warranted on cuts</span>
-                    </div>
-                    <div class="home-news-row">
-                        <span class="hn-time">14:18</span>
-                        <span class="hn-text">ECB sources: June cut not pre-committed despite weak growth</span>
-                    </div>
-                    <div class="home-news-row">
-                        <span class="hn-time">13:52</span>
-                        <span class="hn-text">UK GDP Q1 beats estimates at +0.7% QoQ, GBP rallies</span>
-                    </div>
-                    <div class="home-news-row">
-                        <span class="hn-time">13:30</span>
-                        <span class="hn-text">BoJ Ueda signals readiness for further rate hikes if outlook holds</span>
-                    </div>
-                    <div class="home-news-row">
-                        <span class="hn-time">13:12</span>
-                        <span class="hn-text">Trump tariffs front-loaded into Q2 imports — Goldman</span>
-                    </div>
+                <div class="home-news-list" id="home-news-list">
+                    <div class="home-news-loading">Loading news...</div>
                 </div>
             </section>
 
