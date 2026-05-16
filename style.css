@@ -3617,3 +3617,401 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* ====================================================================
+   CENTRAL BANKS UNIFIED PAGE — 4 TIERS
+   ==================================================================== */
+
+/* === TIER 1 — Snapshot Table === */
+.snapshot-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+}
+
+.snapshot-table thead tr {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-strong);
+}
+
+.snapshot-table th {
+    padding: 8px 10px;
+    text-align: left;
+    letter-spacing: 1px;
+    font-weight: 500;
+    font-size: 9.5px;
+}
+
+.snapshot-table th.num { text-align: right; }
+.snapshot-table th.center { text-align: center; }
+
+.snapshot-table tbody tr {
+    border-top: 1px solid var(--border);
+    transition: background 0.1s;
+}
+
+.snapshot-table tbody tr:nth-child(even) {
+    background: rgba(255,255,255,0.015);
+}
+
+.snapshot-table tbody tr:hover {
+    background: rgba(255, 140, 0, 0.04);
+}
+
+.snapshot-table td {
+    padding: 7px 10px;
+    font-size: 11px;
+}
+
+.snapshot-table td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.snapshot-table td.center { text-align: center; }
+
+.snap-cb {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.snap-ccy {
+    color: var(--text-secondary);
+    font-size: 10px;
+}
+
+.snap-tag {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    padding: 2px 6px;
+    border-radius: 2px;
+}
+.snap-tag.cut  { color: var(--green); background: rgba(74, 222, 128, 0.08); }
+.snap-tag.hike { color: var(--red); background: rgba(248, 113, 113, 0.08); }
+.snap-tag.hold { color: var(--text-secondary); background: var(--bg-tertiary); }
+.snap-tag.easing     { color: var(--green); background: rgba(74, 222, 128, 0.08); }
+.snap-tag.tightening { color: var(--red); background: rgba(248, 113, 113, 0.08); }
+.snap-tag.stable     { color: var(--text-secondary); background: var(--bg-tertiary); }
+
+.snap-days-imminent {
+    color: var(--red);
+    font-weight: 600;
+}
+.snap-days-soon {
+    color: #fbbf24;
+}
+.snap-days-far {
+    color: var(--text-secondary);
+}
+
+/* === TIER 2 — Projection Cards (8 cartes 4×2) === */
+.proj-toggle-wrap {
+    display: flex;
+    gap: 0;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    padding: 2px;
+}
+
+.proj-toggle {
+    background: transparent;
+    color: var(--text-secondary);
+    border: none;
+    padding: 4px 10px;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+}
+
+.proj-toggle:hover {
+    color: var(--text-primary);
+}
+
+.proj-toggle.active {
+    background: var(--accent);
+    color: #000;
+}
+
+.proj-info-banner {
+    background: rgba(74, 222, 128, 0.04);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 8px 14px;
+    font-size: 10.5px;
+    line-height: 1.5;
+}
+
+.proj-info-banner b {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.proj-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    padding: 14px;
+}
+
+.proj-grid .loading {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 30px;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.proj-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+}
+
+.proj-card:hover {
+    background: var(--bg-secondary);
+    border-color: var(--accent);
+}
+
+.proj-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+}
+
+.proj-card-cb {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 1px;
+}
+
+.proj-card-ccy {
+    color: var(--text-secondary);
+    font-size: 9px;
+    letter-spacing: 0.5px;
+}
+
+.proj-card-rate {
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    font-variant-numeric: tabular-nums;
+}
+
+.proj-card-chart {
+    height: 50px;
+    background: var(--bg-tertiary);
+    border-radius: 2px;
+    margin-bottom: 6px;
+    position: relative;
+    overflow: hidden;
+    padding: 4px;
+}
+
+.proj-card-chart canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.proj-card-footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9.5px;
+    font-variant-numeric: tabular-nums;
+}
+
+.proj-card-delta { font-weight: 600; }
+.proj-card-delta.cut  { color: var(--green); }
+.proj-card-delta.hike { color: var(--red); }
+.proj-card-delta.flat { color: var(--text-secondary); }
+
+.proj-card-horizon {
+    color: var(--text-tertiary);
+    font-size: 9px;
+}
+
+.proj-card-empty {
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-style: italic;
+    text-align: center;
+    padding: 20px 8px;
+}
+
+/* === TIER 3 — Timeline === */
+.cb-timeline-wrap {
+    padding: 20px 14px 14px;
+    background: var(--bg-primary);
+}
+
+.cb-timeline {
+    position: relative;
+    height: 65px;
+    margin: 0 20px;
+}
+
+.cb-timeline-axis {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background: var(--border-strong);
+}
+
+.cb-timeline-point {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    cursor: pointer;
+}
+
+.cb-tp-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin: 0 auto;
+    border: 2px solid var(--bg-primary);
+    transition: transform 0.15s;
+}
+
+.cb-timeline-point:hover .cb-tp-dot {
+    transform: scale(1.4);
+}
+
+.cb-tp-dot.imminent { background: var(--red); }
+.cb-tp-dot.soon     { background: #fbbf24; }
+.cb-tp-dot.far      { background: var(--text-secondary); }
+
+.cb-tp-label {
+    color: var(--accent);
+    font-size: 10px;
+    margin-top: 6px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.cb-tp-date {
+    color: var(--text-secondary);
+    font-size: 9px;
+    margin-top: 1px;
+    white-space: nowrap;
+}
+
+.cb-tp-label.imminent { color: var(--red); }
+.cb-tp-label.soon     { color: #fbbf24; }
+
+/* === TIER 4 — Historical charts grid (existant : .rate-charts-grid) === */
+/* On garde le style existant qui marche déjà bien */
+
+/* === Modal détail projection === */
+.modal-large .modal-content,
+.modal-large {
+    max-width: 720px;
+}
+
+.modal-large .modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.proj-detail-section {
+    margin-bottom: 16px;
+    padding: 10px 12px;
+    background: var(--bg-secondary);
+    border-radius: 3px;
+}
+
+.proj-detail-section-title {
+    color: var(--accent);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+
+.proj-detail-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 60px 60px 60px;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+    font-size: 11px;
+}
+
+.proj-detail-row:last-child { border-bottom: none; }
+
+.proj-detail-row.proj-detail-header {
+    border-bottom: 1px solid var(--border-strong);
+    color: var(--text-secondary);
+    font-size: 9px;
+    letter-spacing: 1px;
+    font-weight: 600;
+}
+
+.pdr-date    { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.pdr-bar     { height: 8px; background: var(--bg-tertiary); position: relative; }
+.pdr-bar-fill {
+    position: absolute;
+    top: 0; bottom: 0;
+}
+.pdr-bar-fill.cut  { background: var(--green); right: 50%; }
+.pdr-bar-fill.hike { background: var(--red); left: 50%; }
+.pdr-bar-center {
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 50%;
+    width: 1px;
+    background: var(--border-strong);
+}
+.pdr-rate  { text-align: right; font-variant-numeric: tabular-nums; }
+.pdr-delta { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.pdr-delta.cut  { color: var(--green); }
+.pdr-delta.hike { color: var(--red); }
+.pdr-delta.flat { color: var(--text-secondary); }
+.pdr-proba { text-align: right; font-variant-numeric: tabular-nums; font-size: 10px; }
+.pdr-proba.cut  { color: var(--green); }
+.pdr-proba.hike { color: var(--red); }
+.pdr-proba.hold { color: var(--text-secondary); }
+
+/* === Responsive === */
+@media (max-width: 1400px) {
+    .proj-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+@media (max-width: 1000px) {
+    .proj-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .snapshot-table {
+        font-size: 10px;
+    }
+    .snapshot-table th, .snapshot-table td {
+        padding: 5px 6px;
+    }
+}
+@media (max-width: 700px) {
+    .proj-grid {
+        grid-template-columns: 1fr;
+    }
+}
