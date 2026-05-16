@@ -1005,7 +1005,25 @@
                 </div>
             </section>
 
-            <!-- Module 2 : Schedule G6 next meetings (chronologie) -->
+            <!-- Module 2 : OIS-Implied Rate Path avec courbes (méthode RateProbability) -->
+            <section class="module" id="module-prob-ois">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>OIS-IMPLIED RATE PATH — MARKET PRICING</h2>
+                        <span class="module-sub">FORWARD CURVES · NEXT 8 MEETINGS</span>
+                    </div>
+                    <span class="module-source">FRED yields · RateProbability methodology</span>
+                </div>
+                <div class="prob-info-banner">
+                    📈 Méthode <b>RateProbability.com</b> : bootstrap des facteurs d'actualisation depuis les yields FRED → forward rates → taux implicite après chaque meeting. Probabilité = |Δᵢ − Δᵢ₋₁| / 25bps.
+                </div>
+                <div class="prob-ois-grid" id="prob-ois-grid">
+                    <div class="loading">Computing forward curves...</div>
+                </div>
+            </section>
+
+            <!-- Module 3 : Schedule G6 next meetings (chronologie) -->
             <section class="module" id="module-prob-schedule">
                 <div class="module-header">
                     <div class="module-title">
