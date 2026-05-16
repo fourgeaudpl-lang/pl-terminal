@@ -4224,3 +4224,92 @@ body {
 body:has(.modal-overlay.open) {
     overflow: hidden;
 }
+
+/* ====================================================================
+   HOME PAGE — Refonte sans TradingView, données dynamiques
+   ==================================================================== */
+
+/* G10 Prices en pleine largeur (au lieu de 1/3) */
+.home-prices-full {
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.home-prices-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    padding: 6px;
+}
+
+.home-prices-grid .home-prices-loading,
+.home-strength-list .home-strength-loading,
+.home-cb-table .home-cb-loading,
+.home-events-list .home-events-loading,
+.home-news-list .home-news-loading {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--text-secondary);
+    font-style: italic;
+    padding: 20px;
+    font-size: 11px;
+}
+
+.home-prices-grid .home-price-row {
+    display: grid;
+    grid-template-columns: 70px 1fr 60px;
+    gap: 8px;
+    align-items: center;
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    font-size: 11px;
+}
+
+/* Pas de border-right sur la dernière colonne */
+.home-prices-grid .home-price-row:nth-child(4n) {
+    border-right: none;
+}
+
+/* CB table : countdown coloré */
+.hcb-date.imminent {
+    color: var(--red);
+    font-weight: 600;
+}
+.hcb-date.soon {
+    color: #fbbf24;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .home-prices-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    .home-prices-grid .home-price-row:nth-child(4n) {
+        border-right: 1px solid var(--border);
+    }
+    .home-prices-grid .home-price-row:nth-child(3n) {
+        border-right: none;
+    }
+}
+
+@media (max-width: 900px) {
+    .home-prices-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .home-prices-grid .home-price-row:nth-child(3n) {
+        border-right: 1px solid var(--border);
+    }
+    .home-prices-grid .home-price-row:nth-child(2n) {
+        border-right: none;
+    }
+}
+
+@media (max-width: 600px) {
+    .home-prices-grid {
+        grid-template-columns: 1fr;
+    }
+    .home-prices-grid .home-price-row {
+        border-right: none !important;
+    }
+}
