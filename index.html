@@ -797,34 +797,43 @@
                 <div class="module-header">
                     <div class="module-title">
                         <span class="module-bullet"></span>
-                        <h2>RETAIL POSITIONING</h2>
-                        <span class="module-sub">COMMUNITY OUTLOOK · LIVE FROM MYFXBOOK</span>
+                        <h2>CONTRARIAN POSITIONING</h2>
+                        <span class="module-sub">MACRO-BASED · 22 PAIRS</span>
                     </div>
-                    <span class="module-source" id="pos-update">myfxbook.com</span>
+                    <span class="module-source" id="pos-update">auto · --</span>
                 </div>
 
-                <!-- Bandeau interprétation contrarian -->
+                <!-- Bandeau pédagogique -->
                 <div class="pos-info-banner">
-                    💡 Le sentiment retail est un <b>indicateur contrarian</b> : quand &gt;70% des traders sont positionnés dans un sens, le marché va souvent à l'inverse. Cherche les paires avec un déséquilibre extrême.
+                    💡 Positionnement retail <b>théorique</b> calculé à partir de tes scores macro (page MACRO). Le retail se trompe souvent : quand les fondamentaux sont très bullish (+), les retails sont contrarian (SHORT). <b>Plus le score macro est extrême, plus le déséquilibre attendu est marqué.</b>
                 </div>
 
                 <!-- Légende des signaux -->
                 <div class="pos-legend">
-                    <span class="pos-legend-item"><span class="pos-legend-dot up"></span> LONG &gt; SHORT (retail bullish)</span>
-                    <span class="pos-legend-item"><span class="pos-legend-dot down"></span> SHORT &gt; LONG (retail bearish)</span>
-                    <span class="pos-legend-item"><span class="pos-legend-dot extreme"></span> &gt;70% = signal contrarian fort</span>
+                    <span class="pos-legend-item"><span class="pos-legend-dot up"></span> LONG &gt; SHORT</span>
+                    <span class="pos-legend-item"><span class="pos-legend-dot down"></span> SHORT &gt; LONG</span>
+                    <span class="pos-legend-item"><span class="pos-legend-dot extreme"></span> ≥70% = signal contrarian fort</span>
                 </div>
 
-                <!-- Wrapper Myfxbook avec notre style (script injecté dynamiquement par initPosRepaint) -->
-                <div class="pos-myfxbook-wrapper">
-                    <div id="pos-myfxbook-container">
-                        <div class="pos-loading">Initializing widget...</div>
-                    </div>
-                </div>
+                <table class="pos-table">
+                    <thead>
+                        <tr>
+                            <th>PAIR</th>
+                            <th class="num">MACRO SPREAD</th>
+                            <th>RETAIL POSITIONING</th>
+                            <th class="num">LONG %</th>
+                            <th class="num">SHORT %</th>
+                            <th class="center">CONTRARIAN SIGNAL</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pos-table-tbody">
+                        <tr><td colspan="6" class="pos-empty">Remplir la page MACRO pour activer le positionnement.</td></tr>
+                    </tbody>
+                </table>
 
                 <div class="module-footer">
-                    <a href="https://www.myfxbook.com" target="_blank" rel="noopener" class="pos-myfxbook-credit">Powered by Myfxbook.com</a>
-                    <span class="source-tag">28 paires</span>
+                    <span class="pos-credit">Computed from your macro scoring (page MACRO)</span>
+                    <span class="source-tag">22 pairs</span>
                 </div>
             </section>
 
