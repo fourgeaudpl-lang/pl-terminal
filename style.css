@@ -4631,3 +4631,307 @@ body:has(.modal-overlay.open) {
     opacity: 0.6;
     cursor: wait;
 }
+
+/* ====================================================================
+   WIRP — Meeting Probabilities (Tier 5 CB)
+   ==================================================================== */
+
+.wirp-legend {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+.wirp-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+.wirp-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+.wirp-legend-dot.up { background: #4ade80; }
+.wirp-legend-dot.down { background: #f87171; }
+.wirp-legend-dot.neutral {
+    background: rgba(255, 140, 0, 0.2);
+    border: 1px solid var(--accent);
+}
+.wirp-legend-note {
+    margin-left: auto;
+    font-style: italic;
+    color: var(--text-tertiary);
+    font-size: 9.5px;
+}
+
+.wirp-loading, .wirp-error {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+    font-style: italic;
+    font-size: 11px;
+}
+.wirp-error { color: #f87171; }
+
+.wirp-card {
+    background: #0c0c0c;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 14px;
+    margin: 10px;
+}
+.wirp-card-error { opacity: 0.6; }
+
+.wirp-card-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+}
+.wirp-card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 1px;
+}
+.wirp-card-title .ccy {
+    color: var(--text-secondary);
+    font-weight: 400;
+    margin-left: 8px;
+    font-size: 11px;
+}
+.wirp-card-meta {
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+.wirp-card-meta b { color: var(--text-primary); font-weight: 500; }
+.wirp-card-meta b.up { color: #4ade80; }
+.wirp-card-meta b.down { color: #f87171; }
+.wirp-card-meta b.flat { color: var(--text-secondary); }
+
+.wirp-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+}
+
+.wirp-meeting {
+    text-align: center;
+}
+
+.wirp-date {
+    font-size: 9.5px;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.wirp-countdown {
+    font-size: 9px;
+    color: var(--text-tertiary);
+    margin-bottom: 6px;
+}
+.wirp-countdown.imminent { color: #f87171; font-weight: 600; }
+.wirp-countdown.soon { color: #fbbf24; }
+
+.wirp-bar {
+    height: 110px;
+    background: #141414;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.wirp-segment {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+.wirp-seg-hike { background: #4ade80; color: #000; }
+.wirp-seg-hold {
+    background: rgba(255, 140, 0, 0.15);
+    color: var(--accent);
+    border-top: 1px solid var(--accent);
+    border-bottom: 1px solid var(--accent);
+}
+.wirp-seg-cut { background: #f87171; color: #000; }
+
+.wirp-implied {
+    margin-top: 5px;
+    font-size: 9px;
+    letter-spacing: 0.3px;
+}
+.wirp-implied .up { color: #4ade80; }
+.wirp-implied .down { color: #f87171; }
+.wirp-implied .flat { color: var(--text-secondary); }
+
+.wirp-error-msg {
+    color: #f87171;
+    font-size: 10px;
+    font-style: italic;
+    padding: 20px;
+    text-align: center;
+}
+
+/* ====================================================================
+   YIELDS — Page Yield Curve
+   ==================================================================== */
+
+.yields-info-banner {
+    padding: 10px 14px;
+    background: rgba(255, 140, 0, 0.05);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+.yields-info-banner b { color: var(--accent); }
+
+.yields-controls {
+    display: flex;
+    gap: 6px;
+    padding: 12px 14px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+.yields-ccy-btn {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-strong);
+    color: var(--text-secondary);
+    padding: 6px 14px;
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+}
+.yields-ccy-btn:hover:not(.active) {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.yields-ccy-btn.active {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    font-weight: 700;
+}
+
+.yields-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 12px;
+    padding: 16px;
+}
+
+.yields-chart-wrap, .yields-table-wrap {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 14px;
+}
+
+.yields-section-title {
+    font-size: 10px;
+    color: var(--text-secondary);
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+    font-weight: 500;
+}
+
+#yields-chart {
+    width: 100% !important;
+    height: 280px !important;
+}
+
+.yields-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+}
+.yields-table th {
+    text-align: left;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: var(--text-secondary);
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border-strong);
+    font-weight: 500;
+}
+.yields-table th.num { text-align: right; }
+.yields-table td {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+}
+.yields-table td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+    font-weight: 500;
+}
+.yields-table td.label {
+    color: var(--text-primary);
+    letter-spacing: 0.5px;
+}
+.yields-table td.chg-up { color: #4ade80; }
+.yields-table td.chg-down { color: #f87171; }
+
+.yields-spreads-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    padding: 0 16px 16px;
+}
+
+.yields-spread-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 12px;
+    text-align: center;
+}
+
+.yields-spread-label {
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.yields-spread-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 4px;
+}
+.yields-spread-value.inverted { color: #f87171; }
+.yields-spread-value.flat { color: #fbbf24; }
+
+.yields-spread-note {
+    font-size: 9px;
+    color: var(--text-tertiary);
+    font-style: italic;
+}
+
+/* Mobile responsive */
+@media (max-width: 900px) {
+    .yields-grid { grid-template-columns: 1fr; }
+    .yields-spreads-grid { grid-template-columns: repeat(2, 1fr); }
+    .wirp-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+}
