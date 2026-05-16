@@ -888,6 +888,46 @@ function mergeBanksData(fredBanks, apiRates, meetings) {
 }
 
 // ============================================
+// CACHE LOCALSTORAGE — Démarrage instantané
+// On sauvegarde ratesData après chaque fetch réussi.
+// Au prochain chargement, on l'affiche IMMÉDIATEMENT en attendant le fetch.
+// ============================================
+const RATES_CACHE_KEY = 'pl_rates_cache';
+
+function saveRatesCache(banks) {
+    try {
+        // On ne garde QUE le dernier point d'historique (pas tout) pour éviter de saturer localStorage
+        const compact = banks.map(b => ({
+            id: b.id,
+            rate: b.rate,
+            asOf: b.asOf,
+            lastChange: b.lastChange,
+            // Garde seulement les 60 derniers points pour le mini chart (5 ans mensuel)
+            history: (b.history || []).slice(-60)
+        }));
+        localStorage.setItem(RATES_CACHE_KEY, JSON.stringify({
+            banks: compact,
+            savedAt: Date.now()
+        }));
+    } catch (e) {
+        console.warn('Cache save failed:', e);
+    }
+}
+
+function loadRatesCache() {
+    try {
+        const raw = localStorage.getItem(RATES_CACHE_KEY);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        // Cache valide 24h max
+        if (Date.now() - data.savedAt > 24 * 60 * 60 * 1000) return null;
+        return data.banks;
+    } catch (e) {
+        return null;
+    }
+}
+
+// ============================================
 async function fetchAllData() {
     setStatus('connecting', 'fetching data...');
     try {
@@ -907,6 +947,9 @@ async function fetchAllData() {
         const mergedBanks = mergeBanksData(fredBanks, apiRates, meetings);
         ratesData = { banks: mergedBanks };
 
+        // Sauve en cache pour le prochain démarrage instantané
+        saveRatesCache(mergedBanks);
+
         // 3) Render
         renderRatesTable(ratesData, meetings);
         rateHistoryState.banks = mergedBanks;
@@ -918,6 +961,8 @@ async function fetchAllData() {
         renderCarryMatrix();
         renderRanking();
         if (typeof renderScanAll === 'function') renderScanAll();
+        // Re-render PROB si on est sur cette page (ou même si on n'y est pas — c'est cheap)
+        if (typeof renderProbAll === 'function') renderProbAll();
         setStatus('live', 'live');
     } catch (e) {
         console.error('Fetch error:', e);
@@ -2099,7 +2144,7 @@ async function renderProbImpliedPath() {
 
     // On attend que ratesData soit dispo
     if (!ratesData || !ratesData.banks || ratesData.banks.length === 0) {
-        grid.innerHTML = '<div class="loading">Waiting for CB data...</div>';
+        grid.innerHTML = '<div class="loading">Fetching rates from FRED... (~3s)</div>';
         return;
     }
 
@@ -2219,6 +2264,323 @@ async function renderProbImpliedPath() {
 }
 
 // ============================================
+// MODULE PROB v2 — OIS-IMPLIED RATE PATH (méthode RateProbability)
+// ============================================
+// Pour chaque banque on calcule une trajectoire de taux implicite à partir
+// de la courbe des yields courts FRED, en suivant la méthodologie RateProbability :
+//
+// 1) Bootstrap des facteurs d'actualisation à partir des yields
+// 2) Calcul des forward rates entre les dates de meetings
+// 3) Conversion en taux directeur implicite après chaque meeting
+// 4) Δ vs taux actuel + probabilité simplifiée
+//
+// On a 2 ancrages par devise :
+//   - Taux directeur actuel (overnight, depuis CB)
+//   - Yield 2Y (depuis /api/yield-curve)
+// On interpole la courbe entre les deux par un modèle exponentiel simple :
+//   Yield(T) = current_rate + (yield_2Y - current_rate) * (1 - exp(-T/τ))
+// où τ contrôle la vitesse de convergence (calibré à 1.5 ans pour matcher la pente)
+// ============================================
+
+let yieldCurveData = null;
+let oisChartInstances = {};
+
+async function fetchYieldCurve() {
+    try {
+        const r = await fetch('/api/yield-curve');
+        if (!r.ok) return null;
+        const data = await r.json();
+        return data.yields || null;
+    } catch (e) {
+        console.warn('Yield curve fetch failed:', e);
+        return null;
+    }
+}
+
+// Bootstrap : facteur d'actualisation au temps T (en années)
+// Formule continue : DF(T) = exp(-r * T)
+function oisDiscountFactor(rate_pct, t_years) {
+    const r = rate_pct / 100;
+    return Math.exp(-r * t_years);
+}
+
+// Yield zéro coupon interpolé à l'échéance T (années)
+// Modèle Nelson-Siegel simplifié à 2 points : current_rate (t=0) et yield_2Y (t=2)
+function oisYieldAtT(currentRate, yield2Y, t_years) {
+    if (yield2Y === null || yield2Y === undefined) {
+        // Fallback : courbe plate au taux directeur
+        return currentRate;
+    }
+    if (t_years <= 0) return currentRate;
+    // Modèle de convergence exponentielle
+    const tau = 1.5; // demi-vie de convergence ~1.5 an
+    const weight = 1 - Math.exp(-t_years / tau);
+    // À t=0 : weight=0 → currentRate
+    // À t=2 : weight ≈ 0.74 → mix vers yield2Y
+    // Calibrage pour que yield(2) ≈ yield2Y
+    const calibrationAt2Y = 1 - Math.exp(-2 / tau); // = 0.7364
+    const adjustedWeight = weight / calibrationAt2Y;
+    return currentRate + (yield2Y - currentRate) * Math.min(1, adjustedWeight);
+}
+
+// Forward rate entre t1 et t2 (années depuis aujourd'hui)
+// Forward(t1,t2) = (DF(t1)/DF(t2) - 1) / (t2-t1)
+function oisForwardRate(currentRate, yield2Y, t1_years, t2_years) {
+    if (t2_years <= t1_years) return currentRate;
+    const y1 = oisYieldAtT(currentRate, yield2Y, t1_years);
+    const y2 = oisYieldAtT(currentRate, yield2Y, t2_years);
+    const df1 = oisDiscountFactor(y1, t1_years);
+    const df2 = oisDiscountFactor(y2, t2_years);
+    const tau = t2_years - t1_years;
+    const fwd = ((df1 / df2) - 1) / tau;
+    return fwd * 100; // back to %
+}
+
+// Convertit une date en fraction d'année depuis aujourd'hui
+function yearsFromNow(date) {
+    return (date.getTime() - Date.now()) / (365.25 * 24 * 60 * 60 * 1000);
+}
+
+// Pour une banque, calcule la trajectoire OIS-implied sur N meetings
+function oisComputeTrajectory(currentRate, yield2Y, meetingDates) {
+    if (currentRate === null || yield2Y === null) return [];
+
+    const trajectory = [];
+    let prevT = 0;
+
+    for (let i = 0; i < meetingDates.length; i++) {
+        const t = yearsFromNow(meetingDates[i]);
+        if (t <= 0) continue;
+
+        // Forward rate sur la fenêtre [prev meeting, this meeting]
+        // C'est le "overnight moyen attendu sur la période" → après cette réunion
+        const implied = oisForwardRate(currentRate, yield2Y, prevT, t);
+        const deltaBps = Math.round((implied - currentRate) * 100);
+
+        trajectory.push({
+            date: meetingDates[i],
+            implied,
+            deltaBps,
+            tYears: t
+        });
+
+        prevT = t;
+    }
+
+    return trajectory;
+}
+
+// Probabilité simplifiée selon méthode RateProbability :
+// proba = min(100%, |Δᵢ − Δᵢ₋₁| / step)
+function oisProbabilityOfMove(trajectory, step_bps) {
+    return trajectory.map((p, i) => {
+        const prevDelta = i === 0 ? 0 : trajectory[i - 1].deltaBps;
+        const incrementBps = p.deltaBps - prevDelta;
+        const proba = Math.min(100, Math.abs(incrementBps) / step_bps * 100);
+        return {
+            ...p,
+            incrementBps,
+            proba: Math.round(proba),
+            direction: incrementBps < -2 ? 'cut' : incrementBps > 2 ? 'hike' : 'hold'
+        };
+    });
+}
+
+// Render principal du module OIS
+async function renderProbOISCurves() {
+    const grid = document.getElementById('prob-ois-grid');
+    if (!grid) return;
+
+    if (!ratesData || !ratesData.banks || ratesData.banks.length === 0) {
+        grid.innerHTML = '<div class="loading">Fetching rates...</div>';
+        return;
+    }
+
+    if (!yieldCurveData) {
+        grid.innerHTML = '<div class="loading">Fetching yield curve from FRED... (~3s)</div>';
+        yieldCurveData = await fetchYieldCurve();
+        if (!yieldCurveData) {
+            grid.innerHTML = '<div class="loading" style="color:var(--red);">Failed to fetch yield curve. Check /api/yield-curve.</div>';
+            return;
+        }
+    }
+
+    const banksById = {};
+    ratesData.banks.forEach(b => banksById[b.id] = b);
+
+    const meetings = await probFetchMeetings();
+
+    // Construire les 8 cartes OIS
+    const cardsHtml = PROB_G8_ORDER.map(bank => {
+        const bankData = banksById[bank.code];
+        const currentRate = bankData && bankData.rate !== null ? bankData.rate : null;
+        const yieldEntry = yieldCurveData[bank.ccy];
+        const yield2Y = yieldEntry ? yieldEntry.rate : null;
+        const step = PROB_STEP_BPS[bank.code] || 25;
+
+        const firstMeeting = meetings[bank.code];
+        const meetingDates = probGenerateMeetingDates(firstMeeting, bank.code, 8);
+
+        if (currentRate === null || yield2Y === null || meetingDates.length === 0) {
+            return `
+                <div class="ois-card" data-cb="${bank.code}">
+                    <div class="ois-head">
+                        <span class="ois-cb">${bank.code}</span>
+                        <span class="ois-ccy">${bank.ccy}</span>
+                    </div>
+                    <div class="ois-body-empty">
+                        ${currentRate === null ? 'No CB rate' : yield2Y === null ? 'No yield 2Y' : 'No meetings'}
+                    </div>
+                </div>
+            `;
+        }
+
+        const trajectory = oisComputeTrajectory(currentRate, yield2Y, meetingDates);
+        const enriched = oisProbabilityOfMove(trajectory, step);
+
+        if (enriched.length === 0) {
+            return `<div class="ois-card" data-cb="${bank.code}"><div class="ois-body-empty">No projection</div></div>`;
+        }
+
+        // Détermine la tendance globale pour le bias tag
+        const finalDelta = enriched[enriched.length - 1].deltaBps;
+        let trendCls = 'hold', trendLabel = 'STABLE';
+        if (finalDelta <= -15) { trendCls = 'cut'; trendLabel = 'EASING'; }
+        else if (finalDelta >= 15) { trendCls = 'hike'; trendLabel = 'TIGHTENING'; }
+
+        // Mini-table des 4 prochains meetings
+        const rows = enriched.slice(0, 4).map(p => {
+            const dd = String(p.date.getDate()).padStart(2, '0');
+            const mm = p.date.toLocaleString('en-US', { month: 'short' });
+            const deltaSign = p.deltaBps > 0 ? '+' : '';
+            const deltaCls = p.deltaBps < -5 ? 'cut' : p.deltaBps > 5 ? 'hike' : 'flat';
+            const dirIcon = p.direction === 'cut' ? '▼' : p.direction === 'hike' ? '▲' : '─';
+            const dirCls = p.direction;
+            return `
+                <div class="ois-row">
+                    <span class="ois-date">${dd} ${mm}</span>
+                    <span class="ois-rate">${p.implied.toFixed(2)}%</span>
+                    <span class="ois-delta ${deltaCls}">${deltaSign}${p.deltaBps}</span>
+                    <span class="ois-proba ${dirCls}">${dirIcon} ${p.proba}%</span>
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="ois-card" data-cb="${bank.code}">
+                <div class="ois-head">
+                    <div class="ois-head-left">
+                        <span class="ois-cb">${bank.code}</span>
+                        <span class="ois-ccy">${bank.ccy}</span>
+                    </div>
+                    <span class="ois-trend ${trendCls}">${trendLabel}</span>
+                </div>
+                <div class="ois-current">
+                    <span class="ois-current-label">Now</span>
+                    <span class="ois-current-value">${currentRate.toFixed(2)}%</span>
+                    <span class="ois-2y-label">2Y</span>
+                    <span class="ois-2y-value">${yield2Y.toFixed(2)}%</span>
+                </div>
+                <div class="ois-chart-wrap">
+                    <canvas id="ois-chart-${bank.code}"></canvas>
+                </div>
+                <div class="ois-rows">${rows}</div>
+            </div>
+        `;
+    }).join('');
+
+    grid.innerHTML = cardsHtml;
+
+    // Maintenant, dessiner les 8 charts
+    PROB_G8_ORDER.forEach(bank => {
+        const bankData = banksById[bank.code];
+        const currentRate = bankData && bankData.rate !== null ? bankData.rate : null;
+        const yieldEntry = yieldCurveData[bank.ccy];
+        const yield2Y = yieldEntry ? yieldEntry.rate : null;
+        const firstMeeting = meetings[bank.code];
+        const meetingDates = probGenerateMeetingDates(firstMeeting, bank.code, 8);
+
+        if (currentRate === null || yield2Y === null || meetingDates.length === 0) return;
+
+        const trajectory = oisComputeTrajectory(currentRate, yield2Y, meetingDates);
+        if (trajectory.length === 0) return;
+
+        const canvas = document.getElementById(`ois-chart-${bank.code}`);
+        if (!canvas) return;
+
+        // Destroy old chart if exists
+        if (oisChartInstances[bank.code]) {
+            oisChartInstances[bank.code].destroy();
+        }
+
+        // Points : on commence par "Now" (taux actuel) + trajectoire
+        const labels = ['Now', ...trajectory.map(p => {
+            const dd = String(p.date.getDate()).padStart(2, '0');
+            const mm = p.date.toLocaleString('en-US', { month: 'short' });
+            return `${dd} ${mm}`;
+        })];
+        const values = [currentRate, ...trajectory.map(p => p.implied)];
+
+        oisChartInstances[bank.code] = new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    data: values,
+                    borderColor: '#ff8c00',
+                    backgroundColor: 'rgba(255, 140, 0, 0.08)',
+                    borderWidth: 1.5,
+                    fill: true,
+                    tension: 0.25,
+                    pointRadius: 2,
+                    pointHoverRadius: 4,
+                    pointBackgroundColor: '#ff8c00',
+                    pointBorderColor: '#ff8c00'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#0a0a0a',
+                        borderColor: '#ff8c00',
+                        borderWidth: 1,
+                        titleColor: '#ff8c00',
+                        bodyColor: '#ddd',
+                        padding: 6,
+                        callbacks: {
+                            label: c => `${c.parsed.y.toFixed(2)}%`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: '#141414', drawBorder: false },
+                        ticks: {
+                            color: '#666',
+                            font: { family: 'monospace', size: 8 },
+                            maxRotation: 0,
+                            autoSkip: true,
+                            maxTicksLimit: 5
+                        }
+                    },
+                    y: {
+                        grid: { color: '#141414', drawBorder: false },
+                        ticks: {
+                            color: '#666',
+                            font: { family: 'monospace', size: 8 },
+                            callback: v => v.toFixed(1) + '%'
+                        }
+                    }
+                }
+            }
+        });
+    });
+}
+
+// ============================================
 // SCHEDULE G6 — Prochains meetings centraux (conservé)
 // ============================================
 
@@ -2236,7 +2598,7 @@ function renderProbSchedule() {
     if (!list) return;
 
     if (!ratesData || !ratesData.banks) {
-        list.innerHTML = '<div class="loading">Waiting for CB data...</div>';
+        list.innerHTML = '<div class="loading">Fetching meetings... (~2s)</div>';
         return;
     }
 
@@ -2315,6 +2677,7 @@ function renderProbSchedule() {
 // ============================================
 function renderProbAll() {
     renderProbImpliedPath();
+    renderProbOISCurves();
     renderProbSchedule();
 }
 
@@ -2323,6 +2686,7 @@ function setupProbEvents() {
     if (refreshBtn) {
         refreshBtn.addEventListener('click', () => {
             probMeetingsCache = null;
+            yieldCurveData = null;
             renderProbAll();
         });
     }
@@ -2420,6 +2784,19 @@ setupEditableText();
 setupScoreEvents();
 setupScanEvents();
 setupProbEvents();
+
+// ⚡ Démarrage instantané : on charge le cache avant le fetch
+const cachedBanks = loadRatesCache();
+if (cachedBanks && cachedBanks.length > 0) {
+    ratesData = { banks: cachedBanks };
+    rateHistoryState.banks = cachedBanks;
+    // Render immédiat sans attendre le fetch FRED
+    renderRatesTable(ratesData, {});
+    renderAllRateCharts();
+    if (typeof renderScanAll === 'function') renderScanAll();
+    if (typeof renderProbAll === 'function') renderProbAll();
+}
+
 renderScoreAll();
 renderScanAll();
 fetchAllData();
