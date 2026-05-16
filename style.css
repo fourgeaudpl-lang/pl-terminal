@@ -4313,3 +4313,21 @@ body:has(.modal-overlay.open) {
         border-right: none !important;
     }
 }
+
+/* ====================================================================
+   POS — Loader pendant le chargement Myfxbook
+   ==================================================================== */
+.pos-loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--accent);
+    font-size: 12px;
+    font-style: italic;
+    letter-spacing: 1px;
+    animation: pos-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pos-pulse {
+    0%, 100% { opacity: 0.5; }
+    50%      { opacity: 1; }
+}
