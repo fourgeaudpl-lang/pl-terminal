@@ -3126,3 +3126,295 @@ body {
         flex-wrap: wrap;
     }
 }
+
+/* ====================================================================
+   PROB CTA Banner (remplacement de l'iframe RateProbability)
+   ==================================================================== */
+.prob-cta-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 22px;
+    gap: 20px;
+    flex-wrap: wrap;
+    background: linear-gradient(90deg, rgba(255, 140, 0, 0.04), transparent);
+}
+
+.prob-cta-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.prob-cta-icon {
+    width: 44px;
+    height: 44px;
+    background: rgba(255, 140, 0, 0.1);
+    border: 1px solid rgba(255, 140, 0, 0.3);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: var(--accent);
+}
+
+.prob-cta-title {
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    margin-bottom: 3px;
+}
+
+.prob-cta-sub {
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+.prob-cta-btn {
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+    .prob-cta-banner {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+/* ====================================================================
+   IMPLIED RATE PATH — Grid 8 banques avec couleurs spécifiques
+   ==================================================================== */
+
+.prob-implied-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    padding: 14px;
+}
+
+.prob-implied-grid .loading {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 30px;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.prib-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Couleurs CB spécifiques (matchent ton chart TradingView) */
+.prib-card[data-cb="FED"]  { border-top: 3px solid #f87171; }  /* Rouge */
+.prib-card[data-cb="BOC"]  { border-top: 3px solid #ff8c00; }  /* Orange */
+.prib-card[data-cb="ECB"]  { border-top: 3px solid #3884ff; }  /* Bleu */
+.prib-card[data-cb="BOE"]  { border-top: 3px solid #a855f7; }  /* Violet */
+.prib-card[data-cb="SNB"]  { border-top: 3px solid #ec4899; }  /* Rose */
+.prib-card[data-cb="BOJ"]  { border-top: 3px solid #fbbf24; }  /* Jaune */
+.prib-card[data-cb="RBA"]  { border-top: 3px solid #4ade80; }  /* Vert */
+.prib-card[data-cb="RBNZ"] { border-top: 3px solid #22d3ee; }  /* Turquoise */
+
+/* Header de la carte */
+.prib-head {
+    padding: 10px 12px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+}
+
+.prib-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+}
+
+.prib-cb {
+    color: var(--text-primary);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 1px;
+}
+
+.prib-card[data-cb="FED"]  .prib-cb { color: #f87171; }
+.prib-card[data-cb="BOC"]  .prib-cb { color: #ff8c00; }
+.prib-card[data-cb="ECB"]  .prib-cb { color: #3884ff; }
+.prib-card[data-cb="BOE"]  .prib-cb { color: #a855f7; }
+.prib-card[data-cb="SNB"]  .prib-cb { color: #ec4899; }
+.prib-card[data-cb="BOJ"]  .prib-cb { color: #fbbf24; }
+.prib-card[data-cb="RBA"]  .prib-cb { color: #4ade80; }
+.prib-card[data-cb="RBNZ"] .prib-cb { color: #22d3ee; }
+
+.prib-ccy {
+    color: var(--text-secondary);
+    font-size: 9px;
+    letter-spacing: 1px;
+}
+
+.prib-current {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.prib-current-label {
+    font-size: 9px;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+}
+
+.prib-bias-tag {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    margin-top: 4px;
+}
+.prib-bias-tag.cut {
+    background: rgba(74, 222, 128, 0.1);
+    color: var(--green);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+}
+.prib-bias-tag.hike {
+    background: rgba(248, 113, 113, 0.1);
+    color: var(--red);
+    border: 1px solid rgba(248, 113, 113, 0.3);
+}
+.prib-bias-tag.neutral {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-strong);
+}
+
+/* Liste des meetings projetés */
+.prib-meetings {
+    flex: 1;
+    padding: 4px 0;
+}
+
+.prib-meeting-row {
+    display: grid;
+    grid-template-columns: 60px 1fr 50px 50px;
+    gap: 6px;
+    align-items: center;
+    padding: 5px 12px;
+    border-bottom: 1px solid #141414;
+    font-size: 10.5px;
+    transition: background 0.1s;
+}
+
+.prib-meeting-row:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.prib-meeting-row:last-child { border-bottom: none; }
+
+.prib-mdate {
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    font-size: 10px;
+}
+
+.prib-mbar-wrap {
+    height: 12px;
+    background: var(--bg-tertiary);
+    position: relative;
+    border-radius: 1px;
+    overflow: hidden;
+}
+
+.prib-mbar-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    transition: width 0.3s, left 0.3s;
+}
+
+.prib-mbar-fill.cut {
+    background: var(--green);
+    right: 50%;
+}
+
+.prib-mbar-fill.hike {
+    background: var(--red);
+    left: 50%;
+}
+
+.prib-mbar-center {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    background: var(--border-strong);
+}
+
+.prib-mrate {
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    text-align: right;
+    font-size: 10.5px;
+}
+
+.prib-mdelta {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    padding: 2px 4px;
+    border-radius: 2px;
+}
+
+.prib-mdelta.cut  {
+    color: var(--green);
+    background: rgba(74, 222, 128, 0.08);
+}
+.prib-mdelta.hike {
+    color: var(--red);
+    background: rgba(248, 113, 113, 0.08);
+}
+.prib-mdelta.flat {
+    color: var(--text-secondary);
+}
+
+/* Footer carte */
+.prib-foot {
+    padding: 6px 12px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    font-size: 9px;
+    color: var(--text-tertiary);
+    display: flex;
+    justify-content: space-between;
+    letter-spacing: 0.5px;
+}
+
+/* Responsive */
+@media (max-width: 1400px) {
+    .prob-implied-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+@media (max-width: 1000px) {
+    .prob-implied-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 600px) {
+    .prob-implied-grid {
+        grid-template-columns: 1fr;
+    }
+}
