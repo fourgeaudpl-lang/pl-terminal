@@ -4331,3 +4331,159 @@ body:has(.modal-overlay.open) {
     0%, 100% { opacity: 0.5; }
     50%      { opacity: 1; }
 }
+
+/* ====================================================================
+   POS — Contrarian Positioning Table (maison)
+   ==================================================================== */
+
+.pos-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+}
+
+.pos-table thead tr {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-strong);
+}
+
+.pos-table th {
+    padding: 8px 10px;
+    text-align: left;
+    letter-spacing: 1px;
+    font-weight: 500;
+    font-size: 9.5px;
+}
+
+.pos-table th.num { text-align: right; }
+.pos-table th.center { text-align: center; }
+
+.pos-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+}
+
+.pos-table tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.015);
+}
+
+.pos-table tbody tr:hover {
+    background: rgba(255, 140, 0, 0.04);
+}
+
+.pos-table tbody tr.pos-row-contrarian {
+    background: rgba(251, 191, 36, 0.05);
+    border-left: 3px solid #fbbf24;
+}
+
+.pos-table td {
+    padding: 8px 10px;
+}
+
+.pos-table td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.pos-table td.center { text-align: center; }
+
+.pos-empty {
+    text-align: center;
+    padding: 30px 20px;
+    color: var(--text-secondary);
+    font-style: italic;
+    font-size: 11px;
+}
+
+.pos-pair {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 11.5px;
+}
+
+.pos-spread {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+/* La barre LONG/SHORT inline */
+.pos-bars {
+    padding: 6px 8px !important;
+    min-width: 260px;
+}
+
+.pos-bar-wrap {
+    display: flex;
+    height: 18px;
+    background: var(--bg-tertiary);
+    border-radius: 2px;
+    overflow: hidden;
+    font-size: 9.5px;
+    font-weight: 600;
+}
+
+.pos-bar-long {
+    background: rgba(74, 222, 128, 0.85);
+    color: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: width 0.3s ease;
+    min-width: 4px;
+}
+
+.pos-bar-short {
+    background: rgba(248, 113, 113, 0.85);
+    color: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: width 0.3s ease;
+    min-width: 4px;
+}
+
+.pos-long-cell { color: var(--green); font-weight: 500; }
+.pos-short-cell { color: var(--red); font-weight: 500; }
+
+.pos-signal {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    padding: 3px 8px;
+    border-radius: 2px;
+}
+.pos-sig-neutral {
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+}
+.pos-sig-long {
+    color: var(--green);
+    background: rgba(74, 222, 128, 0.12);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+}
+.pos-sig-short {
+    color: var(--red);
+    background: rgba(248, 113, 113, 0.12);
+    border: 1px solid rgba(248, 113, 113, 0.3);
+}
+.pos-sig-long-weak {
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.08);
+}
+.pos-sig-short-weak {
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.08);
+}
+
+.pos-credit {
+    color: var(--text-tertiary);
+    font-size: 9.5px;
+    font-style: italic;
+}
+
+/* Anciennes classes Myfxbook (conservées au cas où) deviennent harmless */
+.pos-myfxbook-wrapper, .pos-myfxbook-credit, .pos-loading {
+    display: none;
+}
