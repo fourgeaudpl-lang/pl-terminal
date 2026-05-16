@@ -713,14 +713,16 @@
                                 <span class="scan-sep">·</span>
                                 <span id="scan-rs-mood">Greed</span>
                                 <span class="scan-sep">·</span>
-                                <span>CNN F&amp;G</span>
+                                <span id="scan-rs-source">CNN F&amp;G</span>
+                                <span class="scan-sep">·</span>
+                                <span class="scan-update-stamp">Last update: <b id="scan-last-update">—</b></span>
                             </div>
                         </div>
                     </div>
                     <div class="scan-header-right">
-                        <input type="number" id="scan-rs-input" min="0" max="100" step="1" class="scan-rs-input" title="Risk Sentiment 0-100">
-                        <button class="action-btn" id="scan-rs-save" title="Sauver le score">SAVE</button>
-                        <button class="action-btn" id="scan-refresh" title="Rafraîchir depuis Macro Data">↻ REFRESH</button>
+                        <input type="number" id="scan-rs-input" min="0" max="100" step="1" class="scan-rs-input" title="Risk Sentiment 0-100 (manuel override)">
+                        <button class="action-btn" id="scan-rs-save" title="Sauver le score (override manuel)">SAVE</button>
+                        <button class="action-btn" id="scan-refresh" title="Refetch CNN Fear &amp; Greed + recalc">↻ REFRESH</button>
                     </div>
                 </div>
             </section>
