@@ -9,10 +9,10 @@ const CCYS = ['USD','EUR','GBP','JPY','CAD','AUD','NZD','CHF'];
 const CENTRAL_BANKS = [
     { code: 'FED',  ccy: 'USD', fred: 'FEDFUNDS'        },
     { code: 'ECB',  ccy: 'EUR', fred: 'ECBDFR'          },
-    { code: 'BOE',  ccy: 'GBP', fred: 'BOERUKM'         },
+    { code: 'BOE',  ccy: 'GBP', fred: 'IUDSOIA'         },
     { code: 'BOJ',  ccy: 'JPY', fred: 'IRSTCI01JPM156N' },
-    { code: 'BOC',  ccy: 'CAD', fred: 'INTGSBCAM193N'   },
-    { code: 'RBA',  ccy: 'AUD', fred: 'INTGSBAUM193N'   },
+    { code: 'BOC',  ccy: 'CAD', fred: 'IRSTCI01CAM156N' },
+    { code: 'RBA',  ccy: 'AUD', fred: 'IRSTCI01AUM156N' },
     { code: 'RBNZ', ccy: 'NZD', fred: 'IR3TIB01NZM156N' },
     { code: 'SNB',  ccy: 'CHF', fred: 'IR3TIB01CHM156N' }
 ];
