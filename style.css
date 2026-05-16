@@ -4490,3 +4490,73 @@ body:has(.modal-overlay.open) {
 .pos-myfxbook-wrapper, .pos-myfxbook-credit, .pos-loading {
     display: none;
 }
+
+/* ====================================================================
+   POS — Search bar
+   ==================================================================== */
+
+.pos-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+}
+
+.pos-search-input {
+    flex: 1;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-strong);
+    border-radius: 3px;
+    padding: 7px 12px;
+    font-family: inherit;
+    font-size: 11.5px;
+    letter-spacing: 0.5px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.pos-search-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+}
+
+.pos-search-input::placeholder {
+    color: var(--text-tertiary);
+    font-style: italic;
+}
+
+.pos-search-clear {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-strong);
+    border-radius: 3px;
+    width: 28px;
+    height: 28px;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    font-family: inherit;
+    padding: 0;
+}
+
+.pos-search-clear:hover {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+}
+
+.pos-search-count {
+    color: var(--text-secondary);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    min-width: 80px;
+    text-align: right;
+}
