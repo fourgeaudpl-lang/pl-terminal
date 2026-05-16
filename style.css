@@ -4071,3 +4071,156 @@ body {
     height: 1px;
     margin-top: 1px;
 }
+
+/* ====================================================================
+   MODAL SYSTEM — Pop-up flottant centré
+   ==================================================================== */
+
+.modal-overlay {
+    /* Caché par défaut */
+    display: none;
+
+    /* Quand .open : centré au milieu de l'écran */
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+
+    /* Overlay sombre semi-transparent */
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+
+    /* Au-dessus de tout */
+    z-index: 9999;
+
+    /* Centrer le contenu */
+    align-items: center;
+    justify-content: center;
+
+    /* Padding pour que le modal touche pas les bords sur petit écran */
+    padding: 20px;
+    box-sizing: border-box;
+
+    /* Fade in animation */
+    opacity: 0;
+    transition: opacity 0.15s ease-out;
+}
+
+.modal-overlay.open {
+    display: flex;
+    opacity: 1;
+}
+
+.modal-content {
+    background: var(--bg-primary);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+
+    /* Taille flexible */
+    max-width: 560px;
+    width: 100%;
+    max-height: 90vh;
+
+    /* Layout interne flex */
+    display: flex;
+    flex-direction: column;
+
+    /* Empêche le contenu de déborder */
+    overflow: hidden;
+
+    /* Scale-in animation */
+    transform: scale(0.95);
+    transition: transform 0.15s ease-out;
+}
+
+.modal-overlay.open .modal-content {
+    transform: scale(1);
+}
+
+.modal-large .modal-content,
+.modal-content.modal-large {
+    max-width: 760px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: var(--accent);
+    font-size: 12px;
+    letter-spacing: 2px;
+    font-weight: 600;
+    font-family: inherit;
+}
+
+.modal-close {
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    color: var(--text-secondary);
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 1;
+    width: 26px;
+    height: 26px;
+    border-radius: 3px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    font-family: inherit;
+    padding: 0;
+}
+
+.modal-close:hover {
+    background: var(--red);
+    color: #fff;
+    border-color: var(--red);
+}
+
+.modal-body {
+    padding: 16px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+.modal-large .modal-body {
+    max-height: calc(90vh - 50px);
+}
+
+/* Scrollbar du modal */
+.modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+}
+
+/* Empêche scroll de la page quand un modal est ouvert */
+body:has(.modal-overlay.open) {
+    overflow: hidden;
+}
