@@ -2002,12 +2002,36 @@ function initPosRepaint() {
 
     posRepaintAttempts = 0;
 
-    // 1) Tente le repaint immédiat (cas où le widget était déjà chargé)
-    posRepaintColors();
+    // CRITIQUE : on doit re-injecter le script Myfxbook dynamiquement
+    // car les scripts dans des divs cachées (display:none) ne s'exécutent pas correctement.
+    // À chaque fois qu'on arrive sur la page POS, on vide + recrée le script.
 
-    // 2) Observer les futures mutations (le widget Myfxbook charge async)
+    // 1) Vide complètement le conteneur
+    container.innerHTML = '';
+
+    // 2) Crée dynamiquement un nouveau script Myfxbook
+    const script = document.createElement('script');
+    script.type = 'text/javascript';
+    script.className = 'powered';
+    script.src = 'https://widgets.myfxbook.com/scripts/fxOutlook.js?type=1&symbols=,1,2,3,4,5,6,7,8,9,10,11,12,13,14,17,20,24,25,26,27,28,29,46,47,48,49,103,107';
+    script.async = false; // synchrone pour que document.write fonctionne
+    container.appendChild(script);
+
+    // 3) Affiche un loader pendant le chargement
+    const loader = document.createElement('div');
+    loader.className = 'pos-loading';
+    loader.id = 'pos-myfxbook-loader';
+    loader.textContent = 'Loading Myfxbook community outlook...';
+    container.appendChild(loader);
+
+    // 4) Observer pour détecter quand le widget est injecté → repaint + retire loader
     posRepaintObserver = new MutationObserver(mutations => {
-        // Throttle : on repaint au max toutes les 200ms
+        // Quand on détecte du contenu Myfxbook (tableau ou div ajouté par le script)
+        const hasContent = container.querySelector('table, .fxOutlookContainer, [class*="fxoutlook"], [class*="myfxbook"]');
+        if (hasContent) {
+            const ld = document.getElementById('pos-myfxbook-loader');
+            if (ld) ld.remove();
+        }
         if (posRepaintAttempts < 30) {
             posRepaintAttempts++;
             posRepaintColors();
@@ -2021,10 +2045,27 @@ function initPosRepaint() {
         attributeFilter: ['style', 'bgcolor']
     });
 
-    // 3) Force un repaint après 1s, 3s et 5s pour être sûr (au cas où l'observer rate)
-    setTimeout(posRepaintColors, 1000);
-    setTimeout(posRepaintColors, 3000);
-    setTimeout(posRepaintColors, 5000);
+    // 5) Repaints forcés à intervalles pour rattraper si l'observer rate
+    setTimeout(() => { posRepaintColors(); removePosLoaderIfReady(); }, 1500);
+    setTimeout(() => { posRepaintColors(); removePosLoaderIfReady(); }, 3000);
+    setTimeout(() => { posRepaintColors(); removePosLoaderIfReady(); }, 5000);
+    setTimeout(() => { posRepaintColors(); removePosLoaderIfReady(); }, 8000);
+
+    // Si après 10s rien n'est apparu, on retire le loader et on affiche un message d'erreur
+    setTimeout(() => {
+        const container = document.getElementById('pos-myfxbook-container');
+        if (!container) return;
+        const hasContent = container.querySelector('table, .fxOutlookContainer, [class*="fxoutlook"], [class*="myfxbook"]');
+        if (!hasContent) {
+            const ld = document.getElementById('pos-myfxbook-loader');
+            if (ld) {
+                ld.innerHTML = '⚠ Myfxbook widget failed to load.<br>' +
+                    '<a href="https://www.myfxbook.com/community/outlook" target="_blank" style="color:var(--accent); text-decoration:underline; margin-top:8px; display:inline-block;">Open Myfxbook directly →</a>';
+                ld.style.color = 'var(--text-secondary)';
+                ld.style.lineHeight = '1.8';
+            }
+        }
+    }, 10000);
 
     // Mise à jour du timestamp dans le module-source
     const updEl = document.getElementById('pos-update');
@@ -2033,6 +2074,16 @@ function initPosRepaint() {
         const hh = String(now.getUTCHours()).padStart(2, '0');
         const mm = String(now.getUTCMinutes()).padStart(2, '0');
         updEl.textContent = `myfxbook.com · ${hh}:${mm} GMT`;
+    }
+}
+
+function removePosLoaderIfReady() {
+    const container = document.getElementById('pos-myfxbook-container');
+    if (!container) return;
+    const hasContent = container.querySelector('table, .fxOutlookContainer, [class*="fxoutlook"], [class*="myfxbook"]');
+    if (hasContent) {
+        const ld = document.getElementById('pos-myfxbook-loader');
+        if (ld) ld.remove();
     }
 }
 
