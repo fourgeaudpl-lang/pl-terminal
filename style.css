@@ -3418,3 +3418,202 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* ====================================================================
+   OIS-IMPLIED RATE PATH — 8 cartes avec mini-charts
+   ==================================================================== */
+
+.prob-ois-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    padding: 14px;
+}
+
+.prob-ois-grid .loading {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 30px;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.ois-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-top: 3px solid #ff8c00;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.ois-card .ois-body-empty {
+    padding: 30px 14px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-style: italic;
+}
+
+/* Header */
+.ois-head {
+    padding: 10px 12px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.ois-head-left {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.ois-cb {
+    color: #ff8c00;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 1px;
+}
+
+.ois-ccy {
+    color: var(--text-secondary);
+    font-size: 9px;
+    letter-spacing: 1px;
+}
+
+.ois-trend {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    padding: 2px 6px;
+    border-radius: 2px;
+}
+.ois-trend.cut {
+    background: rgba(74, 222, 128, 0.1);
+    color: var(--green);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+}
+.ois-trend.hike {
+    background: rgba(248, 113, 113, 0.1);
+    color: var(--red);
+    border: 1px solid rgba(248, 113, 113, 0.3);
+}
+.ois-trend.hold {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-strong);
+}
+
+/* Current / 2Y info bar */
+.ois-current {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    align-items: baseline;
+}
+
+.ois-current-label, .ois-2y-label {
+    color: var(--text-secondary);
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.ois-current-value, .ois-2y-value {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    margin-left: 4px;
+    margin-right: 12px;
+}
+
+.ois-2y-value {
+    color: #ff8c00;
+    margin-right: 0;
+}
+
+/* Mini chart */
+.ois-chart-wrap {
+    height: 90px;
+    padding: 6px 8px 0 8px;
+    position: relative;
+}
+
+.ois-chart-wrap canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Liste compacte des meetings */
+.ois-rows {
+    padding: 4px 0 6px 0;
+}
+
+.ois-row {
+    display: grid;
+    grid-template-columns: 50px 1fr 40px 50px;
+    gap: 4px;
+    align-items: center;
+    padding: 4px 12px;
+    border-bottom: 1px solid #141414;
+    font-size: 10px;
+}
+
+.ois-row:last-child { border-bottom: none; }
+
+.ois-date {
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.ois-rate {
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    text-align: right;
+}
+
+.ois-delta {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    font-size: 9.5px;
+}
+.ois-delta.cut  { color: var(--green); }
+.ois-delta.hike { color: var(--red); }
+.ois-delta.flat { color: var(--text-secondary); }
+
+.ois-proba {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    font-size: 9.5px;
+    letter-spacing: 0.3px;
+}
+.ois-proba.cut  { color: var(--green); }
+.ois-proba.hike { color: var(--red); }
+.ois-proba.hold { color: var(--text-secondary); }
+
+/* Responsive */
+@media (max-width: 1400px) {
+    .prob-ois-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+@media (max-width: 1000px) {
+    .prob-ois-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 600px) {
+    .prob-ois-grid {
+        grid-template-columns: 1fr;
+    }
+}
