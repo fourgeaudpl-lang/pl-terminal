@@ -485,9 +485,9 @@
                     <div class="module-title">
                         <span class="module-bullet"></span>
                         <h2>YIELD CURVE</h2>
-                        <span class="module-sub">G8 GOVERNMENT BONDS · LIVE FROM TRADINGVIEW</span>
+                        <span class="module-sub">G8 GOVERNMENT BONDS · FRED + ECB OFFICIAL</span>
                     </div>
-                    <span class="module-source">TradingView</span>
+                    <span class="module-source">FRED + ECB</span>
                 </div>
 
                 <!-- Bandeau pédagogique court -->
@@ -507,19 +507,45 @@
                     <button class="yields-ccy-btn" data-ccy="CHF">CHF</button>
                 </div>
 
-                <!-- Lien externe vers TradingView yield curve complète -->
-                <div class="yields-external-link-wrap">
-                    <a href="https://www.tradingview.com/yield-curves/" target="_blank" rel="noopener" class="yields-external-link">
-                        ↗ Voir la courbe complète (3M → 30Y, comparaisons historiques) sur TradingView
-                    </a>
+                <!-- Section 1 : 5 cards cliquables avec mini SVG curve (ouvrent TradingView) -->
+                <div class="yields-section-divider">
+                    <span class="yields-section-divider-label">QUICK ACCESS · CLICK TO VIEW ON TRADINGVIEW</span>
                 </div>
 
-                <!-- Grille de 5 mini-charts TradingView (1 par maturité) -->
                 <div class="yields-tv-grid" id="yields-tv-grid">
-                    <!-- Rendu dynamiquement par renderYieldsAll -->
+                    <!-- Rendu dynamiquement par renderYieldsTvGrid -->
                 </div>
 
-                <!-- Spreads (toujours calculés depuis /api/yields-grid) -->
+                <!-- Section 2 : Vraie courbe Chart.js + tableau (FRED + ECB) -->
+                <div class="yields-section-divider">
+                    <span class="yields-section-divider-label">FULL CURVE · FRED / ECB DATA</span>
+                </div>
+
+                <div class="yields-grid">
+                    <div class="yields-chart-wrap">
+                        <div class="yields-section-title" id="yields-chart-title">USD CURVE — TODAY VS 30D VS 90D · FRED</div>
+                        <canvas id="yields-chart" height="280"></canvas>
+                    </div>
+
+                    <div class="yields-table-wrap">
+                        <div class="yields-section-title">YIELDS DETAIL</div>
+                        <table class="yields-table">
+                            <thead>
+                                <tr>
+                                    <th>TENOR</th>
+                                    <th class="num">RATE</th>
+                                    <th class="num">Δ 30D</th>
+                                    <th class="num">Δ 90D</th>
+                                </tr>
+                            </thead>
+                            <tbody id="yields-tbody">
+                                <tr><td colspan="4" class="loading">Loading yields...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Spreads -->
                 <div class="yields-spreads-grid" id="yields-spreads-grid">
                     <!-- Rendu par renderYieldsAll -->
                 </div>
