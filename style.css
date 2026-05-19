@@ -5167,3 +5167,113 @@ body:has(.modal-overlay.open) {
 @media (max-width: 480px) {
     .yields-tv-grid { grid-template-columns: 1fr; }
 }
+
+/* ====================================================================
+   CALENDAR — FXVerify widget habillé PL Terminal
+   ==================================================================== */
+
+/* Bandeau d'info au-dessus du widget */
+.fxv-cal-info-banner {
+    padding: 10px 16px;
+    background: rgba(255, 140, 0, 0.06);
+    border-bottom: 1px solid rgba(255, 140, 0, 0.2);
+    color: var(--text-secondary);
+    font-size: 11px;
+    letter-spacing: 0.3px;
+    line-height: 1.5;
+}
+
+.fxv-cal-info-banner b {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+/* Wrapper qui crée le contour orange et habille le widget */
+.fxv-cal-wrapper {
+    padding: 14px;
+    background: var(--bg-primary);
+    position: relative;
+}
+
+/* Le conteneur direct du widget FXVerify */
+#economic-calendar-133473 {
+    border: 1.5px solid var(--accent);
+    border-radius: 4px;
+    overflow: hidden;
+    background: #0a0a0a;
+    box-shadow:
+        0 0 0 1px rgba(255, 140, 0, 0.15),
+        0 4px 20px rgba(0, 0, 0, 0.4),
+        inset 0 0 30px rgba(255, 140, 0, 0.02);
+    min-height: 500px;
+    position: relative;
+}
+
+/* Coins décoratifs orange (style terminal) */
+#economic-calendar-133473::before,
+#economic-calendar-133473::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--accent);
+    pointer-events: none;
+    z-index: 10;
+}
+
+#economic-calendar-133473::before {
+    top: -1px;
+    left: -1px;
+    border-right: none;
+    border-bottom: none;
+}
+
+#economic-calendar-133473::after {
+    bottom: -1px;
+    right: -1px;
+    border-left: none;
+    border-top: none;
+}
+
+/* Force le widget à occuper toute la largeur */
+#economic-calendar-133473 iframe,
+#economic-calendar-133473 > div {
+    width: 100% !important;
+    min-height: 500px;
+    background: transparent !important;
+}
+
+/* Petit label "PL" en overlay haut-droit (signature subtile) */
+.fxv-cal-wrapper::after {
+    content: '◼ PL · live';
+    position: absolute;
+    top: 22px;
+    right: 28px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    background: #0a0a0a;
+    padding: 3px 8px;
+    border: 1px solid var(--accent);
+    border-radius: 2px;
+    z-index: 11;
+    opacity: 0.85;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    text-transform: uppercase;
+    pointer-events: none;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    .fxv-cal-wrapper {
+        padding: 8px;
+    }
+    .fxv-cal-wrapper::after {
+        top: 16px;
+        right: 16px;
+        font-size: 8px;
+    }
+    #economic-calendar-133473 {
+        min-height: 600px;
+    }
+}
