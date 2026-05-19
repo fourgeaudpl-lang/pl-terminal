@@ -485,14 +485,14 @@
                     <div class="module-title">
                         <span class="module-bullet"></span>
                         <h2>YIELD CURVE</h2>
-                        <span class="module-sub">5 MATURITIES · 3M / 2Y / 5Y / 10Y / 30Y · FRED OFFICIAL</span>
+                        <span class="module-sub">G8 GOVERNMENT BONDS · LIVE FROM TRADINGVIEW</span>
                     </div>
-                    <span class="module-source">FRED</span>
+                    <span class="module-source">TradingView</span>
                 </div>
 
-                <!-- Bandeau pédagogique -->
+                <!-- Bandeau pédagogique court -->
                 <div class="yields-info-banner">
-                    💡 La <b>forme de la courbe</b> est un thermomètre macro : <b>normale</b> = croissance saine · <b>plate</b> = fin de cycle · <b>inversée</b> = signal de récession à 12-18 mois
+                    💡 Courbe <b>normale</b> = croissance saine · <b>plate</b> = fin de cycle · <b>inversée</b> = signal de récession à 12-18 mois
                 </div>
 
                 <!-- Sélecteur devise -->
@@ -507,31 +507,19 @@
                     <button class="yields-ccy-btn" data-ccy="CHF">CHF</button>
                 </div>
 
-                <div class="yields-grid">
-                    <div class="yields-chart-wrap">
-                        <div class="yields-section-title" id="yields-chart-title">USD TREASURY CURVE — TODAY VS 30D VS 90D</div>
-                        <canvas id="yields-chart" height="280"></canvas>
-                    </div>
-
-                    <div class="yields-table-wrap">
-                        <div class="yields-section-title">YIELDS DETAIL</div>
-                        <table class="yields-table">
-                            <thead>
-                                <tr>
-                                    <th>TENOR</th>
-                                    <th class="num">RATE</th>
-                                    <th class="num">Δ 30D</th>
-                                    <th class="num">Δ 90D</th>
-                                </tr>
-                            </thead>
-                            <tbody id="yields-tbody">
-                                <tr><td colspan="4" class="loading">Loading yields...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
+                <!-- Lien externe vers TradingView yield curve complète -->
+                <div class="yields-external-link-wrap">
+                    <a href="https://www.tradingview.com/yield-curves/" target="_blank" rel="noopener" class="yields-external-link">
+                        ↗ Voir la courbe complète (3M → 30Y, comparaisons historiques) sur TradingView
+                    </a>
                 </div>
 
-                <!-- Spreads -->
+                <!-- Grille de 5 mini-charts TradingView (1 par maturité) -->
+                <div class="yields-tv-grid" id="yields-tv-grid">
+                    <!-- Rendu dynamiquement par renderYieldsAll -->
+                </div>
+
+                <!-- Spreads (toujours calculés depuis /api/yields-grid) -->
                 <div class="yields-spreads-grid" id="yields-spreads-grid">
                     <!-- Rendu par renderYieldsAll -->
                 </div>
