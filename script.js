@@ -3389,10 +3389,23 @@ async function renderWirpAll() {
 // Source : /api/yields-grid (FRED)
 // ============================================
 
+// Symboles TradingView par devise et maturité
+// Format : TVC:XXX où XXX = US10Y, DE10Y (Allemagne pour EUR), GB10Y, etc.
+const YIELDS_TV_SYMBOLS = {
+    USD: { '3M': 'TVC:US03MY', '2Y': 'TVC:US02Y', '5Y': 'TVC:US05Y', '10Y': 'TVC:US10Y', '30Y': 'TVC:US30Y' },
+    EUR: { '3M': 'TVC:DE03MY', '2Y': 'TVC:DE02Y', '5Y': 'TVC:DE05Y', '10Y': 'TVC:DE10Y', '30Y': 'TVC:DE30Y' },
+    GBP: { '3M': 'TVC:GB03MY', '2Y': 'TVC:GB02Y', '5Y': 'TVC:GB05Y', '10Y': 'TVC:GB10Y', '30Y': 'TVC:GB30Y' },
+    JPY: { '3M': 'TVC:JP03MY', '2Y': 'TVC:JP02Y', '5Y': 'TVC:JP05Y', '10Y': 'TVC:JP10Y', '30Y': 'TVC:JP30Y' },
+    CAD: { '3M': 'TVC:CA03MY', '2Y': 'TVC:CA02Y', '5Y': 'TVC:CA05Y', '10Y': 'TVC:CA10Y', '30Y': 'TVC:CA30Y' },
+    AUD: { '3M': 'TVC:AU03MY', '2Y': 'TVC:AU02Y', '5Y': 'TVC:AU05Y', '10Y': 'TVC:AU10Y', '30Y': 'TVC:AU30Y' },
+    NZD: { '3M': 'TVC:NZ03MY', '2Y': 'TVC:NZ02Y', '5Y': 'TVC:NZ05Y', '10Y': 'TVC:NZ10Y', '30Y': 'TVC:NZ30Y' },
+    CHF: { '3M': 'TVC:CH03MY', '2Y': 'TVC:CH02Y', '5Y': 'TVC:CH05Y', '10Y': 'TVC:CH10Y', '30Y': 'TVC:CH30Y' }
+};
+
 let yieldsCurveData = {};
 let yieldsCurrentCcy = 'USD';
-let yieldsChartInstance = null;
 
+// Fetch pour les spreads (toujours utile pour les 4 cards en bas)
 async function fetchYieldsData() {
     try {
         const r = await fetch('/api/yields-grid');
@@ -3403,152 +3416,79 @@ async function fetchYieldsData() {
     }
 }
 
+// Render principal : génère les 5 widgets TV + les spreads
 function renderYieldsAll() {
-    if (!yieldsCurveData || !yieldsCurveData.currencies) return;
-    renderYieldsTable();
-    renderYieldsChart();
+    renderYieldsTvGrid();
     renderYieldsSpreads();
-    // Update title
-    const t = document.getElementById('yields-chart-title');
-    if (t) t.textContent = `${yieldsCurrentCcy} CURVE — TODAY VS 30D VS 90D`;
 }
 
-function renderYieldsTable() {
-    const tbody = document.getElementById('yields-tbody');
-    if (!tbody) return;
-    const data = yieldsCurveData.currencies[yieldsCurrentCcy];
-    if (!data) {
-        tbody.innerHTML = '<tr><td colspan="4" class="loading">No data available</td></tr>';
-        return;
-    }
+// Génère 5 widgets TradingView Advanced Chart pour les 5 maturités
+function renderYieldsTvGrid() {
+    const grid = document.getElementById('yields-tv-grid');
+    if (!grid) return;
+
+    const symbols = YIELDS_TV_SYMBOLS[yieldsCurrentCcy] || YIELDS_TV_SYMBOLS.USD;
     const tenors = ['3M', '2Y', '5Y', '10Y', '30Y'];
-    tbody.innerHTML = tenors.map(tenor => {
-        const y = data.yields[tenor];
-        if (!y || !y.available || y.current === null) {
-            return `<tr><td class="label">${tenor}</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>`;
-        }
-        const d30Diff = y.d30 !== null ? Math.round((y.current - y.d30) * 100) : null;
-        const d90Diff = y.d90 !== null ? Math.round((y.current - y.d90) * 100) : null;
-        const d30Cls = d30Diff === null ? '' : d30Diff > 0 ? 'chg-up' : d30Diff < 0 ? 'chg-down' : '';
-        const d90Cls = d90Diff === null ? '' : d90Diff > 0 ? 'chg-up' : d90Diff < 0 ? 'chg-down' : '';
-        const d30Str = d30Diff === null ? '—' : (d30Diff > 0 ? '+' : '') + d30Diff;
-        const d90Str = d90Diff === null ? '—' : (d90Diff > 0 ? '+' : '') + d90Diff;
-        return `<tr>
-            <td class="label">${tenor}</td>
-            <td class="num">${y.current.toFixed(2)}%</td>
-            <td class="num ${d30Cls}">${d30Str}</td>
-            <td class="num ${d90Cls}">${d90Str}</td>
-        </tr>`;
-    }).join('');
-}
 
-function renderYieldsChart() {
-    const canvas = document.getElementById('yields-chart');
-    if (!canvas || typeof Chart === 'undefined') return;
-    const data = yieldsCurveData.currencies[yieldsCurrentCcy];
-    if (!data) return;
+    // Vide la grille
+    grid.innerHTML = '';
 
-    const tenors = ['3M', '2Y', '5Y', '10Y', '30Y'];
-    const labels = [];
-    const today = [];
-    const d30 = [];
-    const d90 = [];
+    tenors.forEach(tenor => {
+        const symbol = symbols[tenor];
+        const cardId = `tv-yields-${yieldsCurrentCcy}-${tenor}`;
 
-    tenors.forEach(t => {
-        const y = data.yields[t];
-        if (y && y.available && y.current !== null) {
-            labels.push(t);
-            today.push(y.current);
-            d30.push(y.d30);
-            d90.push(y.d90);
-        }
-    });
+        const card = document.createElement('div');
+        card.className = 'yields-tv-card';
+        card.innerHTML = `
+            <div class="yields-tv-card-header">
+                <span class="yields-tv-tenor">${tenor}</span>
+                <span class="yields-tv-symbol">${symbol.replace('TVC:', '')}</span>
+            </div>
+            <div class="tradingview-widget-container yields-tv-widget" id="${cardId}"></div>
+        `;
+        grid.appendChild(card);
 
-    if (yieldsChartInstance) yieldsChartInstance.destroy();
-
-    yieldsChartInstance = new Chart(canvas.getContext('2d'), {
-        type: 'line',
-        data: {
-            labels,
-            datasets: [
-                {
-                    label: 'TODAY',
-                    data: today,
-                    borderColor: '#ff8c00',
-                    backgroundColor: 'rgba(255,140,0,0.1)',
-                    borderWidth: 2.5,
-                    pointRadius: 5,
-                    pointBackgroundColor: '#ff8c00',
-                    pointBorderColor: '#ff8c00',
-                    fill: false,
-                    tension: 0.2
-                },
-                {
-                    label: '30D AGO',
-                    data: d30,
-                    borderColor: 'rgba(255,140,0,0.5)',
-                    borderWidth: 1.8,
-                    pointRadius: 3,
-                    pointBackgroundColor: 'rgba(255,140,0,0.5)',
-                    fill: false,
-                    tension: 0.2
-                },
-                {
-                    label: '90D AGO',
-                    data: d90,
-                    borderColor: '#555',
-                    borderDash: [3, 3],
-                    borderWidth: 1.5,
-                    pointRadius: 3,
-                    pointBackgroundColor: '#555',
-                    fill: false,
-                    tension: 0.2
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { intersect: false, mode: 'index' },
-            plugins: {
-                legend: {
-                    labels: { color: '#888', font: { family: 'monospace', size: 10 } }
-                },
-                tooltip: {
-                    backgroundColor: '#0a0a0a',
-                    borderColor: '#ff8c00',
-                    borderWidth: 1,
-                    titleColor: '#ff8c00',
-                    bodyColor: '#ddd',
-                    callbacks: {
-                        label: c => `${c.dataset.label}: ${c.parsed.y !== null ? c.parsed.y.toFixed(2) + '%' : '—'}`
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    grid: { color: '#1a1a1a' },
-                    ticks: { color: '#888', font: { family: 'monospace', size: 10 } }
-                },
-                y: {
-                    grid: { color: '#1a1a1a' },
-                    ticks: {
-                        color: '#888',
-                        font: { family: 'monospace', size: 10 },
-                        callback: v => v.toFixed(2) + '%'
-                    }
-                }
-            }
-        }
+        // Charge le widget TradingView pour ce symbole
+        setTimeout(() => {
+            const containerEl = document.getElementById(cardId);
+            if (!containerEl) return;
+            const script = document.createElement('script');
+            script.type = 'text/javascript';
+            script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js';
+            script.async = true;
+            script.innerHTML = JSON.stringify({
+                symbol: symbol,
+                width: '100%',
+                height: '200',
+                locale: 'fr',
+                dateRange: '12M',
+                colorTheme: 'dark',
+                trendLineColor: '#ff8c00',
+                underLineColor: 'rgba(255, 140, 0, 0.15)',
+                underLineBottomColor: 'rgba(255, 140, 0, 0)',
+                isTransparent: true,
+                autosize: true,
+                largeChartUrl: ''
+            });
+            containerEl.appendChild(script);
+        }, 50);
     });
 }
 
+// Render des spreads (basé sur data /api/yields-grid)
 function renderYieldsSpreads() {
     const container = document.getElementById('yields-spreads-grid');
     if (!container) return;
+    if (!yieldsCurveData || !yieldsCurveData.currencies) {
+        container.innerHTML = '<div class="yields-empty">Loading spreads...</div>';
+        return;
+    }
     const data = yieldsCurveData.currencies[yieldsCurrentCcy];
-    if (!data) return;
-    const sp = data.spreads || {};
+    if (!data || !data.spreads) {
+        container.innerHTML = `<div class="yields-empty">No spread data available for ${yieldsCurrentCcy} (FRED limited coverage)</div>`;
+        return;
+    }
+    const sp = data.spreads;
     const shape = data.shape || 'unknown';
 
     const cards = [];
