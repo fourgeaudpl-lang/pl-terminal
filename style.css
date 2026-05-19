@@ -5280,7 +5280,7 @@ body:has(.modal-overlay.open) {
 }
 
 /* ====================================================================
-   POS — Sentiment retail FX Blue (module 2)
+   POS — Sentiment retail Myfxbook (module 2) - GRILLE 28 PAIRES
    ==================================================================== */
 
 .pos-sentiment-info-banner {
@@ -5298,15 +5298,15 @@ body:has(.modal-overlay.open) {
     font-weight: 600;
 }
 
-/* Grille des 12 paires en 4 colonnes */
-.pos-sentiment-grid {
+/* Grille des 28 paires - 4 colonnes par défaut */
+.myfxbook-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 10px;
     padding: 14px;
 }
 
-.pos-sentiment-card {
+.myfxbook-card {
     background: #0a0a0a;
     border: 1.5px solid var(--accent);
     border-radius: 3px;
@@ -5318,10 +5318,10 @@ body:has(.modal-overlay.open) {
         0 2px 12px rgba(0, 0, 0, 0.4),
         inset 0 0 25px rgba(255, 140, 0, 0.02);
     transition: all 0.2s;
+    min-height: 110px;
 }
 
-.pos-sentiment-card:hover {
-    border-color: var(--accent);
+.myfxbook-card:hover {
     box-shadow:
         0 0 0 2px rgba(255, 140, 0, 0.3),
         0 4px 20px rgba(0, 0, 0, 0.5),
@@ -5329,8 +5329,8 @@ body:has(.modal-overlay.open) {
     transform: translateY(-1px);
 }
 
-.pos-sentiment-pair-label {
-    padding: 8px 12px;
+.myfxbook-card-label {
+    padding: 7px 10px;
     background: var(--bg-tertiary);
     border-bottom: 1px solid var(--border);
     font-size: 11px;
@@ -5341,21 +5341,32 @@ body:has(.modal-overlay.open) {
     font-family: var(--font-mono, 'JetBrains Mono', monospace);
 }
 
-.pos-sentiment-iframe {
-    width: 100%;
-    height: 110px;
-    border: none;
-    background: transparent;
-    display: block;
+.myfxbook-card-body {
+    flex: 1;
+    padding: 8px;
+    background: #ffffff;
+    overflow: auto;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Le widget Myfxbook lui-même : on force la largeur */
+.myfxbook-card-body > div,
+.myfxbook-card-body table,
+.myfxbook-card-body iframe {
+    width: 100% !important;
+    max-width: 100% !important;
 }
 
 /* Mobile */
-@media (max-width: 1100px) {
-    .pos-sentiment-grid { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 1200px) {
+    .myfxbook-grid { grid-template-columns: repeat(3, 1fr); }
 }
-@media (max-width: 760px) {
-    .pos-sentiment-grid { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 768px) {
+    .myfxbook-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 480px) {
-    .pos-sentiment-grid { grid-template-columns: 1fr; }
+    .myfxbook-grid { grid-template-columns: 1fr; }
 }
