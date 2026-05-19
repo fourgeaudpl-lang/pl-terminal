@@ -5278,3 +5278,84 @@ body:has(.modal-overlay.open) {
         min-height: 600px;
     }
 }
+
+/* ====================================================================
+   POS — Sentiment retail FX Blue (module 2)
+   ==================================================================== */
+
+.pos-sentiment-info-banner {
+    padding: 10px 16px;
+    background: rgba(255, 140, 0, 0.06);
+    border-bottom: 1px solid rgba(255, 140, 0, 0.2);
+    color: var(--text-secondary);
+    font-size: 11px;
+    letter-spacing: 0.3px;
+    line-height: 1.5;
+}
+
+.pos-sentiment-info-banner b {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+/* Grille des 12 paires en 4 colonnes */
+.pos-sentiment-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    padding: 14px;
+}
+
+.pos-sentiment-card {
+    background: #0a0a0a;
+    border: 1.5px solid var(--accent);
+    border-radius: 3px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow:
+        0 0 0 1px rgba(255, 140, 0, 0.15),
+        0 2px 12px rgba(0, 0, 0, 0.4),
+        inset 0 0 25px rgba(255, 140, 0, 0.02);
+    transition: all 0.2s;
+}
+
+.pos-sentiment-card:hover {
+    border-color: var(--accent);
+    box-shadow:
+        0 0 0 2px rgba(255, 140, 0, 0.3),
+        0 4px 20px rgba(0, 0, 0, 0.5),
+        inset 0 0 35px rgba(255, 140, 0, 0.04);
+    transform: translateY(-1px);
+}
+
+.pos-sentiment-pair-label {
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 1.2px;
+    text-align: center;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+}
+
+.pos-sentiment-iframe {
+    width: 100%;
+    height: 110px;
+    border: none;
+    background: transparent;
+    display: block;
+}
+
+/* Mobile */
+@media (max-width: 1100px) {
+    .pos-sentiment-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 760px) {
+    .pos-sentiment-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+    .pos-sentiment-grid { grid-template-columns: 1fr; }
+}
