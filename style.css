@@ -5280,7 +5280,7 @@ body:has(.modal-overlay.open) {
 }
 
 /* ====================================================================
-   POS — Sentiment retail Myfxbook (module 2) - GRILLE 28 PAIRES
+   POS — Sentiment retail Myfxbook (module 2)
    ==================================================================== */
 
 .pos-sentiment-info-banner {
@@ -5298,75 +5298,107 @@ body:has(.modal-overlay.open) {
     font-weight: 600;
 }
 
-/* Grille des 28 paires - 4 colonnes par défaut */
-.myfxbook-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
+/* Wrapper du widget Myfxbook avec contour orange */
+.myfxbook-sentiment-wrapper {
     padding: 14px;
+    background: var(--bg-primary);
+    position: relative;
 }
 
-.myfxbook-card {
-    background: #0a0a0a;
-    border: 1.5px solid var(--accent);
-    border-radius: 3px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    box-shadow:
-        0 0 0 1px rgba(255, 140, 0, 0.15),
-        0 2px 12px rgba(0, 0, 0, 0.4),
-        inset 0 0 25px rgba(255, 140, 0, 0.02);
-    transition: all 0.2s;
-    min-height: 110px;
-}
-
-.myfxbook-card:hover {
-    box-shadow:
-        0 0 0 2px rgba(255, 140, 0, 0.3),
-        0 4px 20px rgba(0, 0, 0, 0.5),
-        inset 0 0 35px rgba(255, 140, 0, 0.04);
-    transform: translateY(-1px);
-}
-
-.myfxbook-card-label {
-    padding: 7px 10px;
-    background: var(--bg-tertiary);
-    border-bottom: 1px solid var(--border);
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--accent);
-    letter-spacing: 1.2px;
-    text-align: center;
-    font-family: var(--font-mono, 'JetBrains Mono', monospace);
-}
-
-.myfxbook-card-body {
-    flex: 1;
-    padding: 8px;
-    background: #ffffff;
+#myfxbook-outlook-container {
+    border: 3px solid var(--accent);
+    border-radius: 4px;
     overflow: auto;
-    min-height: 80px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    background: #ffffff;
+    box-shadow:
+        0 0 0 2px rgba(255, 140, 0, 0.25),
+        0 0 25px rgba(255, 140, 0, 0.15),
+        0 6px 30px rgba(0, 0, 0, 0.5),
+        inset 0 0 40px rgba(255, 140, 0, 0.03);
+    min-height: 400px;
+    position: relative;
+    padding: 12px;
 }
 
-/* Le widget Myfxbook lui-même : on force la largeur */
-.myfxbook-card-body > div,
-.myfxbook-card-body table,
-.myfxbook-card-body iframe {
+/* Coins décoratifs orange */
+#myfxbook-outlook-container::before,
+#myfxbook-outlook-container::after {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border: 3px solid var(--accent);
+    pointer-events: none;
+    z-index: 10;
+}
+
+#myfxbook-outlook-container::before {
+    top: -3px;
+    left: -3px;
+    border-right: none;
+    border-bottom: none;
+}
+
+#myfxbook-outlook-container::after {
+    bottom: -3px;
+    right: -3px;
+    border-left: none;
+    border-top: none;
+}
+
+/* Force la largeur du widget */
+#myfxbook-outlook-container > div,
+#myfxbook-outlook-container table {
     width: 100% !important;
     max-width: 100% !important;
 }
 
+/* Badge "PL · LIVE" subtil en haut à droite */
+.myfxbook-sentiment-wrapper::after {
+    content: '◼ PL · LIVE';
+    position: absolute;
+    top: 22px;
+    right: 28px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    background: #0a0a0a;
+    padding: 3px 8px;
+    border: 1px solid var(--accent);
+    border-radius: 2px;
+    z-index: 11;
+    opacity: 0.85;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    text-transform: uppercase;
+    pointer-events: none;
+}
+
+/* Credit Myfxbook */
+.myfxbook-credit {
+    text-align: right;
+    padding: 4px 14px 0;
+    font-size: 9px;
+    opacity: 0.5;
+}
+
+.myfxbook-credit a {
+    color: var(--text-tertiary);
+    text-decoration: none;
+    letter-spacing: 0.5px;
+}
+
+.myfxbook-credit a:hover {
+    color: var(--accent);
+}
+
 /* Mobile */
-@media (max-width: 1200px) {
-    .myfxbook-grid { grid-template-columns: repeat(3, 1fr); }
-}
 @media (max-width: 768px) {
-    .myfxbook-grid { grid-template-columns: repeat(2, 1fr); }
-}
-@media (max-width: 480px) {
-    .myfxbook-grid { grid-template-columns: 1fr; }
+    .myfxbook-sentiment-wrapper {
+        padding: 8px;
+    }
+    .myfxbook-sentiment-wrapper::after {
+        top: 16px;
+        right: 16px;
+        font-size: 8px;
+    }
 }
