@@ -3765,7 +3765,7 @@ async function renderYieldsAllAsync() {
 // PAGE NAVIGATION (10 pages: home / cb / macro / score / scan / pos / prob / fx / news / cal)
 // HOME = page statique HTML — pas de logique JS associée
 // ============================================
-const PAGES = ['home', 'cb', 'macro', 'yields', 'score', 'scan', 'pos', 'fx', 'news', 'cal'];
+const PAGES = ['home', 'cb', 'macro', 'yields', 'score', 'scan', 'pos', 'strength', 'fx', 'news', 'cal'];
 
 function showPage(pageId) {
     if (!PAGES.includes(pageId)) pageId = 'home';
