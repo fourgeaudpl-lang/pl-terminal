@@ -5298,18 +5298,21 @@ body:has(.modal-overlay.open) {
     font-weight: 600;
 }
 
-/* Wrapper du widget Myfxbook avec contour orange */
+/* Wrapper du widget Myfxbook avec contour orange — CENTRÉ + FOND NOIR */
 .myfxbook-sentiment-wrapper {
-    padding: 14px;
-    background: var(--bg-primary);
+    padding: 20px;
+    background: #000;
     position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
 }
 
 #myfxbook-outlook-container {
     border: 3px solid var(--accent);
     border-radius: 4px;
     overflow: auto;
-    background: #ffffff;
+    background: #000;
     box-shadow:
         0 0 0 2px rgba(255, 140, 0, 0.25),
         0 0 25px rgba(255, 140, 0, 0.15),
@@ -5317,7 +5320,10 @@ body:has(.modal-overlay.open) {
         inset 0 0 40px rgba(255, 140, 0, 0.03);
     min-height: 400px;
     position: relative;
-    padding: 12px;
+    padding: 16px;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
 }
 
 /* Coins décoratifs orange */
@@ -5351,13 +5357,31 @@ body:has(.modal-overlay.open) {
 #myfxbook-outlook-container table {
     width: 100% !important;
     max-width: 100% !important;
+    margin: 0 auto !important;
 }
 
-/* Badge "PL · LIVE" subtil en haut à droite */
+/* Tentative discrète de forcer la transparence des éléments enfants
+   pour que le fond noir du container apparaisse. 
+   Si Myfxbook bloque, on supprime ces règles. */
+#myfxbook-outlook-container * {
+    background-color: transparent !important;
+    color: #e0e0e0 !important;
+}
+
+/* Restaurer les couleurs des barres long/short (rouge/vert) */
+#myfxbook-outlook-container [style*="background"] {
+    /* On ne touche pas aux barres colorées */
+}
+
+#myfxbook-outlook-container a {
+    color: var(--accent) !important;
+}
+
+/* Badge "PL · LIVE" subtil */
 .myfxbook-sentiment-wrapper::after {
     content: '◼ PL · LIVE';
     position: absolute;
-    top: 22px;
+    top: 28px;
     right: 28px;
     font-size: 9px;
     letter-spacing: 2px;
@@ -5373,32 +5397,14 @@ body:has(.modal-overlay.open) {
     pointer-events: none;
 }
 
-/* Credit Myfxbook */
-.myfxbook-credit {
-    text-align: right;
-    padding: 4px 14px 0;
-    font-size: 9px;
-    opacity: 0.5;
-}
-
-.myfxbook-credit a {
-    color: var(--text-tertiary);
-    text-decoration: none;
-    letter-spacing: 0.5px;
-}
-
-.myfxbook-credit a:hover {
-    color: var(--accent);
-}
-
 /* Mobile */
 @media (max-width: 768px) {
     .myfxbook-sentiment-wrapper {
-        padding: 8px;
+        padding: 10px;
     }
     .myfxbook-sentiment-wrapper::after {
-        top: 16px;
-        right: 16px;
+        top: 18px;
+        right: 18px;
         font-size: 8px;
     }
 }
