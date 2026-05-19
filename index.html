@@ -96,7 +96,7 @@
             <a href="#score" class="nav-link" data-page="score">SCORE</a>
             <a href="#scan" class="nav-link" data-page="scan">SCAN</a>
             <a href="#pos" class="nav-link" data-page="pos">POS</a>
-            
+            <a href="#strength" class="nav-link" data-page="strength">STRENGTH</a>
             <a href="#fx" class="nav-link" data-page="fx">FX</a>
             <a href="#news" class="nav-link" data-page="news">NEWS</a>
             <a href="#cal" class="nav-link" data-page="cal">CAL</a>
@@ -994,7 +994,45 @@
         </div>
 
         <!-- ============================================
-             PAGE PROB — Rate Probabilities (Polymarket + iframe RateProbability)
+             PAGE STRENGTH — Currency Strength (Mataf iframe)
+             ============================================ -->
+        <div class="page" id="page-strength">
+
+            <section class="module" id="module-strength">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>CURRENCY STRENGTH</h2>
+                        <span class="module-sub">G8 RELATIVE PERFORMANCE · LIVE FROM MATAF</span>
+                    </div>
+                    <span class="module-source">Mataf</span>
+                </div>
+
+                <div class="strength-info-banner">
+                    💡 Le <b>currency index</b> représente la performance moyenne d'une devise par rapport à toutes les autres. Devise en haut = <b>force globale</b>, en bas = <b>faiblesse globale</b>. Excellent pour identifier les divergences avant qu'elles ne se reflètent dans une paire spécifique.
+                </div>
+
+                <div class="strength-wrapper">
+                    <iframe id="widgetMataf"
+                            class="strength-iframe"
+                            src="https://www.mataf.net/en/widget/currencyindex"
+                            title="Currency Strength Index by Mataf">
+                    </iframe>
+                </div>
+
+                <div class="module-footer">
+                    <span class="pos-credit">Index based on the average variation of one currency vs all others (base 100 at Jan 2000)</span>
+                    <a href="https://www.mataf.net/en/forex/tools/currency-index" target="_blank" rel="noopener" class="pos-myfxbook-link">
+                        Open full Mataf currency index ↗
+                    </a>
+                    <span class="source-tag">G8</span>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- ============================================
+             PAGE FX — Cross Rates
              ============================================ -->
         <div class="page" id="page-fx">
 
@@ -1141,7 +1179,7 @@
     </main>
 
     <footer class="terminal-footer">
-        <span>PL Terminal v0.7 — HOME · CB · MACRO · SCORE · SCAN · POS · FX · NEWS · CAL</span>
+        <span>PL Terminal v0.7 — HOME · CB · MACRO · YIELDS · SCORE · SCAN · POS · STRENGTH · FX · NEWS · CAL</span>
         <span>Data: FRED + Finnhub + TradingView + FinancialJuice</span>
     </footer>
 
