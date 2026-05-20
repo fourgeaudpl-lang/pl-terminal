@@ -1293,17 +1293,176 @@ function renderScoreAll() {
     renderScoreHistory();
 }
 
+// ---- Auto-interpretation des annonces économiques ----
+// Pour chaque catégorie : règle d'impact + tolérance neutre
+// Règle : "higher" = actual > forecast → haussier ; "lower" = actual > forecast → baissier
+const SCORE_INTERPRETATION = {
+    'Inflation':  { rule: 'higher',  tolerance: 0.1,    unit: 'pts' },     // CPI/PPI/Core PCE
+    'Emploi':     { rule: 'higher',  tolerance: 25,     unit: 'K' },       // NFP/Employment Change
+    'Chômage':    { rule: 'lower',   tolerance: 0.1,    unit: 'pts' },     // Unemployment rate
+    'PMI':        { rule: 'higher',  tolerance: 0.5,    unit: 'pts', pivot: 50 }, // PMI/ISM : >50 expansion
+    'Croissance': { rule: 'higher',  tolerance: 0.1,    unit: 'pts' },     // GDP/Retail Sales
+    'BC':         { rule: 'higher',  tolerance: 0,      unit: 'pts' },     // Rate decision : exact
+    'Sentiment':  { rule: 'higher',  tolerance: 2,      unit: 'pts' },     // Confidence indices
+    'Balance':    { rule: 'higher',  tolerance: null,   unit: '%', relative: 0.10 }, // Trade balance : ±10% relatif
+    'Autre':      { rule: 'higher',  tolerance: null,   unit: '%', relative: 0.05 }  // Fallback ±5%
+};
+
+/**
+ * Interprète une annonce : retourne { impact: 'up'|'flat'|'down', reason: string }
+ * @param {string} category - Catégorie de l'annonce
+ * @param {number} actual - Valeur réelle publiée
+ * @param {number} forecast - Valeur attendue
+ * @param {number|null} previous - Valeur précédente (optionnel)
+ * @returns {object} { impact, reason, confidence }
+ */
+function interpretAnnouncement(category, actual, forecast, previous) {
+    if (actual === null || actual === undefined || isNaN(actual)) {
+        return { impact: null, reason: 'Actual manquant', confidence: 0 };
+    }
+    if (forecast === null || forecast === undefined || isNaN(forecast)) {
+        return { impact: null, reason: 'Forecast manquant', confidence: 0 };
+    }
+
+    const config = SCORE_INTERPRETATION[category] || SCORE_INTERPRETATION['Autre'];
+    const diff = actual - forecast;
+    const absDiff = Math.abs(diff);
+
+    // Calcul de la tolérance effective
+    let effectiveTolerance;
+    if (config.tolerance !== null && config.tolerance !== undefined) {
+        effectiveTolerance = config.tolerance;
+    } else if (config.relative) {
+        // Tolérance relative : % du forecast (en valeur absolue)
+        effectiveTolerance = Math.abs(forecast) * config.relative;
+    } else {
+        effectiveTolerance = 0;
+    }
+
+    // Cas neutre : actual ≈ forecast (dans la tolérance)
+    if (absDiff <= effectiveTolerance) {
+        return {
+            impact: 'flat',
+            reason: `Actual ${formatNum(actual)} ≈ Forecast ${formatNum(forecast)} (écart ${formatNum(diff)} ≤ tolérance ±${formatNum(effectiveTolerance)})`,
+            confidence: 'low'
+        };
+    }
+
+    // Détermine la direction selon la règle
+    let impact;
+    const actualGreater = diff > 0;
+    if (config.rule === 'higher') {
+        impact = actualGreater ? 'up' : 'down';
+    } else {
+        // rule === 'lower' (cas chômage)
+        impact = actualGreater ? 'down' : 'up';
+    }
+
+    // Bonus de confiance si previous va dans le même sens (tendance confirmée)
+    let confidence = 'medium';
+    let trendNote = '';
+    if (previous !== null && previous !== undefined && !isNaN(previous)) {
+        const prevDiff = actual - previous;
+        const sameDirection = (config.rule === 'higher')
+            ? ((impact === 'up' && prevDiff > 0) || (impact === 'down' && prevDiff < 0))
+            : ((impact === 'up' && prevDiff < 0) || (impact === 'down' && prevDiff > 0));
+        if (sameDirection && Math.abs(prevDiff) > effectiveTolerance) {
+            confidence = 'high';
+            trendNote = ` · Tendance confirmée vs Previous ${formatNum(previous)}`;
+        }
+    }
+
+    const arrow = impact === 'up' ? '↑' : '↓';
+    const direction = config.rule === 'higher'
+        ? (actualGreater ? '>' : '<')
+        : (actualGreater ? '>' : '<');
+
+    return {
+        impact,
+        reason: `Actual ${formatNum(actual)} ${direction} Forecast ${formatNum(forecast)} · ${category} ${arrow} ${impact === 'up' ? 'HAUSSIER' : 'BAISSIER'}${trendNote}`,
+        confidence
+    };
+}
+
+function formatNum(n) {
+    if (n === null || n === undefined || isNaN(n)) return '—';
+    if (Math.abs(n) >= 100) return n.toFixed(1);
+    if (Math.abs(n) >= 1)   return n.toFixed(2);
+    return n.toFixed(3);
+}
+
+// Met à jour le bloc d'auto-detection en temps réel
+function updateScoreAutodetect() {
+    const cat = document.getElementById('score-form-cat').value;
+    const actualStr = document.getElementById('score-form-actual').value;
+    const forecastStr = document.getElementById('score-form-forecast').value;
+    const previousStr = document.getElementById('score-form-previous').value;
+
+    const actual = actualStr === '' ? null : parseFloat(actualStr);
+    const forecast = forecastStr === '' ? null : parseFloat(forecastStr);
+    const previous = previousStr === '' ? null : parseFloat(previousStr);
+
+    const container = document.getElementById('score-autodetect-content');
+    if (!container) return;
+
+    if (actual === null || forecast === null) {
+        container.innerHTML = '<span class="score-autodetect-empty">Saisis Actual & Forecast pour voir l\'impact détecté</span>';
+        // Reset des boutons d'override pour ne pas garder un override fantôme
+        return;
+    }
+
+    const result = interpretAnnouncement(cat, actual, forecast, previous);
+
+    if (!result.impact) {
+        container.innerHTML = `<span class="score-autodetect-empty">⚠ ${result.reason}</span>`;
+        return;
+    }
+
+    const cls = result.impact === 'up' ? 'up' : result.impact === 'down' ? 'down' : 'flat';
+    const label = result.impact === 'up' ? '↑ HAUSSIER' : result.impact === 'down' ? '↓ BAISSIER' : '= NEUTRE';
+    const confBadge = result.confidence === 'high' ? '<span class="score-autodetect-conf high">HAUTE CONFIANCE</span>'
+                    : result.confidence === 'medium' ? '<span class="score-autodetect-conf medium">CONFIANCE MOY.</span>'
+                    : '<span class="score-autodetect-conf low">CONFIANCE BASSE</span>';
+
+    container.innerHTML = `
+        <div class="score-autodetect-result">
+            <span class="score-autodetect-badge ${cls}">${label}</span>
+            ${confBadge}
+        </div>
+        <div class="score-autodetect-reason">${result.reason}</div>
+    `;
+
+    // Synchronise les boutons d'override (auto-sélectionne celui détecté, sauf si user a déjà override)
+    if (!scoreFormUserOverride) {
+        scoreFormImpact = result.impact;
+        document.querySelectorAll('.score-impact-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.impact === result.impact);
+            b.classList.toggle('auto-selected', b.dataset.impact === result.impact);
+        });
+    }
+}
+
 // ---- Modal d'ajout / édition ----
+let scoreFormUserOverride = false;  // True si user a cliqué manuellement sur un bouton impact
+
 function openScoreModal() {
     scoreEditingId = null;
     scoreFormImpact = null;
+    scoreFormUserOverride = false;
     document.getElementById('score-modal-title').textContent = 'AJOUTER UNE ANNONCE';
     document.getElementById('score-form-date').value = new Date().toISOString().split('T')[0];
     document.getElementById('score-form-ccy').value = 'EUR';
     document.getElementById('score-form-cat').value = 'Inflation';
     document.getElementById('score-form-name').value = '';
+    document.getElementById('score-form-actual').value = '';
+    document.getElementById('score-form-forecast').value = '';
+    document.getElementById('score-form-previous').value = '';
     document.getElementById('score-form-note').value = '';
-    document.querySelectorAll('.score-impact-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.score-impact-btn').forEach(b => {
+        b.classList.remove('active');
+        b.classList.remove('auto-selected');
+    });
+    updateScoreAutodetect();  // reset le bloc d'auto-detect
     document.getElementById('score-modal').classList.add('open');
     setTimeout(() => document.getElementById('score-form-name').focus(), 50);
 }
@@ -1311,12 +1470,15 @@ function openScoreModal() {
 function closeScoreModal() {
     document.getElementById('score-modal').classList.remove('open');
     scoreEditingId = null;
+    scoreFormUserOverride = false;
 }
 
 function selectImpact(impact) {
     scoreFormImpact = impact;
+    scoreFormUserOverride = true;  // user a override l'auto-detect
     document.querySelectorAll('.score-impact-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.impact === impact);
+        b.classList.remove('auto-selected');  // on retire le marqueur auto
     });
 }
 
@@ -1327,14 +1489,25 @@ function saveScoreForm() {
     const name = document.getElementById('score-form-name').value.trim();
     const note = document.getElementById('score-form-note').value.trim();
 
+    const actualStr = document.getElementById('score-form-actual').value;
+    const forecastStr = document.getElementById('score-form-forecast').value;
+    const previousStr = document.getElementById('score-form-previous').value;
+    const actual = actualStr === '' ? null : parseFloat(actualStr);
+    const forecast = forecastStr === '' ? null : parseFloat(forecastStr);
+    const previous = previousStr === '' ? null : parseFloat(previousStr);
+
     if (!date) { alert('Date requise'); return; }
     if (!name) { alert('Nom requis (ex: CPI YoY, NFP...)'); return; }
-    if (!scoreFormImpact) { alert('Choisis un impact : ↑ haussier, = neutre ou ↓ baissier'); return; }
+    if (!scoreFormImpact) {
+        alert('Saisis Actual et Forecast pour l\'auto-detect, ou choisis manuellement ↑/=/↓');
+        return;
+    }
 
     const ev = {
         id: 'ev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
         date, ccy, cat, name, note,
-        impact: scoreFormImpact
+        impact: scoreFormImpact,
+        actual, forecast, previous  // on stocke aussi les valeurs brutes
     };
     scoreEvents.push(ev);
     saveScoreEvents();
@@ -1453,6 +1626,15 @@ function setupScoreEvents() {
 
     document.querySelectorAll('.score-impact-btn').forEach(b => {
         b.addEventListener('click', () => selectImpact(b.dataset.impact));
+    });
+
+    // Listeners pour l'auto-detection en temps réel
+    ['score-form-cat', 'score-form-actual', 'score-form-forecast', 'score-form-previous'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', updateScoreAutodetect);
+            el.addEventListener('change', updateScoreAutodetect);
+        }
     });
 
     ['score-filter-ccy','score-filter-cat','score-filter-name','score-filter-date'].forEach(id => {
