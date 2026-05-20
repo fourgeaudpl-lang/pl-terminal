@@ -118,7 +118,7 @@
             <!-- ===== Toolbar HOME : bouton Customize ===== -->
             <div class="home-toolbar">
                 <div class="home-toolbar-info" id="home-toolbar-info">
-                    <span class="home-toolbar-count" id="home-widget-count">5/5</span> widgets visibles
+                    <span class="home-toolbar-count" id="home-widget-count">5/10</span> widgets visibles
                 </div>
                 <button class="action-btn" id="home-customize-btn">⚙ CUSTOMIZE</button>
             </div>
@@ -158,6 +158,31 @@
                             <input type="checkbox" id="toggle-news" checked>
                             <span class="home-widget-toggle-name">LATEST HEADLINES</span>
                             <span class="home-widget-toggle-desc">Financial Juice live</span>
+                        </label>
+                        <label class="home-widget-toggle" data-widget="wirp">
+                            <input type="checkbox" id="toggle-wirp">
+                            <span class="home-widget-toggle-name">WIRP MINI</span>
+                            <span class="home-widget-toggle-desc">Probas prochain meeting FED/ECB</span>
+                        </label>
+                        <label class="home-widget-toggle" data-widget="carry">
+                            <input type="checkbox" id="toggle-carry">
+                            <span class="home-widget-toggle-name">CARRY TOP 5</span>
+                            <span class="home-widget-toggle-desc">Meilleures paires carry trade</span>
+                        </label>
+                        <label class="home-widget-toggle" data-widget="recap">
+                            <input type="checkbox" id="toggle-recap">
+                            <span class="home-widget-toggle-name">SESSION RECAP</span>
+                            <span class="home-widget-toggle-desc">3 derniers wraps Asia/EU/US</span>
+                        </label>
+                        <label class="home-widget-toggle" data-widget="signals">
+                            <input type="checkbox" id="toggle-signals">
+                            <span class="home-widget-toggle-name">TOP SIGNALS</span>
+                            <span class="home-widget-toggle-desc">Signaux BUY/SELL les + forts</span>
+                        </label>
+                        <label class="home-widget-toggle" data-widget="risk">
+                            <input type="checkbox" id="toggle-risk">
+                            <span class="home-widget-toggle-name">RISK SENTIMENT</span>
+                            <span class="home-widget-toggle-desc">CNN Fear & Greed</span>
                         </label>
                     </div>
                     <div class="home-customize-actions">
@@ -226,6 +251,81 @@
                     </div>
                     <div class="home-events-list" id="home-events-list">
                         <div class="home-events-loading">Loading calendar...</div>
+                    </div>
+                </section>
+
+            </div>
+
+            <!-- ===== ROW EXTRAS : nouveaux widgets optionnels (masqués par défaut) ===== -->
+            <div class="home-row home-row-extras" id="home-row-extras">
+
+                <section class="module home-card" data-home-widget="wirp">
+                    <div class="module-header">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2>WIRP MINI</h2>
+                            <span class="module-sub">FED &amp; ECB · NEXT MEETING</span>
+                        </div>
+                        <span class="module-source">Yield Curve</span>
+                    </div>
+                    <div class="home-wirp-list" id="home-wirp-list">
+                        <div class="home-wirp-loading">Loading probabilities...</div>
+                    </div>
+                </section>
+
+                <section class="module home-card" data-home-widget="carry">
+                    <div class="module-header">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2>CARRY TOP 5</h2>
+                            <span class="module-sub">BEST RATE DIFFERENTIALS</span>
+                        </div>
+                        <span class="module-source">FRED</span>
+                    </div>
+                    <div class="home-carry-list" id="home-carry-list">
+                        <div class="home-carry-loading">Loading carry data...</div>
+                    </div>
+                </section>
+
+                <section class="module home-card" data-home-widget="recap">
+                    <div class="module-header">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2>SESSION RECAP</h2>
+                            <span class="module-sub">LATEST WRAPS</span>
+                        </div>
+                        <span class="module-source">InvestingLive</span>
+                    </div>
+                    <div class="home-recap-list" id="home-recap-list">
+                        <div class="home-recap-loading">Loading wraps...</div>
+                    </div>
+                </section>
+
+                <section class="module home-card" data-home-widget="signals">
+                    <div class="module-header">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2>TOP SIGNALS</h2>
+                            <span class="module-sub">STRONGEST BUY/SELL</span>
+                        </div>
+                        <span class="module-source">SCAN</span>
+                    </div>
+                    <div class="home-signals-list" id="home-signals-list">
+                        <div class="home-signals-loading">Computing signals...</div>
+                    </div>
+                </section>
+
+                <section class="module home-card" data-home-widget="risk">
+                    <div class="module-header">
+                        <div class="module-title">
+                            <span class="module-bullet"></span>
+                            <h2>RISK SENTIMENT</h2>
+                            <span class="module-sub">CNN FEAR &amp; GREED</span>
+                        </div>
+                        <span class="module-source">CNN</span>
+                    </div>
+                    <div class="home-risk-content" id="home-risk-content">
+                        <div class="home-risk-loading">Loading sentiment...</div>
                     </div>
                 </section>
 
