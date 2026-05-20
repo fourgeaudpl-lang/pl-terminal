@@ -5639,3 +5639,222 @@ body:has(.modal-overlay.open) {
     vertical-align: super;
     margin-left: 3px;
 }
+
+/* ====================================================================
+   SESSION RECAP — Page NEWS bottom (InvestingLive RSS wraps)
+   ==================================================================== */
+
+.session-recap-info-banner {
+    padding: 10px 16px;
+    background: rgba(255, 140, 0, 0.06);
+    border-bottom: 1px solid rgba(255, 140, 0, 0.2);
+    color: var(--text-secondary);
+    font-size: 11px;
+    letter-spacing: 0.3px;
+    line-height: 1.5;
+}
+
+.session-recap-info-banner b {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.session-recap-ai-hint {
+    color: var(--text-tertiary);
+    font-style: italic;
+    margin-left: 8px;
+}
+
+.session-recap-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding: 14px;
+}
+
+.session-recap-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+
+.session-recap-card:hover {
+    border-color: rgba(255, 140, 0, 0.3);
+}
+
+.session-recap-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border);
+}
+
+.session-recap-flag {
+    font-size: 16px;
+}
+
+.session-recap-name {
+    flex: 1;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    color: var(--accent);
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+}
+
+.session-recap-count {
+    font-size: 9.5px;
+    color: var(--text-tertiary);
+    letter-spacing: 0.5px;
+    font-family: var(--font-mono, monospace);
+}
+
+.session-recap-card-body {
+    flex: 1;
+    padding: 10px;
+    overflow-y: auto;
+    max-height: 360px;
+    min-height: 120px;
+}
+
+.session-recap-item {
+    padding: 8px 6px;
+    border-bottom: 1px solid var(--border);
+}
+
+.session-recap-item:last-child {
+    border-bottom: none;
+}
+
+.session-recap-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+}
+
+.session-recap-date-badge {
+    font-size: 8.5px;
+    letter-spacing: 1px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-weight: 600;
+    background: rgba(160, 160, 160, 0.1);
+    color: var(--text-tertiary);
+    border: 1px solid var(--border);
+}
+
+.session-recap-date-badge.today {
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+    border-color: rgba(74, 222, 128, 0.4);
+}
+
+.session-recap-date-badge.yesterday {
+    background: rgba(255, 140, 0, 0.12);
+    color: var(--accent);
+    border-color: rgba(255, 140, 0, 0.4);
+}
+
+.session-recap-time {
+    font-size: 10px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono, monospace);
+}
+
+.session-recap-author {
+    font-size: 9.5px;
+    color: var(--text-tertiary);
+    font-style: italic;
+    margin-left: auto;
+}
+
+.session-recap-item-title {
+    display: block;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 11.5px;
+    font-weight: 500;
+    line-height: 1.4;
+    margin-bottom: 4px;
+    transition: color 0.15s;
+}
+
+.session-recap-item-title:hover {
+    color: var(--accent);
+}
+
+.session-recap-excerpt {
+    font-size: 10.5px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    font-style: italic;
+    opacity: 0.85;
+}
+
+.session-recap-empty {
+    text-align: center;
+    padding: 20px 10px;
+    color: var(--text-tertiary);
+    font-size: 10.5px;
+    font-style: italic;
+    line-height: 1.6;
+}
+
+.session-recap-empty-hint {
+    color: var(--text-tertiary);
+    opacity: 0.7;
+    font-size: 9.5px;
+}
+
+.session-recap-loading {
+    text-align: center;
+    padding: 24px 10px;
+    color: var(--text-tertiary);
+    font-size: 10.5px;
+    font-style: italic;
+}
+
+.session-recap-card-footer {
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-top: 1px solid var(--border);
+}
+
+.session-recap-ai-btn {
+    width: 100%;
+    padding: 7px 10px;
+    background: transparent;
+    border: 1px dashed rgba(255, 140, 0, 0.3);
+    border-radius: 2px;
+    color: var(--text-tertiary);
+    font-size: 10.5px;
+    letter-spacing: 0.5px;
+    cursor: not-allowed;
+    font-family: var(--font-mono, monospace);
+    transition: all 0.15s;
+}
+
+.session-recap-ai-btn:not(:disabled) {
+    cursor: pointer;
+    color: var(--accent);
+    border-style: solid;
+}
+
+.session-recap-ai-btn:not(:disabled):hover {
+    background: rgba(255, 140, 0, 0.08);
+    border-color: var(--accent);
+}
+
+/* Mobile */
+@media (max-width: 900px) {
+    .session-recap-grid { grid-template-columns: 1fr; }
+    .session-recap-card-body { max-height: 280px; }
+}
