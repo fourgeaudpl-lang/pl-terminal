@@ -3885,6 +3885,9 @@ async function fetchWirpData() {
     }
 }
 
+// Instances Chart.js par banque pour pouvoir les détruire/recréer
+const wirpChartInstances = {};
+
 function renderWirp() {
     const container = document.getElementById('wirp-container');
     if (!container) return;
@@ -3897,6 +3900,10 @@ function renderWirp() {
         container.innerHTML = `<div class="wirp-error">⚠ Failed to load WIRP data: ${wirpData.error}</div>`;
         return;
     }
+
+    // Destroy old chart instances avant de re-render
+    Object.values(wirpChartInstances).forEach(c => { try { c.destroy(); } catch (e) {} });
+    Object.keys(wirpChartInstances).forEach(k => delete wirpChartInstances[k]);
 
     let html = '';
     for (const bankCode of WIRP_BANKS) {
@@ -3919,41 +3926,166 @@ function renderWirp() {
                 <div class="wirp-card-title">${bankCode} <span class="ccy">${data.ccy} · ${data.currentRate.toFixed(2)}%</span></div>
                 <div class="wirp-card-meta">2Y yield: <b>${data.yield2y.toFixed(2)}%</b> · Cumul implied 6m: <b class="${cumulCls}">${cumulSign}${data.totalImpliedBps} bps</b></div>
             </div>
-            <div class="wirp-grid">
-                ${data.meetings.map(m => renderWirpMeeting(m)).join('')}
+            <div class="wirp-chart-wrap">
+                <canvas id="wirp-chart-${bankCode}" class="wirp-chart"></canvas>
             </div>
         </div>`;
     }
 
     container.innerHTML = html;
+
+    // Après injection HTML, on peut créer les charts
+    for (const bankCode of WIRP_BANKS) {
+        const data = wirpData.banks[bankCode];
+        if (!data || data.error) continue;
+        renderWirpChart(bankCode, data);
+    }
 }
 
-function renderWirpMeeting(m) {
-    const d = new Date(m.date);
-    const dd = String(d.getUTCDate()).padStart(2, '0');
-    const mm = d.toLocaleString('en-US', { month: 'short' }).toUpperCase();
-    const dateStr = `${dd} ${mm}`;
+function renderWirpChart(bankCode, data) {
+    const canvas = document.getElementById('wirp-chart-' + bankCode);
+    if (!canvas || typeof Chart === 'undefined') return;
 
-    let countdownCls = '';
-    if (m.daysUntil !== null) {
-        if (m.daysUntil <= 30) countdownCls = 'imminent';
-        else if (m.daysUntil <= 90) countdownCls = 'soon';
-    }
-    const countdown = m.daysUntil !== null ? `${m.daysUntil}d` : '—';
+    // Construction du dataset : taux implicite cumulé à chaque meeting
+    // Point 0 = "NOW" = taux actuel
+    const labels = ['NOW'];
+    const ratePath = [data.currentRate];
+    let cumBps = 0;
 
-    const impliedCls = m.impliedBps > 1 ? 'up' : m.impliedBps < -1 ? 'down' : 'flat';
-    const impliedSign = m.impliedBps > 0 ? '+' : '';
+    data.meetings.forEach(m => {
+        cumBps += m.impliedBps;
+        const impliedRate = data.currentRate + (cumBps / 100);
+        // Format date courte : 20 MAY
+        const d = new Date(m.date);
+        const dd = String(d.getUTCDate()).padStart(2, '0');
+        const mm = d.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+        labels.push(`${dd} ${mm}`);
+        ratePath.push(Math.round(impliedRate * 10000) / 10000);
+    });
 
-    return `<div class="wirp-meeting">
-        <div class="wirp-date">${dateStr}</div>
-        <div class="wirp-countdown ${countdownCls}">${countdown}</div>
-        <div class="wirp-bar">
-            ${m.pHike > 2 ? `<div class="wirp-segment wirp-seg-hike" style="height:${m.pHike}%">${m.pHike}%</div>` : ''}
-            <div class="wirp-segment wirp-seg-hold" style="height:${m.pHold}%">${m.pHold}%</div>
-            ${m.pCut > 2 ? `<div class="wirp-segment wirp-seg-cut" style="height:${m.pCut}%">${m.pCut}%</div>` : ''}
-        </div>
-        <div class="wirp-implied"><span class="${impliedCls}">${impliedSign}${m.impliedBps} bps</span></div>
-    </div>`;
+    // Tooltips détaillés (probas + bps)
+    const tooltipData = [
+        { label: 'Current rate', pHike: null, pHold: null, pCut: null, impliedBps: 0, cumBps: 0 },
+        ...data.meetings.map((m, i) => ({
+            label: 'Meeting',
+            pHike: m.pHike,
+            pHold: m.pHold,
+            pCut: m.pCut,
+            impliedBps: m.impliedBps,
+            daysUntil: m.daysUntil
+        }))
+    ];
+
+    // Détermine la couleur de la courbe selon la trajectoire
+    const finalBps = data.totalImpliedBps;
+    let lineColor, fillColor;
+    if (finalBps > 5)       { lineColor = '#4ade80'; fillColor = 'rgba(74, 222, 128, 0.08)'; }
+    else if (finalBps < -5) { lineColor = '#f87171'; fillColor = 'rgba(248, 113, 113, 0.08)'; }
+    else                    { lineColor = '#ff8c00'; fillColor = 'rgba(255, 140, 0, 0.06)'; }
+
+    // Ligne horizontale du taux actuel (référence)
+    const currentRateLine = labels.map(() => data.currentRate);
+
+    wirpChartInstances[bankCode] = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Implied rate path',
+                    data: ratePath,
+                    borderColor: lineColor,
+                    backgroundColor: fillColor,
+                    borderWidth: 2.5,
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: lineColor,
+                    pointBorderColor: '#0a0a0a',
+                    pointBorderWidth: 2
+                },
+                {
+                    label: 'Current rate (ref)',
+                    data: currentRateLine,
+                    borderColor: 'rgba(160, 160, 160, 0.4)',
+                    borderWidth: 1,
+                    borderDash: [4, 4],
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(20, 20, 20, 0.95)',
+                    borderColor: '#ff8c00',
+                    borderWidth: 1,
+                    titleColor: '#ff8c00',
+                    titleFont: { family: 'monospace', size: 11, weight: 'bold' },
+                    bodyColor: '#e0e0e0',
+                    bodyFont: { family: 'monospace', size: 10.5 },
+                    padding: 10,
+                    cornerRadius: 3,
+                    callbacks: {
+                        title: (items) => {
+                            if (!items.length) return '';
+                            return items[0].label;
+                        },
+                        label: (ctx) => {
+                            // On ne montre que le dataset principal
+                            if (ctx.datasetIndex !== 0) return null;
+                            const i = ctx.dataIndex;
+                            const td = tooltipData[i];
+                            const rate = ctx.parsed.y;
+                            const lines = [`Implied rate: ${rate.toFixed(2)}%`];
+                            if (td.label === 'Current rate') {
+                                lines.push('(Actual policy rate)');
+                            } else {
+                                lines.push('');
+                                lines.push(`Hike (+25bp): ${td.pHike}%`);
+                                lines.push(`Hold:         ${td.pHold}%`);
+                                lines.push(`Cut (-25bp):  ${td.pCut}%`);
+                                const sign = td.impliedBps > 0 ? '+' : '';
+                                lines.push('');
+                                lines.push(`Implied move: ${sign}${td.impliedBps} bps`);
+                                if (td.daysUntil !== null && td.daysUntil !== undefined) {
+                                    lines.push(`In ${td.daysUntil} days`);
+                                }
+                            }
+                            return lines;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255, 255, 255, 0.04)', drawTicks: false },
+                    ticks: {
+                        color: '#888',
+                        font: { family: 'monospace', size: 9.5 },
+                        padding: 6
+                    },
+                    border: { color: 'rgba(255, 255, 255, 0.1)' }
+                },
+                y: {
+                    grid: { color: 'rgba(255, 255, 255, 0.04)' },
+                    ticks: {
+                        color: '#888',
+                        font: { family: 'monospace', size: 9.5 },
+                        callback: (v) => v.toFixed(2) + '%'
+                    },
+                    border: { color: 'rgba(255, 255, 255, 0.1)' }
+                }
+            }
+        }
+    });
 }
 
 async function renderWirpAll() {
