@@ -6403,3 +6403,22 @@ body:has(.modal-overlay.open) {
 @media (max-width: 900px) {
     .home-row-extras { grid-template-columns: 1fr; }
 }
+
+/* ====================================================================
+   WIRP — Refonte en line charts (Implied Rate Path)
+   ==================================================================== */
+
+.wirp-chart-wrap {
+    position: relative;
+    height: 220px;
+    width: 100%;
+    padding: 4px 0;
+}
+
+.wirp-chart {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Override : on n'utilise plus les anciennes règles .wirp-grid / .wirp-meeting / .wirp-bar / .wirp-segment */
+/* mais on les laisse pour compat */
