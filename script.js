@@ -4030,21 +4030,18 @@ function renderSessionRecap() {
         }
 
         body.innerHTML = sessionData.wraps.map(w => {
-            const author = w.author ? `<span class="session-recap-author">${escapeHtml(w.author)}</span>` : '';
             const dateBadge = w.dateLabel === 'today' ? '<span class="session-recap-date-badge today">TODAY</span>'
                             : w.dateLabel === 'yesterday' ? '<span class="session-recap-date-badge yesterday">YESTERDAY</span>'
+                            : w.dateLabel === 'recent' ? '<span class="session-recap-date-badge recent">RECENT</span>'
                             : `<span class="session-recap-date-badge">${escapeHtml(w.dateLabel)}</span>`;
-            const time = w.pubDate ? formatSessionTime(w.pubDate) : '';
-            const excerpt = w.excerpt ? `<div class="session-recap-excerpt">${escapeHtml(w.excerpt)}…</div>` : '';
+            const dateInfo = w.dateStr ? `<span class="session-recap-time">${escapeHtml(w.dateStr)}</span>` : '';
 
             return `<div class="session-recap-item">
                 <div class="session-recap-item-meta">
                     ${dateBadge}
-                    <span class="session-recap-time">${time}</span>
-                    ${author}
+                    ${dateInfo}
                 </div>
                 <a href="${escapeAttr(w.link)}" target="_blank" rel="noopener" class="session-recap-item-title">${escapeHtml(w.title)}</a>
-                ${excerpt}
             </div>`;
         }).join('');
     });
