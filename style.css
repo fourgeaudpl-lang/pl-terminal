@@ -5763,6 +5763,12 @@ body:has(.modal-overlay.open) {
     border-color: rgba(255, 140, 0, 0.4);
 }
 
+.session-recap-date-badge.recent {
+    background: rgba(100, 180, 255, 0.1);
+    color: #64b4ff;
+    border-color: rgba(100, 180, 255, 0.3);
+}
+
 .session-recap-time {
     font-size: 10px;
     color: var(--text-secondary);
