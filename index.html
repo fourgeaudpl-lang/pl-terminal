@@ -1160,6 +1160,81 @@
                 </div>
             </section>
 
+            <!-- NOUVEAU : Session Recap depuis InvestingLive RSS -->
+            <section class="module" id="module-session-recap">
+                <div class="module-header">
+                    <div class="module-title">
+                        <span class="module-bullet"></span>
+                        <h2>SESSION RECAP</h2>
+                        <span class="module-sub">INVESTINGLIVE · ASIA · EUROPE · US</span>
+                    </div>
+                    <button class="action-btn" id="session-recap-refresh">↻ REFRESH</button>
+                </div>
+
+                <div class="session-recap-info-banner">
+                    💡 Wraps des dernières sessions de trading depuis <b>InvestingLive</b> (anciennement ForexLive). Mis à jour automatiquement. <span class="session-recap-ai-hint">✨ Génération IA bientôt disponible</span>
+                </div>
+
+                <div class="session-recap-grid" id="session-recap-grid">
+                    <!-- 3 cards Asia / Europe / US -->
+                    <div class="session-recap-card" data-session="asia">
+                        <div class="session-recap-card-header">
+                            <span class="session-recap-flag">🌏</span>
+                            <span class="session-recap-name">ASIA SESSION</span>
+                            <span class="session-recap-count" id="recap-count-asia">— wraps</span>
+                        </div>
+                        <div class="session-recap-card-body" id="recap-body-asia">
+                            <div class="session-recap-loading">Loading...</div>
+                        </div>
+                        <div class="session-recap-card-footer">
+                            <button class="session-recap-ai-btn" disabled title="Nécessite une clé API Anthropic">
+                                ✨ Generate AI Recap
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="session-recap-card" data-session="europe">
+                        <div class="session-recap-card-header">
+                            <span class="session-recap-flag">🇪🇺</span>
+                            <span class="session-recap-name">EUROPE SESSION</span>
+                            <span class="session-recap-count" id="recap-count-europe">— wraps</span>
+                        </div>
+                        <div class="session-recap-card-body" id="recap-body-europe">
+                            <div class="session-recap-loading">Loading...</div>
+                        </div>
+                        <div class="session-recap-card-footer">
+                            <button class="session-recap-ai-btn" disabled title="Nécessite une clé API Anthropic">
+                                ✨ Generate AI Recap
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="session-recap-card" data-session="us">
+                        <div class="session-recap-card-header">
+                            <span class="session-recap-flag">🇺🇸</span>
+                            <span class="session-recap-name">US SESSION</span>
+                            <span class="session-recap-count" id="recap-count-us">— wraps</span>
+                        </div>
+                        <div class="session-recap-card-body" id="recap-body-us">
+                            <div class="session-recap-loading">Loading...</div>
+                        </div>
+                        <div class="session-recap-card-footer">
+                            <button class="session-recap-ai-btn" disabled title="Nécessite une clé API Anthropic">
+                                ✨ Generate AI Recap
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="module-footer">
+                    <span class="pos-credit">Filtered from <b>InvestingLive.com</b> RSS feed · Updated every 10 min</span>
+                    <a href="https://investinglive.com/SessionWraps" target="_blank" rel="noopener" class="pos-myfxbook-link">
+                        See all wraps on InvestingLive ↗
+                    </a>
+                    <span class="source-tag" id="session-recap-stamp">—</span>
+                </div>
+            </section>
+
         </div>
 
         <!-- ============================================
