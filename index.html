@@ -115,8 +115,60 @@
              ============================================ -->
         <div class="page active" id="page-home">
 
+            <!-- ===== Toolbar HOME : bouton Customize ===== -->
+            <div class="home-toolbar">
+                <div class="home-toolbar-info" id="home-toolbar-info">
+                    <span class="home-toolbar-count" id="home-widget-count">5/5</span> widgets visibles
+                </div>
+                <button class="action-btn" id="home-customize-btn">⚙ CUSTOMIZE</button>
+            </div>
+
+            <!-- ===== Panneau de customisation (caché par défaut) ===== -->
+            <div class="home-customize-panel" id="home-customize-panel">
+                <div class="home-customize-header">
+                    <h3>⚙ HOME CUSTOMIZATION</h3>
+                    <button class="action-btn" id="home-customize-close">CLOSE ×</button>
+                </div>
+                <div class="home-customize-body">
+                    <div class="home-customize-info">
+                        💡 Choisis les widgets à afficher sur ta page HOME. Tes préférences sont sauvegardées dans ce navigateur.
+                    </div>
+                    <div class="home-customize-list">
+                        <label class="home-widget-toggle" data-widget="prices">
+                            <input type="checkbox" id="toggle-prices" checked>
+                            <span class="home-widget-toggle-name">G10 PRICES</span>
+                            <span class="home-widget-toggle-desc">28 paires FX live</span>
+                        </label>
+                        <label class="home-widget-toggle" data-widget="strength">
+                            <input type="checkbox" id="toggle-strength" checked>
+                            <span class="home-widget-toggle-name">CCY STRENGTH</span>
+                            <span class="home-widget-toggle-desc">Score macro par devise</span>
+                        </label>
+                        <label class="home-widget-toggle" data-widget="cb">
+                            <input type="checkbox" id="toggle-cb" checked>
+                            <span class="home-widget-toggle-name">CENTRAL BANKS</span>
+                            <span class="home-widget-toggle-desc">G8 · prochaines réunions</span>
+                        </label>
+                        <label class="home-widget-toggle" data-widget="events">
+                            <input type="checkbox" id="toggle-events" checked>
+                            <span class="home-widget-toggle-name">TOP EVENTS</span>
+                            <span class="home-widget-toggle-desc">Calendrier économique du jour</span>
+                        </label>
+                        <label class="home-widget-toggle" data-widget="news">
+                            <input type="checkbox" id="toggle-news" checked>
+                            <span class="home-widget-toggle-name">LATEST HEADLINES</span>
+                            <span class="home-widget-toggle-desc">Financial Juice live</span>
+                        </label>
+                    </div>
+                    <div class="home-customize-actions">
+                        <button class="action-btn" id="home-customize-all">✓ TOUT AFFICHER</button>
+                        <button class="action-btn" id="home-customize-none">✗ TOUT MASQUER</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- ===== ROW 1 : G10 Prices full width ===== -->
-            <section class="module home-card home-card-prices home-prices-full">
+            <section class="module home-card home-card-prices home-prices-full" data-home-widget="prices">
                 <div class="module-header">
                     <div class="module-title">
                         <span class="module-bullet"></span>
@@ -131,9 +183,9 @@
             </section>
 
             <!-- ===== ROW 2 : Strength + Central Banks + Top Events ===== -->
-            <div class="home-row home-row-three">
+            <div class="home-row home-row-three" id="home-row-three">
 
-                <section class="module home-card">
+                <section class="module home-card" data-home-widget="strength">
                     <div class="module-header">
                         <div class="module-title">
                             <span class="module-bullet"></span>
@@ -147,7 +199,7 @@
                     </div>
                 </section>
 
-                <section class="module home-card">
+                <section class="module home-card" data-home-widget="cb">
                     <div class="module-header">
                         <div class="module-title">
                             <span class="module-bullet"></span>
@@ -163,7 +215,7 @@
                     </table>
                 </section>
 
-                <section class="module home-card">
+                <section class="module home-card" data-home-widget="events">
                     <div class="module-header">
                         <div class="module-title">
                             <span class="module-bullet"></span>
@@ -180,7 +232,7 @@
             </div>
 
             <!-- ===== ROW 3 : Latest Headlines full width ===== -->
-            <section class="module home-card home-card-news">
+            <section class="module home-card home-card-news" data-home-widget="news">
                 <div class="module-header">
                     <div class="module-title">
                         <span class="module-bullet"></span>
