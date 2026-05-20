@@ -3458,6 +3458,128 @@ async function renderHomeNews() {
 }
 
 // Render tout
+// ============================================
+// HOME CUSTOMIZE — Show/Hide widgets (Niveau 1)
+// Sauvegarde le choix de l'utilisateur en localStorage
+// ============================================
+
+const HOME_WIDGETS_KEY = 'pl_home_widgets';
+const HOME_WIDGET_IDS = ['prices', 'strength', 'cb', 'events', 'news'];
+
+// Charge la config depuis localStorage (par défaut : tous activés)
+function loadHomeLayout() {
+    try {
+        const raw = localStorage.getItem(HOME_WIDGETS_KEY);
+        if (!raw) return [...HOME_WIDGET_IDS];
+        const arr = JSON.parse(raw);
+        if (!Array.isArray(arr)) return [...HOME_WIDGET_IDS];
+        // Filtre uniquement les IDs valides
+        return arr.filter(id => HOME_WIDGET_IDS.includes(id));
+    } catch (e) {
+        return [...HOME_WIDGET_IDS];
+    }
+}
+
+function saveHomeLayout(enabledIds) {
+    try {
+        localStorage.setItem(HOME_WIDGETS_KEY, JSON.stringify(enabledIds));
+    } catch (e) {
+        console.error('Failed to save home layout:', e);
+    }
+}
+
+// Applique le layout : affiche / masque chaque widget
+function applyHomeLayout() {
+    const enabled = loadHomeLayout();
+    let visibleCount = 0;
+
+    HOME_WIDGET_IDS.forEach(id => {
+        const el = document.querySelector(`[data-home-widget="${id}"]`);
+        if (!el) return;
+        if (enabled.includes(id)) {
+            el.classList.remove('home-widget-hidden');
+            visibleCount++;
+        } else {
+            el.classList.add('home-widget-hidden');
+        }
+    });
+
+    // Masque la rangée centrale si les 3 widgets qui la composent sont tous cachés
+    const rowThree = document.getElementById('home-row-three');
+    if (rowThree) {
+        const innerWidgets = ['strength', 'cb', 'events'];
+        const allHidden = innerWidgets.every(id => !enabled.includes(id));
+        rowThree.classList.toggle('home-widget-hidden', allHidden);
+    }
+
+    // Met à jour le compteur dans la toolbar
+    const counter = document.getElementById('home-widget-count');
+    if (counter) {
+        counter.textContent = `${visibleCount}/${HOME_WIDGET_IDS.length}`;
+    }
+
+    // Sync les checkboxes dans le panneau
+    HOME_WIDGET_IDS.forEach(id => {
+        const cb = document.getElementById('toggle-' + id);
+        if (cb) cb.checked = enabled.includes(id);
+    });
+}
+
+function toggleHomeCustomizePanel() {
+    const panel = document.getElementById('home-customize-panel');
+    if (!panel) return;
+    panel.classList.toggle('open');
+}
+
+function closeHomeCustomizePanel() {
+    const panel = document.getElementById('home-customize-panel');
+    if (panel) panel.classList.remove('open');
+}
+
+function handleHomeWidgetToggle(widgetId, isChecked) {
+    let enabled = loadHomeLayout();
+    if (isChecked) {
+        if (!enabled.includes(widgetId)) enabled.push(widgetId);
+    } else {
+        enabled = enabled.filter(id => id !== widgetId);
+    }
+    saveHomeLayout(enabled);
+    applyHomeLayout();
+}
+
+function setupHomeCustomizeEvents() {
+    const btn = document.getElementById('home-customize-btn');
+    const closeBtn = document.getElementById('home-customize-close');
+    const allBtn = document.getElementById('home-customize-all');
+    const noneBtn = document.getElementById('home-customize-none');
+
+    if (btn) btn.addEventListener('click', toggleHomeCustomizePanel);
+    if (closeBtn) closeBtn.addEventListener('click', closeHomeCustomizePanel);
+
+    if (allBtn) allBtn.addEventListener('click', () => {
+        saveHomeLayout([...HOME_WIDGET_IDS]);
+        applyHomeLayout();
+    });
+
+    if (noneBtn) noneBtn.addEventListener('click', () => {
+        saveHomeLayout([]);
+        applyHomeLayout();
+    });
+
+    // Listeners sur chaque checkbox
+    HOME_WIDGET_IDS.forEach(id => {
+        const cb = document.getElementById('toggle-' + id);
+        if (cb) {
+            cb.addEventListener('change', e => {
+                handleHomeWidgetToggle(id, e.target.checked);
+            });
+        }
+    });
+
+    // Application initiale
+    applyHomeLayout();
+}
+
 async function renderHomeAll() {
     await homeFetchFxPrices();
     renderHomePrices();
@@ -4187,6 +4309,7 @@ setupPosEvents();
 setupMacroKeyboard();
 setupYieldsEvents();
 setupSessionRecapEvents();
+setupHomeCustomizeEvents();
 
 // ⚡ Démarrage instantané : on charge le cache avant le fetch
 const cachedBanks = loadRatesCache();
