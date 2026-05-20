@@ -5508,3 +5508,134 @@ body:has(.modal-overlay.open) {
         border-width: 2px;
     }
 }
+
+/* ====================================================================
+   SCORE — Auto-detection d'impact (saisie chiffrée)
+   ==================================================================== */
+
+/* Ligne des 3 champs numériques côte à côte */
+.score-form-row-numbers {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+}
+
+.score-form-num-field {
+    display: flex;
+    flex-direction: column;
+}
+
+.score-input-num {
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    text-align: right;
+}
+
+.score-form-optional {
+    color: var(--text-tertiary);
+    font-size: 9px;
+    font-weight: 400;
+    font-style: italic;
+    margin-left: 4px;
+}
+
+/* Encadré d'auto-detection */
+.score-form-autodetect {
+    margin: 10px 0;
+    padding: 10px 12px;
+    background: rgba(255, 140, 0, 0.04);
+    border: 1px dashed rgba(255, 140, 0, 0.3);
+    border-radius: 3px;
+}
+
+.score-autodetect-label {
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: var(--accent);
+    margin-bottom: 6px;
+    font-weight: 700;
+}
+
+.score-autodetect-empty {
+    color: var(--text-tertiary);
+    font-style: italic;
+    font-size: 11px;
+}
+
+.score-autodetect-result {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.score-autodetect-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 2px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+}
+
+.score-autodetect-badge.up {
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+    border: 1px solid rgba(74, 222, 128, 0.4);
+}
+
+.score-autodetect-badge.down {
+    background: rgba(248, 113, 113, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(248, 113, 113, 0.4);
+}
+
+.score-autodetect-badge.flat {
+    background: rgba(160, 160, 160, 0.1);
+    color: #a0a0a0;
+    border: 1px solid rgba(160, 160, 160, 0.3);
+}
+
+.score-autodetect-conf {
+    font-size: 8.5px;
+    letter-spacing: 1px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-weight: 600;
+}
+
+.score-autodetect-conf.high {
+    background: rgba(255, 140, 0, 0.15);
+    color: var(--accent);
+    border: 1px solid rgba(255, 140, 0, 0.4);
+}
+
+.score-autodetect-conf.medium {
+    background: rgba(255, 140, 0, 0.08);
+    color: var(--accent);
+    opacity: 0.85;
+}
+
+.score-autodetect-conf.low {
+    background: transparent;
+    color: var(--text-tertiary);
+    border: 1px dashed var(--text-tertiary);
+}
+
+.score-autodetect-reason {
+    font-size: 10.5px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    letter-spacing: 0.2px;
+    line-height: 1.4;
+}
+
+/* Marqueur "auto-selected" sur les boutons d'impact */
+.score-impact-btn.auto-selected::after {
+    content: ' ●';
+    color: var(--accent);
+    font-size: 8px;
+    vertical-align: super;
+    margin-left: 3px;
+}
