@@ -6408,6 +6408,19 @@ body:has(.modal-overlay.open) {
    WIRP — Refonte en line charts (Implied Rate Path)
    ==================================================================== */
 
+/* Grille 2 colonnes pour les charts (chaque banque dans sa card) */
+#wirp-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 12px;
+}
+
+/* Override de la margin par défaut des cards */
+#wirp-container .wirp-card {
+    margin: 0;
+}
+
 .wirp-chart-wrap {
     position: relative;
     height: 220px;
@@ -6418,6 +6431,11 @@ body:has(.modal-overlay.open) {
 .wirp-chart {
     width: 100% !important;
     height: 100% !important;
+}
+
+/* Responsive : 1 colonne sur écran moyen/mobile */
+@media (max-width: 1100px) {
+    #wirp-container { grid-template-columns: 1fr; }
 }
 
 /* Override : on n'utilise plus les anciennes règles .wirp-grid / .wirp-meeting / .wirp-bar / .wirp-segment */
