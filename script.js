@@ -3949,6 +3949,144 @@ async function renderYieldsAllAsync() {
 // ============================================
 const PAGES = ['home', 'cb', 'macro', 'yields', 'score', 'scan', 'pos', 'strength', 'fx', 'news', 'cal'];
 
+// ============================================
+// SESSION RECAP — Fetch InvestingLive RSS wraps
+// Affiche les session wraps Asia / Europe / US du jour
+// ============================================
+
+let sessionRecapData = null;
+let sessionRecapLastFetch = 0;
+const SESSION_RECAP_CACHE_MS = 5 * 60 * 1000;  // 5 min de cache client
+
+async function fetchAndRenderSessionRecap(forceRefresh = false) {
+    // Cache client : pas de re-fetch si moins de 5 min
+    const now = Date.now();
+    if (!forceRefresh && sessionRecapData && (now - sessionRecapLastFetch) < SESSION_RECAP_CACHE_MS) {
+        renderSessionRecap();
+        return;
+    }
+
+    // Affiche loading
+    ['asia', 'europe', 'us'].forEach(s => {
+        const body = document.getElementById('recap-body-' + s);
+        if (body) body.innerHTML = '<div class="session-recap-loading">Loading...</div>';
+    });
+
+    try {
+        const r = await fetch('/api/session-wraps');
+        if (!r.ok) {
+            sessionRecapData = { error: `Server returned ${r.status}` };
+        } else {
+            sessionRecapData = await r.json();
+            sessionRecapLastFetch = now;
+        }
+    } catch (e) {
+        sessionRecapData = { error: e.message };
+    }
+
+    renderSessionRecap();
+}
+
+function renderSessionRecap() {
+    if (!sessionRecapData) return;
+
+    const stamp = document.getElementById('session-recap-stamp');
+    if (stamp) {
+        if (sessionRecapData.error) {
+            stamp.textContent = 'error';
+            stamp.style.color = '#f87171';
+        } else {
+            const d = new Date(sessionRecapData.fetchedAt);
+            const hh = String(d.getUTCHours()).padStart(2, '0');
+            const mm = String(d.getUTCMinutes()).padStart(2, '0');
+            stamp.textContent = `${sessionRecapData.totalWrapsFound || 0} wraps · ${hh}:${mm} GMT`;
+            stamp.style.color = '';
+        }
+    }
+
+    if (sessionRecapData.error) {
+        ['asia', 'europe', 'us'].forEach(s => {
+            const body = document.getElementById('recap-body-' + s);
+            if (body) body.innerHTML = `<div class="session-recap-empty">⚠ ${sessionRecapData.error}</div>`;
+            const count = document.getElementById('recap-count-' + s);
+            if (count) count.textContent = '— wraps';
+        });
+        return;
+    }
+
+    ['asia', 'europe', 'us'].forEach(sessionKey => {
+        const sessionData = sessionRecapData.sessions[sessionKey];
+        if (!sessionData) return;
+
+        const count = document.getElementById('recap-count-' + sessionKey);
+        if (count) count.textContent = `${sessionData.count || 0} wraps`;
+
+        const body = document.getElementById('recap-body-' + sessionKey);
+        if (!body) return;
+
+        if (!sessionData.wraps || sessionData.wraps.length === 0) {
+            body.innerHTML = `<div class="session-recap-empty">Aucun wrap "${sessionData.label}" trouvé aujourd'hui.<br><span class="session-recap-empty-hint">Les wraps sont publiés en fin de session.</span></div>`;
+            return;
+        }
+
+        body.innerHTML = sessionData.wraps.map(w => {
+            const author = w.author ? `<span class="session-recap-author">${escapeHtml(w.author)}</span>` : '';
+            const dateBadge = w.dateLabel === 'today' ? '<span class="session-recap-date-badge today">TODAY</span>'
+                            : w.dateLabel === 'yesterday' ? '<span class="session-recap-date-badge yesterday">YESTERDAY</span>'
+                            : `<span class="session-recap-date-badge">${escapeHtml(w.dateLabel)}</span>`;
+            const time = w.pubDate ? formatSessionTime(w.pubDate) : '';
+            const excerpt = w.excerpt ? `<div class="session-recap-excerpt">${escapeHtml(w.excerpt)}…</div>` : '';
+
+            return `<div class="session-recap-item">
+                <div class="session-recap-item-meta">
+                    ${dateBadge}
+                    <span class="session-recap-time">${time}</span>
+                    ${author}
+                </div>
+                <a href="${escapeAttr(w.link)}" target="_blank" rel="noopener" class="session-recap-item-title">${escapeHtml(w.title)}</a>
+                ${excerpt}
+            </div>`;
+        }).join('');
+    });
+}
+
+function formatSessionTime(pubDateStr) {
+    try {
+        const d = new Date(pubDateStr);
+        if (isNaN(d.getTime())) return '';
+        const hh = String(d.getUTCHours()).padStart(2, '0');
+        const mm = String(d.getUTCMinutes()).padStart(2, '0');
+        return `${hh}:${mm} GMT`;
+    } catch (e) {
+        return '';
+    }
+}
+
+function escapeHtml(s) {
+    if (!s) return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function escapeAttr(s) {
+    if (!s) return '';
+    return String(s).replace(/"/g, '&quot;');
+}
+
+// Setup du bouton refresh
+function setupSessionRecapEvents() {
+    const refreshBtn = document.getElementById('session-recap-refresh');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            fetchAndRenderSessionRecap(true);
+        });
+    }
+}
+
 function showPage(pageId) {
     if (!PAGES.includes(pageId)) pageId = 'home';
 
@@ -4007,6 +4145,12 @@ function showPage(pageId) {
         }, 50);
     }
 
+    if (pageId === 'news') {
+        setTimeout(() => {
+            fetchAndRenderSessionRecap();
+        }, 50);
+    }
+
     if (window.location.hash !== '#' + pageId) {
         history.replaceState(null, '', '#' + pageId);
     }
@@ -4045,6 +4189,7 @@ setupCBEvents();
 setupPosEvents();
 setupMacroKeyboard();
 setupYieldsEvents();
+setupSessionRecapEvents();
 
 // ⚡ Démarrage instantané : on charge le cache avant le fetch
 const cachedBanks = loadRatesCache();
