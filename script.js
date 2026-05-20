@@ -3459,24 +3459,274 @@ async function renderHomeNews() {
 
 // Render tout
 // ============================================
+// HOME · NEW WIDGETS (5 widgets supplémentaires)
+// ============================================
+
+// --- WIRP MINI : Probas du prochain meeting FED + ECB ---
+function renderHomeWirpMini() {
+    const container = document.getElementById('home-wirp-list');
+    if (!container) return;
+    if (!wirpData || !wirpData.banks) {
+        container.innerHTML = '<div class="home-wirp-loading">Loading probabilities...</div>';
+        // Tente de fetcher si pas encore fait
+        if (typeof fetchWirpData === 'function' && !wirpData) {
+            fetchWirpData().then(() => renderHomeWirpMini()).catch(() => {});
+        }
+        return;
+    }
+
+    // On affiche FED + ECB en mini
+    const banks = ['FED', 'ECB'];
+    const cards = banks.map(bankName => {
+        const bank = wirpData.banks.find(b => b.bank === bankName);
+        if (!bank || !bank.nextMeeting) {
+            return `<div class="home-wirp-card">
+                <div class="home-wirp-bank">${bankName}</div>
+                <div class="home-wirp-empty">No data</div>
+            </div>`;
+        }
+        const m = bank.nextMeeting;
+        const date = m.date ? new Date(m.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : '—';
+        const probs = m.probabilities || [];
+        // On garde les 3 issues les + probables
+        const top3 = probs.slice(0, 3);
+        const probsHtml = top3.map(p => {
+            const pct = Math.round(p.probability * 100);
+            const cls = p.move === 'hold' ? 'flat' : p.move === 'cut' ? 'neg' : 'pos';
+            const label = p.move === 'hold' ? 'HOLD' : p.move === 'cut' ? `-${Math.abs(p.bps)}bp` : `+${p.bps}bp`;
+            return `<div class="home-wirp-prob ${cls}">
+                <span class="home-wirp-prob-label">${label}</span>
+                <span class="home-wirp-prob-pct">${pct}%</span>
+            </div>`;
+        }).join('');
+        return `<div class="home-wirp-card">
+            <div class="home-wirp-card-header">
+                <span class="home-wirp-bank">${bankName}</span>
+                <span class="home-wirp-date">${date}</span>
+            </div>
+            <div class="home-wirp-probs">${probsHtml}</div>
+        </div>`;
+    }).join('');
+    container.innerHTML = cards;
+}
+
+// --- CARRY TOP 5 : Meilleures paires carry trade (différentiel de taux) ---
+function renderHomeCarryTop() {
+    const container = document.getElementById('home-carry-list');
+    if (!container) return;
+
+    // Calcule tous les différentiels de taux possibles
+    const pairs = [];
+    CCYS.forEach(L => {
+        CCYS.forEach(S => {
+            if (L === S) return;
+            const lr = getCurrentRate(L);
+            const sr = getCurrentRate(S);
+            if (lr === null || sr === null) return;
+            const diff = lr - sr;
+            if (diff > 0) {
+                pairs.push({ long: L, short: S, diff });
+            }
+        });
+    });
+
+    if (pairs.length === 0) {
+        container.innerHTML = '<div class="home-carry-loading">Loading carry data...</div>';
+        return;
+    }
+
+    pairs.sort((a, b) => b.diff - a.diff);
+    const top5 = pairs.slice(0, 5);
+
+    container.innerHTML = top5.map((p, i) => {
+        const cls = p.diff >= 3 ? 'strong' : p.diff >= 1.5 ? 'med' : 'light';
+        return `<div class="home-carry-item">
+            <span class="home-carry-rank">#${i + 1}</span>
+            <span class="home-carry-pair">${p.long}/${p.short}</span>
+            <span class="home-carry-diff ${cls}">+${p.diff.toFixed(2)}%</span>
+        </div>`;
+    }).join('');
+}
+
+// --- SESSION RECAP MINI : 3 derniers wraps depuis sessionRecapData ---
+function renderHomeRecapMini() {
+    const container = document.getElementById('home-recap-list');
+    if (!container) return;
+
+    if (!sessionRecapData) {
+        container.innerHTML = '<div class="home-recap-loading">Loading wraps...</div>';
+        // Trigger fetch si pas fait
+        if (typeof fetchAndRenderSessionRecap === 'function') {
+            fetchAndRenderSessionRecap().then(() => renderHomeRecapMini()).catch(() => {});
+        }
+        return;
+    }
+
+    if (sessionRecapData.error || sessionRecapData.totalWrapsFound === 0) {
+        container.innerHTML = '<div class="home-recap-empty">Aucun wrap récent disponible</div>';
+        return;
+    }
+
+    // Collecte les 3 wraps les + récents toutes sessions confondues
+    const allWraps = [];
+    ['asia', 'europe', 'us'].forEach(s => {
+        const sess = sessionRecapData.sessions[s];
+        if (sess && sess.wraps) {
+            sess.wraps.forEach(w => allWraps.push({ ...w, session: s }));
+        }
+    });
+
+    // Trie par dateStr desc puis prend les 3 premiers
+    allWraps.sort((a, b) => {
+        if (!a.dateStr) return 1;
+        if (!b.dateStr) return -1;
+        return b.dateStr.localeCompare(a.dateStr);
+    });
+
+    const top3 = allWraps.slice(0, 3);
+    if (top3.length === 0) {
+        container.innerHTML = '<div class="home-recap-empty">Aucun wrap aujourd\'hui</div>';
+        return;
+    }
+
+    container.innerHTML = top3.map(w => {
+        const flag = w.session === 'asia' ? '🌏' : w.session === 'europe' ? '🇪🇺' : '🇺🇸';
+        const sessionLabel = w.session.toUpperCase();
+        const dateBadge = w.dateLabel === 'today' ? '<span class="home-recap-badge today">TODAY</span>'
+                        : w.dateLabel === 'yesterday' ? '<span class="home-recap-badge yest">YDAY</span>'
+                        : '<span class="home-recap-badge">RECENT</span>';
+        // Titre tronqué à 70 caractères
+        const titleShort = w.title.length > 70 ? w.title.slice(0, 70) + '...' : w.title;
+        return `<a href="${escapeAttr(w.link)}" target="_blank" rel="noopener" class="home-recap-item">
+            <div class="home-recap-meta">
+                <span class="home-recap-flag">${flag}</span>
+                <span class="home-recap-session">${sessionLabel}</span>
+                ${dateBadge}
+            </div>
+            <div class="home-recap-title">${escapeHtml(titleShort)}</div>
+        </a>`;
+    }).join('');
+}
+
+// --- TOP SIGNALS : Top 5 signaux BUY/SELL les + forts depuis SCAN ---
+function renderHomeSignalsTop() {
+    const container = document.getElementById('home-signals-list');
+    if (!container) return;
+
+    if (typeof SCAN_PAIRS === 'undefined' || typeof scanComputePair !== 'function') {
+        container.innerHTML = '<div class="home-signals-loading">SCAN data unavailable</div>';
+        return;
+    }
+
+    let results;
+    try {
+        results = SCAN_PAIRS.map(scanComputePair).filter(r => r && r.signal !== 'neutral');
+    } catch (e) {
+        container.innerHTML = '<div class="home-signals-loading">Computing signals...</div>';
+        return;
+    }
+
+    if (!results || results.length === 0) {
+        container.innerHTML = '<div class="home-signals-empty">No strong signals right now</div>';
+        return;
+    }
+
+    // Trie par valeur absolue de adj (force du signal) desc
+    results.sort((a, b) => Math.abs(b.adj) - Math.abs(a.adj));
+    const top5 = results.slice(0, 5);
+
+    container.innerHTML = top5.map(r => {
+        const cls = r.signal;
+        const arrow = r.signal === 'buy' ? '↗' : r.signal === 'sell' ? '↘' : '—';
+        const label = r.signal === 'buy' ? 'BUY' : r.signal === 'sell' ? 'SELL' : 'FLAT';
+        const adjSign = r.adj > 0 ? '+' : '';
+        return `<div class="home-signal-item">
+            <span class="home-signal-arrow ${cls}">${arrow}</span>
+            <span class="home-signal-pair">${r.pair}</span>
+            <span class="home-signal-label ${cls}">${label}</span>
+            <span class="home-signal-adj">${adjSign}${r.adj.toFixed(0)}bp</span>
+        </div>`;
+    }).join('');
+}
+
+// --- RISK SENTIMENT : CNN F&G compact ---
+function renderHomeRiskSentiment() {
+    const container = document.getElementById('home-risk-content');
+    if (!container) return;
+
+    if (!scanCnnData || scanCnnData.score === null) {
+        container.innerHTML = '<div class="home-risk-loading">Loading sentiment...</div>';
+        if (typeof scanFetchCNN === 'function') {
+            scanFetchCNN().then(() => renderHomeRiskSentiment()).catch(() => {});
+        }
+        return;
+    }
+
+    if (scanCnnData.error) {
+        container.innerHTML = '<div class="home-risk-empty">Data unavailable</div>';
+        return;
+    }
+
+    const score = scanCnnData.score;
+    const label = scanCnnData.label || '—';
+    const delta = scanCnnData.delta;
+
+    // Couleur selon score : 0-25 extreme fear (red), 26-45 fear (orange), 46-55 neutral (gray), 56-75 greed (green-yellow), 76-100 extreme greed (green)
+    let mood, cls;
+    if (score <= 25)      { mood = 'EXTREME FEAR'; cls = 'extreme-fear'; }
+    else if (score <= 45) { mood = 'FEAR';          cls = 'fear'; }
+    else if (score <= 55) { mood = 'NEUTRAL';       cls = 'neutral'; }
+    else if (score <= 75) { mood = 'GREED';         cls = 'greed'; }
+    else                  { mood = 'EXTREME GREED'; cls = 'extreme-greed'; }
+
+    const deltaStr = (delta !== null && delta !== undefined)
+        ? `${delta > 0 ? '+' : ''}${delta} vs hier`
+        : '';
+
+    // Mini bar (0-100)
+    const barWidth = Math.max(0, Math.min(100, score));
+
+    container.innerHTML = `
+        <div class="home-risk-score-wrap">
+            <div class="home-risk-score ${cls}">${score}</div>
+            <div class="home-risk-mood ${cls}">${mood}</div>
+        </div>
+        <div class="home-risk-bar-wrap">
+            <div class="home-risk-bar">
+                <div class="home-risk-bar-fill ${cls}" style="width: ${barWidth}%"></div>
+                <div class="home-risk-bar-marker" style="left: ${barWidth}%"></div>
+            </div>
+            <div class="home-risk-bar-labels">
+                <span>0 · Fear</span>
+                <span>50</span>
+                <span>Greed · 100</span>
+            </div>
+        </div>
+        ${deltaStr ? `<div class="home-risk-delta">${deltaStr}</div>` : ''}
+    `;
+}
+
+// ============================================
 // HOME CUSTOMIZE — Show/Hide widgets (Niveau 1)
 // Sauvegarde le choix de l'utilisateur en localStorage
 // ============================================
 
 const HOME_WIDGETS_KEY = 'pl_home_widgets';
-const HOME_WIDGET_IDS = ['prices', 'strength', 'cb', 'events', 'news'];
+const HOME_WIDGET_IDS = ['prices', 'strength', 'cb', 'events', 'news', 'wirp', 'carry', 'recap', 'signals', 'risk'];
+// Widgets activés par défaut (les 5 originaux)
+const HOME_DEFAULT_WIDGETS = ['prices', 'strength', 'cb', 'events', 'news'];
 
-// Charge la config depuis localStorage (par défaut : tous activés)
+// Charge la config depuis localStorage (par défaut : les 5 originaux)
 function loadHomeLayout() {
     try {
         const raw = localStorage.getItem(HOME_WIDGETS_KEY);
-        if (!raw) return [...HOME_WIDGET_IDS];
+        if (!raw) return [...HOME_DEFAULT_WIDGETS];
         const arr = JSON.parse(raw);
-        if (!Array.isArray(arr)) return [...HOME_WIDGET_IDS];
+        if (!Array.isArray(arr)) return [...HOME_DEFAULT_WIDGETS];
         // Filtre uniquement les IDs valides
         return arr.filter(id => HOME_WIDGET_IDS.includes(id));
     } catch (e) {
-        return [...HOME_WIDGET_IDS];
+        return [...HOME_DEFAULT_WIDGETS];
     }
 }
 
@@ -3512,6 +3762,14 @@ function applyHomeLayout() {
         rowThree.classList.toggle('home-widget-hidden', allHidden);
     }
 
+    // Masque la rangée extras si les 5 widgets nouveaux sont tous cachés
+    const rowExtras = document.getElementById('home-row-extras');
+    if (rowExtras) {
+        const extraWidgets = ['wirp', 'carry', 'recap', 'signals', 'risk'];
+        const allHidden = extraWidgets.every(id => !enabled.includes(id));
+        rowExtras.classList.toggle('home-widget-hidden', allHidden);
+    }
+
     // Met à jour le compteur dans la toolbar
     const counter = document.getElementById('home-widget-count');
     if (counter) {
@@ -3523,6 +3781,13 @@ function applyHomeLayout() {
         const cb = document.getElementById('toggle-' + id);
         if (cb) cb.checked = enabled.includes(id);
     });
+
+    // Re-render les widgets nouvellement activés
+    if (enabled.includes('wirp')) renderHomeWirpMini();
+    if (enabled.includes('carry')) renderHomeCarryTop();
+    if (enabled.includes('recap')) renderHomeRecapMini();
+    if (enabled.includes('signals')) renderHomeSignalsTop();
+    if (enabled.includes('risk')) renderHomeRiskSentiment();
 }
 
 function toggleHomeCustomizePanel() {
@@ -3587,6 +3852,14 @@ async function renderHomeAll() {
     await renderHomeCB();
     renderHomeEvents();
     renderHomeNews();
+
+    // Nouveaux widgets (uniquement ceux qui sont activés)
+    const enabled = loadHomeLayout();
+    if (enabled.includes('wirp')) renderHomeWirpMini();
+    if (enabled.includes('carry')) renderHomeCarryTop();
+    if (enabled.includes('recap')) renderHomeRecapMini();
+    if (enabled.includes('signals')) renderHomeSignalsTop();
+    if (enabled.includes('risk')) renderHomeRiskSentiment();
 }
 
 // ============================================
