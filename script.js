@@ -3888,6 +3888,33 @@ async function fetchWirpData() {
 // Instances Chart.js par banque pour pouvoir les détruire/recréer
 const wirpChartInstances = {};
 
+// Calcule l'échelle Y commune à toutes les banques (min/max sur tous les rate paths)
+function computeWirpGlobalScale() {
+    let globalMin = Infinity;
+    let globalMax = -Infinity;
+    for (const bankCode of WIRP_BANKS) {
+        const data = wirpData.banks[bankCode];
+        if (!data || data.error) continue;
+        let cumBps = 0;
+        const ratePath = [data.currentRate];
+        data.meetings.forEach(m => {
+            cumBps += m.impliedBps;
+            ratePath.push(data.currentRate + cumBps / 100);
+        });
+        ratePath.forEach(r => {
+            if (r < globalMin) globalMin = r;
+            if (r > globalMax) globalMax = r;
+        });
+    }
+    if (!isFinite(globalMin) || !isFinite(globalMax)) return null;
+    // Marge de ~0.3 pt en haut et en bas pour la lisibilité
+    const margin = 0.3;
+    return {
+        min: Math.floor((globalMin - margin) * 10) / 10,
+        max: Math.ceil((globalMax + margin) * 10) / 10
+    };
+}
+
 function renderWirp() {
     const container = document.getElementById('wirp-container');
     if (!container) return;
@@ -3904,6 +3931,9 @@ function renderWirp() {
     // Destroy old chart instances avant de re-render
     Object.values(wirpChartInstances).forEach(c => { try { c.destroy(); } catch (e) {} });
     Object.keys(wirpChartInstances).forEach(k => delete wirpChartInstances[k]);
+
+    // Calcule l'échelle globale partagée par tous les charts
+    const globalScale = computeWirpGlobalScale();
 
     let html = '';
     for (const bankCode of WIRP_BANKS) {
@@ -3934,15 +3964,15 @@ function renderWirp() {
 
     container.innerHTML = html;
 
-    // Après injection HTML, on peut créer les charts
+    // Après injection HTML, on peut créer les charts avec la même scale
     for (const bankCode of WIRP_BANKS) {
         const data = wirpData.banks[bankCode];
         if (!data || data.error) continue;
-        renderWirpChart(bankCode, data);
+        renderWirpChart(bankCode, data, globalScale);
     }
 }
 
-function renderWirpChart(bankCode, data) {
+function renderWirpChart(bankCode, data, globalScale) {
     const canvas = document.getElementById('wirp-chart-' + bankCode);
     if (!canvas || typeof Chart === 'undefined') return;
 
@@ -3985,6 +4015,21 @@ function renderWirpChart(bankCode, data) {
 
     // Ligne horizontale du taux actuel (référence)
     const currentRateLine = labels.map(() => data.currentRate);
+
+    // Config des scales — si on a une scale globale, on l'utilise
+    const yScaleConfig = {
+        grid: { color: 'rgba(255, 255, 255, 0.04)' },
+        ticks: {
+            color: '#888',
+            font: { family: 'monospace', size: 9.5 },
+            callback: (v) => v.toFixed(2) + '%'
+        },
+        border: { color: 'rgba(255, 255, 255, 0.1)' }
+    };
+    if (globalScale) {
+        yScaleConfig.min = globalScale.min;
+        yScaleConfig.max = globalScale.max;
+    }
 
     wirpChartInstances[bankCode] = new Chart(canvas, {
         type: 'line',
@@ -4074,15 +4119,7 @@ function renderWirpChart(bankCode, data) {
                     },
                     border: { color: 'rgba(255, 255, 255, 0.1)' }
                 },
-                y: {
-                    grid: { color: 'rgba(255, 255, 255, 0.04)' },
-                    ticks: {
-                        color: '#888',
-                        font: { family: 'monospace', size: 9.5 },
-                        callback: (v) => v.toFixed(2) + '%'
-                    },
-                    border: { color: 'rgba(255, 255, 255, 0.1)' }
-                }
+                y: yScaleConfig
             }
         }
     });
