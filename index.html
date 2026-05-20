@@ -774,8 +774,33 @@
                             <label class="score-form-label">NOM</label>
                             <input type="text" id="score-form-name" class="score-input" placeholder="ex: CPI YoY, NFP, GDP Q1...">
                         </div>
+
+                        <!-- NOUVEAU : Saisie des chiffres bruts -->
+                        <div class="score-form-row score-form-row-numbers">
+                            <div class="score-form-num-field">
+                                <label class="score-form-label">ACTUAL</label>
+                                <input type="number" step="any" id="score-form-actual" class="score-input score-input-num" placeholder="ex: 2.4">
+                            </div>
+                            <div class="score-form-num-field">
+                                <label class="score-form-label">FORECAST</label>
+                                <input type="number" step="any" id="score-form-forecast" class="score-input score-input-num" placeholder="ex: 2.2">
+                            </div>
+                            <div class="score-form-num-field">
+                                <label class="score-form-label">PREVIOUS <span class="score-form-optional">(opt.)</span></label>
+                                <input type="number" step="any" id="score-form-previous" class="score-input score-input-num" placeholder="ex: 2.1">
+                            </div>
+                        </div>
+
+                        <!-- NOUVEAU : Encadré d'auto-détection -->
+                        <div class="score-form-autodetect" id="score-form-autodetect">
+                            <div class="score-autodetect-label">→ DÉTECTION AUTO</div>
+                            <div class="score-autodetect-content" id="score-autodetect-content">
+                                <span class="score-autodetect-empty">Saisis Actual & Forecast pour voir l'impact détecté</span>
+                            </div>
+                        </div>
+
                         <div class="score-form-row">
-                            <label class="score-form-label">IMPACT</label>
+                            <label class="score-form-label">IMPACT <span class="score-form-optional">(override l'auto-detect)</span></label>
                             <div class="score-impact-choice">
                                 <button type="button" class="score-impact-btn impact-up" data-impact="up">↑ HAUSSIER</button>
                                 <button type="button" class="score-impact-btn impact-flat" data-impact="flat">= NEUTRE</button>
