@@ -5864,3 +5864,161 @@ body:has(.modal-overlay.open) {
     .session-recap-grid { grid-template-columns: 1fr; }
     .session-recap-card-body { max-height: 280px; }
 }
+
+/* ====================================================================
+   HOME CUSTOMIZE — Toolbar + Panel + Show/Hide widgets (Niveau 1)
+   ==================================================================== */
+
+/* Toolbar en haut du HOME */
+.home-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    margin-bottom: 14px;
+    background: rgba(255, 140, 0, 0.04);
+    border: 1px solid rgba(255, 140, 0, 0.2);
+    border-radius: 3px;
+}
+
+.home-toolbar-info {
+    font-size: 10.5px;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+    font-family: var(--font-mono, monospace);
+}
+
+.home-toolbar-count {
+    color: var(--accent);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Panneau de customisation */
+.home-customize-panel {
+    display: none;
+    margin-bottom: 14px;
+    background: var(--bg-tertiary);
+    border: 2px solid var(--accent);
+    border-radius: 3px;
+    box-shadow:
+        0 0 0 1px rgba(255, 140, 0, 0.2),
+        0 0 25px rgba(255, 140, 0, 0.15);
+    overflow: hidden;
+    animation: home-customize-slide 0.25s ease-out;
+}
+
+.home-customize-panel.open {
+    display: block;
+}
+
+@keyframes home-customize-slide {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.home-customize-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: rgba(255, 140, 0, 0.08);
+    border-bottom: 1px solid var(--accent);
+}
+
+.home-customize-header h3 {
+    margin: 0;
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    color: var(--accent);
+    font-weight: 700;
+    font-family: var(--font-mono, monospace);
+}
+
+.home-customize-body {
+    padding: 14px;
+}
+
+.home-customize-info {
+    font-size: 10.5px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    background: rgba(255, 140, 0, 0.05);
+    border-left: 2px solid var(--accent);
+    line-height: 1.5;
+}
+
+.home-customize-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.home-widget-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+}
+
+.home-widget-toggle:hover {
+    border-color: rgba(255, 140, 0, 0.4);
+    background: rgba(255, 140, 0, 0.04);
+}
+
+.home-widget-toggle input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--accent);
+    width: 14px;
+    height: 14px;
+}
+
+.home-widget-toggle-name {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text-primary);
+    font-family: var(--font-mono, monospace);
+    flex: 1;
+}
+
+.home-widget-toggle-desc {
+    font-size: 9.5px;
+    color: var(--text-tertiary);
+    font-style: italic;
+    margin-left: auto;
+    text-align: right;
+}
+
+.home-widget-toggle input[type="checkbox"]:checked ~ .home-widget-toggle-name {
+    color: var(--accent);
+}
+
+.home-customize-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+}
+
+/* Classe pour masquer un widget */
+.home-widget-hidden {
+    display: none !important;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    .home-customize-list { grid-template-columns: 1fr; }
+    .home-widget-toggle-desc { display: none; }
+    .home-toolbar { flex-direction: column; gap: 8px; align-items: stretch; }
+}
