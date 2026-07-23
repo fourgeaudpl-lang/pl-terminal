@@ -1,0 +1,39 @@
+# Configuration du robot de signaux FX (PL Terminal)
+# Tout est en mode SIGNAUX/ALERTES + PAPER TRADING. Aucun ordre réel.
+
+# URL de ton terminal déployé (Cloudflare Pages). Sert à récupérer les
+# spreads de taux (/api/yields) et le calendrier (/api/calendar) en réutilisant
+# tes clés Finnhub/FRED déjà stockées côté serveur.
+# Laisse vide pour tourner 100% hors-ligne à partir du seul snapshot.
+# terminal_base_url: "https://pl-terminal.pages.dev"
+terminal_base_url: ""
+
+snapshot_path: "macro_snapshot.yaml"
+portfolio_path: "portfolio.json"
+
+# --- Signaux ---
+# Poids d'une surprise d'annonce maximale (en points de score pondéré).
+news_weight: 4.0
+# Écart de score (base - quote) requis pour émettre un signal.
+signal_threshold: 6.0
+
+# --- Annonces "en direct" ---
+min_impact: "medium"   # low | medium | high
+within_hours: 6.0      # ne garder que les publications des N dernières heures
+
+# --- Paper trading ---
+paper_enabled: true
+
+# --- Alertes ---
+# Webhook Discord/Slack optionnel. Laisse vide pour la console uniquement.
+# (Peut aussi être passé via la variable d'environnement WEBHOOK_URL.)
+webhook_url: ""
+
+# --- Gestion du risque (paper) ---
+risk:
+  account_equity: 10000     # capital démo (devise du compte)
+  risk_per_trade_pct: 0.5   # % du capital risqué par trade à pleine conviction
+  stop_pips: 40             # distance stop-loss (pips)
+  reward_risk: 2.0          # cible = 2x le stop
+  max_open_risk_pct: 2.0    # risque cumulé max simultané (%)
+  pip_value_per_lot: 10.0   # valeur d'1 pip pour 1 lot standard (~USD)

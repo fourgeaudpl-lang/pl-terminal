@@ -1,0 +1,4 @@
+# Dépendances minimales du robot.
+# Le réseau (terminal, prix spot, webhook) utilise urllib de la stdlib :
+# pas de dépendance HTTP externe requise.
+PyYAML>=6.0

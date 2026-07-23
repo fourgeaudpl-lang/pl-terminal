@@ -1,0 +1,10 @@
+# État runtime du paper trading
+portfolio.json
+
+# Secrets / config locale
+.env
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
